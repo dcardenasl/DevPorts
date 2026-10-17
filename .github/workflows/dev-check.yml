@@ -42,6 +42,6 @@ jobs:
       # WebKitGTK to compile here. It is built and linted on macOS in quality.yml.
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --exclude devports-app --all-targets -- -D warnings
-      - run: cargo test --workspace --exclude devports-app
+      - run: cargo test --workspace --exclude devports-app --features devports-core/bindings
       - name: Every test of PRUEBAS.md exists
         run: python3 tools/check_matrix.py

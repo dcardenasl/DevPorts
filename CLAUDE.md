@@ -52,7 +52,7 @@ CHANGELOG (`## [Unreleased]`) solo para `feat/fix/perf`; nunca inventar número 
 7. Los tokens nunca aparecen en `ls` ni `log`; solo se guarda su hash SHA-256.
 8. El núcleo es un actor que posee el estado (canal `mpsc`); sin `Mutex` compartido sobre el dominio. Reloj, `ProcessSource` y `ContainerSource` inyectables.
 9. Sin cuestionar al usuario: `devports run` nunca pregunta salvo `DEVPORTS_INTERACTIVE=1` (ADR-008). `--replace` **no existe** en v1 (ADR-023).
-10. `ui/src/bindings.ts` es generado (`tauri-specta`), nunca a mano; CI falla si hay deriva. Cero `any`; `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`. El webview se crea al abrir el panel y se destruye al cerrarlo.
+10. `ui/src/bindings.ts` es generado desde los tipos de Rust (`specta`, prueba `crates/devports-core/tests/bindings.rs`), nunca a mano; CI falla si hay deriva. Los nombres de los comandos de Tauri se escriben una vez en `ui/src/api.ts`. Cero `any`; `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`. El webview se crea al abrir el panel y se destruye al cerrarlo.
 11. Sin `TODO` sueltos: lo pendiente es una tarea en `TASKS.md`.
 
 ## Fuera de la v1 (ADR-015)

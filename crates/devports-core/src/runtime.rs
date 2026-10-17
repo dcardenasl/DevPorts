@@ -126,9 +126,10 @@ pub enum RuntimeError {
 
 /// What the interface shows: the current instances and the state of the sources.
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
 pub struct Snapshot {
     /// Changes with every update, so a listener can tell it apart.
-    pub revision: u64,
+    pub revision: u32,
     /// Every instance worth showing.
     pub instances: Vec<InstanceView>,
     /// Whether Docker answered the last time it was asked.
@@ -143,7 +144,7 @@ pub struct Snapshot {
     /// What waits for a decision; its length is the tray counter.
     pub attention: Vec<AttentionItem>,
     /// Minutes an "extend" adds, for the button's label.
-    pub extend_minutes: u64,
+    pub extend_minutes: u32,
 }
 
 /// A Temporal with at most this long left asks for attention.
@@ -633,7 +634,7 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     docker: watch::Receiver<Option<Arc<EngineContainerSource>>>,
     source: Arc<S>,
     own_pid: u32,
-    revision: u64,
+    revision: u32,
     docker_state: DockerState,
     catalog_problems: Vec<String>,
     shutdown: watch::Receiver<bool>,
@@ -883,14 +884,16 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             problems,
             projects: self.projects.clone(),
             attention,
-            extend_minutes: self
-                .engine
-                .config()
-                .lease
-                .extend_by
-                .as_secs()
-                .checked_div(60)
-                .unwrap_or(0),
+            extend_minutes: u32::try_from(
+                self.engine
+                    .config()
+                    .lease
+                    .extend_by
+                    .as_secs()
+                    .checked_div(60)
+                    .unwrap_or(0),
+            )
+            .unwrap_or(u32::MAX),
         }));
     }
 }

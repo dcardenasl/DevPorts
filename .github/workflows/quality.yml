@@ -57,7 +57,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cargo clippy --workspace --exclude devports-app --all-targets -- -D warnings
-          cargo test --workspace --exclude devports-app
+          cargo test --workspace --exclude devports-app --features devports-core/bindings
 
       - name: "Interface (macOS leg, because the app embeds it)"
         if: matrix.os == 'macos-latest'
@@ -73,8 +73,8 @@ jobs:
       - name: Lint and test (macOS, whole workspace)
         if: matrix.os == 'macos-latest'
         run: |
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo test --workspace
+          cargo clippy --workspace --all-targets --features devports-core/bindings -- -D warnings
+          cargo test --workspace --features devports-core/bindings
 
   dependency-security:
     runs-on: ubuntu-latest

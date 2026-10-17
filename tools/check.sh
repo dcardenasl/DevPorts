@@ -14,9 +14,9 @@ mode="${1:-}"
 
 echo "== fmt";    cargo fmt --all --check
 echo "== matrix"; python3 tools/check_matrix.py
-echo "== clippy"; cargo clippy --workspace --all-targets -- -D warnings
+echo "== clippy"; cargo clippy --workspace --all-targets --features devports-core/bindings -- -D warnings
 if [ "$mode" != "quick" ]; then
-  echo "== test"; cargo test --workspace
+  echo "== test"; cargo test --workspace --features devports-core/bindings
 fi
 if [ "$mode" = "full" ]; then
   echo "== deny"; cargo deny check

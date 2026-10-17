@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// What kind of instance this is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
 pub enum InstanceRole {
     /// The official instance of a service (ADR-005). It may be unregistered
@@ -19,6 +20,7 @@ pub enum InstanceRole {
 
 /// How an instance is doing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
 pub enum InstanceState {
     /// Alive and answering its health check.
@@ -39,6 +41,7 @@ pub enum InstanceState {
 
 /// One process in the chain that started an instance, nearest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ChainLink {
     /// Process id.
     pub pid: u32,
@@ -50,6 +53,7 @@ pub struct ChainLink {
 
 /// An instance, for display.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct InstanceView {
     /// Short public reference.
     #[serde(rename = "ref")]
@@ -93,25 +97,21 @@ pub struct InstanceView {
     /// A warning that it may be running old code ("arrancó antes del último commit").
     pub stale: Option<String>,
     /// Whether it is a shared service (`shared.yml`) rather than one of a project.
-    #[serde(default)]
     pub shared: bool,
     /// The `docker compose` project it belongs to, for a compose container that
     /// no DevPorts project claims.
-    #[serde(default)]
     pub compose: Option<String>,
     /// The command line of a host process, `argv[0]` first.
-    #[serde(default)]
     pub argv: Vec<String>,
     /// The image of a container.
-    #[serde(default)]
     pub image: Option<String>,
     /// The person chose to keep this unregistered duplicate: it no longer asks for attention.
-    #[serde(default)]
     pub ignored: bool,
 }
 
 /// A project as the interface lays it out: repos with services inside.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ProjectSummary {
     /// Project name.
     pub name: String,
@@ -127,6 +127,7 @@ pub struct ProjectSummary {
 
 /// A repository inside a project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct RepoSummary {
     /// Folder name.
     pub name: String,
@@ -138,6 +139,7 @@ pub struct RepoSummary {
 
 /// A declared service and where it lives.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ServiceSummary {
     /// Service name.
     pub name: String,
@@ -151,6 +153,7 @@ pub struct ServiceSummary {
 
 /// Why something is in the "Atención" tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
 pub enum AttentionKind {
     /// An unregistered duplicate of a Principal.
@@ -163,6 +166,7 @@ pub enum AttentionKind {
 
 /// One thing that waits for a decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct AttentionItem {
     /// What kind of thing it is.
     pub kind: AttentionKind,
@@ -172,6 +176,7 @@ pub struct AttentionItem {
 
 /// One line of the activity log.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LogEntry {
     /// When it happened, ISO 8601 with offset.
     pub at: String,
