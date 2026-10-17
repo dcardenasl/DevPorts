@@ -183,3 +183,14 @@ Convenciones: **Confirmada** = aprobada por David. **Derivada** = consecuencia d
 4. ~~Principal de hecho~~ Cerrado por ADR-024 (regla confirmada).
 5. Valores propuestos sin medir: presupuesto de memoria y CPU, intervalo de muestreo, códigos de salida, retención de eventos.
 6. Plazos: ver ROADMAP.md. La estimación total supera las 2 semanas máximas sugeridas al registrar la idea; hay una puerta de revisión al terminar la Fase 1.
+
+## ADR-027 Construcción rápida de las Fases 1 y 2: decisiones de la interfaz y del tiempo de ejecución
+Fecha: 2026-10-17. Estado: vigente. Marcas **[D]** derivadas / **[P]** propuestas, por revisar con el uso real.
+- **[P] «Conservar», «Marcar como legítimo» e «Ignorar»** son la misma acción: el proceso o contenedor se recuerda en la tabla `ignored` de SQLite (migración 2) por carpeta + comando (o nombre de contenedor), sobrevive a reinicios y deja de contar como atención y de avisar. No lo registra como Principal.
+- **[P] «Temporal por vencer»** (Atención) = le quedan 5 minutos o menos; el aviso del sistema sigue siendo a 1 minuto (ADR-014).
+- **[D] Adoptar** escribe el manifiesto solo desde la app (nunca por el socket): edición de texto que conserva comentarios y sangría, validada con el mismo analizador antes de escribir, escritura atómica; si el resultado no valida o el archivo usa la forma de flujo para `services`, no se toca nada. «Crear proyecto nuevo» usa la carpeta del proceso como raíz y no sobrescribe un manifiesto existente.
+- **[D] Procesos del sistema** (`/System`, `/usr/libexec`, `/usr/sbin`, `/Library`, `/Applications`) no se listan en «Sin proyecto»: no son servidores de desarrollo.
+- **[D] Descubrimiento de manifiestos** por repaso cada 5 s (no `notify`): más simple, sin dependencias y suficiente; se revisa si el costo en reposo (T2.7) lo exige.
+- **[D] Contrato núcleo/interfaz** sin `tauri-specta`: tipos TypeScript escritos a mano y un contrato verificable (`crates/devports-core/tests/contract.rs` y `ui/src/contract.test.ts` comparten una huella JSON). Cualquier cambio de campo rompe uno de los dos lados.
+- **[D] Empaquetado** con `tools/bundle.sh` (sin `tauri-cli`): construye la interfaz, la app y el CLI, genera el `.app` y lo sella ad hoc.
+- **[D]** El CSP de la app permite estilos en atributos (`style-src-attr 'unsafe-inline'`) porque React los usa; no hay contenido remoto.

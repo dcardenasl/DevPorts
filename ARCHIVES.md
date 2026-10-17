@@ -3,6 +3,14 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## Fases 1 y 2 en bloque (T1.5–T1.12 y T2.1–T2.5) · 2026-10-17
+- Decisión de David: «construirlo de inmediato, probar la app con su UI/UX» (G0 omitida, ADR-026). Decisiones nuevas en ADR-027.
+- Núcleo: motor determinista con 58 pruebas de política (`engine/tests.rs`), runtime con actor, escáner del host, supervisor de Docker con reconexión, sonda de salud TCP/HTTP, catálogo por repaso, IPC; `adopt::apply` (escritura del manifiesto con comentarios conservados); «conservar» persistente; elementos de atención.
+- CLI: `run` (exec, banner, entorno, falla abierto, modo interactivo), `ls`, `stop`, `extend`, `log`, `adopt`; pruebas de extremo a extremo contra el núcleo real con host simulado.
+- App: núcleo alojado en el shell de Tauri, panel React con las 5 vistas, acciones, notificaciones (vencimiento con «Extender», duplicado agrupado a 10 min), contador en la barra, `tools/bundle.sh`, `tools/demo.sh`.
+- Verificación: `tools/check.sh full` (fmt, clippy `-D warnings`, todas las pruebas, `cargo deny`) y en `ui/`: `tsc`, eslint, prettier, vitest (8 pruebas).
+- Pendiente de la fase: T2.6 (autoarranque), T2.7 (medición), T2.8 (release), retirar `devports-probe` (T1.10), pruebas de caos I-01/I-02 con procesos reales, `docker-checks.sh`, golden files del CLI, la comprobación visual de las 5 vistas por David.
+
 ## H0 — Endurecimiento de los hallazgos de la Fase 0 · 2026-10-17
 - Commits: `fix(core): compare programs by family so python3 matches homebrew python`, `ci: evaluate dependency policy and advisories for macos only`, `feat(core): add an injectable clock and use it to test the panel reopen guard`, `test(core): allow the window styling module as a second guarded unsafe file`, `build(app): add appkit and core animation bindings and make tokio a plain dependency`, `feat(app): round the panel corners with public appkit api and paint before showing`, `perf(app): use a non-persistent web data store for the panel`, `test(core): allow the notifications module as a third guarded unsafe file`, `build(app): replace the notification plugin with usernotifications bindings`, `feat(app): post notifications with action buttons through usernotifications`, `test(tools): add one-command notification check that seals the bundle`, y los de documentación.
 - Verificación local: fmt, clippy `-D warnings` con ambas características, 122 pruebas, `cargo deny check` limpio (sin avisos de licencia ni de advisories).

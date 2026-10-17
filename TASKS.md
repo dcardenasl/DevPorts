@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**La Fase 0 está construida** y la puerta G0 se omitió por decisión de David (ADR-026). Se construye la Fase 1 y la Fase 2 de inmediato, empezando por **T1.1**. Las comprobaciones manuales de `docs/verificacion-fase0.md` (sección 3.3) se hacen con la app ya construida.
+**Núcleo, CLI y app de barra construidos en bloque** (ver ARCHIVES y ADR-027); David la prueba con `tools/bundle.sh && tools/demo.sh start`. Quedan: T2.6 autoarranque, T2.7 medición, T2.8 release, retirar `devports-probe`, pruebas de caos con procesos reales, `docker-checks.sh`, golden files del CLI y los ajustes que salgan del uso.
 
 ---
 
