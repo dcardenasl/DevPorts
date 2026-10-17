@@ -21,9 +21,11 @@ allow-indexing-slicing-in-tests = true
 allow-print-in-tests = true
 
 # Spawning and sleeping are the two calls that make a core hard to test and easy
-# to leak processes from. The only code allowed to spawn is the `process_spawn`
-# module of the core (ADR-025), which opts out with a justified `#[allow]`.
+# to leak processes from. The core never spawns: the CLI replaces its own process
+# with `exec`, Docker is reached over its socket and the Docker context is read
+# from disk (ADR-025). Tests that must launch processes relax the lint in their
+# own header.
 disallowed-methods = [
-    { path = "std::process::Command::new", reason = "Spawn processes only from the core's `process_spawn` module." },
+    { path = "std::process::Command::new", reason = "The core does not spawn processes; tests relax this lint in their header." },
     { path = "std::thread::sleep", reason = "Use the injected Clock or condition-based waiting instead of blocking a thread." },
 ]

@@ -18,12 +18,12 @@
 ## Definition of Done (toda tarea)
 - Criterios «Hecho cuando» cumplidos y pruebas citadas en verde.
 - `cargo fmt --all --check` · `cargo clippy --workspace --all-targets -- -D warnings` · `cargo test --workspace` (desde que exista el workspace); desde T2.1 además `npm run typecheck && npm run lint && npm run format:check && npm test`.
-- Cero `unwrap/expect/panic!/indexing` crudo en producción; `unsafe` solo en `platform::macos` con ADR.
+- Cero `unwrap/expect/panic!/indexing` crudo en producción; `unsafe` solo en `platform::macos` (ADR-025); el núcleo no crea procesos.
 - Docs afectados actualizados en el mismo commit o en uno `docs(...)` contiguo. CHANGELOG si es `feat/fix/perf`.
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.4** (Docker) o **T0.5** (spike Tauri), en cualquier orden. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.5** (spike Tauri), luego T0.6 y T0.7; T0.8 (spike de `exec`) puede ir en cualquier momento. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -74,7 +74,7 @@
   Recorrido de raíces (3 niveles, ignora `node_modules/vendor/.git/target`), carga mínima de `.devports.yml`, normalización (MANIFIESTO §3) y matching. *Pruebas:* U-01, U-02, PT-01, PT-02, I-14.
   → `feat(core): discover projects and match processes to services`
 
-- [ ] **T0.4 — Docker: contexto, lista, eventos y etiquetas compose.** *Deps:* T0.1. *Lee:* ARQUITECTURA §4, ADR-012. *Verifica:* V4, V12.
+- [x] **T0.4 — Docker: contexto, lista, eventos y etiquetas compose.** *Deps:* T0.1. *Lee:* ARQUITECTURA §4, ADR-012. *Verifica:* V4, V12.
   Trait `ContainerSource` + implementación `bollard`; `docker context inspect` para el endpoint; asignación por etiquetas. **Registrar qué runtime usa David y si usa compose** (cierra punto abierto 2). *Pruebas:* D-01, D-03 (cliente simulado en CI; real en la Mac).
   → `feat(core): add docker container source with compose label mapping`
 
@@ -139,7 +139,7 @@
   → `feat(core): add temporary instances with persistent leases` · `feat(core): add safe process tree termination`
 
 - [ ] **T1.9 — Docker en el núcleo: eventos, vínculo por contenedor, `stop`.** *Deps:* T1.8, T0.4. RF-03.
-  Reintento con espera creciente («desconocido», no «caído»); `docker stop` 10 s; nunca `rm`; `kind: data` jamás se detiene solo. Escribir `tools/docker-checks.sh` (D-01..D-05 en la Mac). *Pruebas:* D-01..D-04 simuladas.
+  Reintento con espera creciente («desconocido», no «caído»); **suscribirse a eventos antes de listar y tratar los eventos como pistas** (T0.4: pueden repetirse, ver ADR-025); añadir `stop` al trait `ContainerSource` (hoy solo `list` y `events`); `tools/docker-checks.sh` ejecuta `cargo test -p devports-core --test docker_engine -- --ignored` además de D-02/D-04; `docker stop` 10 s; nunca `rm`; `kind: data` jamás se detiene solo. Escribir `tools/docker-checks.sh` (D-01..D-05 en la Mac). *Pruebas:* D-01..D-04 simuladas.
   → `feat(core): bind and stop docker containers for temporary instances` · `test(tools): add docker checks script`
 
 - [ ] **T1.10 — `ls`, `stop`, `extend`, `log`, `adopt` (propuesta).** *Deps:* T1.8. RF-05, RF-11, RF-15; CLI §4-7.

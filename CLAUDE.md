@@ -45,7 +45,7 @@ CHANGELOG (`## [Unreleased]`) solo para `feat/fix/perf`; nunca inventar número 
 ## Reglas técnicas no negociables
 1. `devports-core` no depende de `tauri`. `devports-cli` no depende de `devports-core` ni de `tauri` (solo `devports-proto`). Un test inspecciona `cargo metadata`.
 2. Cero `unwrap`, `expect`, `panic!`, `todo!`, indexación cruda ni aritmética sin control en producción (lints `deny`). Errores tipados con `Result`.
-3. `unsafe` prohibido salvo en el módulo `platform::macos`, con ADR. `Command::new` solo en el módulo `process_spawn`.
+3. `unsafe_code` es `deny` y solo se relaja en `platform::macos` (ADR-025; un test lo vigila). El núcleo no crea procesos: `Command::new` está prohibido (solo pruebas, con `#![allow]` en su cabecera).
 4. Un proceso se identifica por `(pid, start_time)`, nunca solo por `pid`.
 5. Solo se detiene automáticamente lo registrado con vencimiento (ADR-006). Parada: SIGTERM al proceso y sus descendientes, nunca a un grupo ajeno; prohibiciones absolutas de ARQUITECTURA §8.
 6. El socket solo expone lo que el CLI puede hacer: `ping`, `run.register`, `ls`, `stop`/`extend` (con token), `log`, `adopt.propose`. Detener Principales o no registrados, escribir manifiestos y marcar legítimo existen solo en comandos Tauri (ADR-009).
