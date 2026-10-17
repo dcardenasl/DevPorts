@@ -151,7 +151,7 @@ fn workspace_sources() -> Vec<(std::path::PathBuf, String)> {
 /// `unsafe_code` is `deny` workspace-wide (not `forbid`, so the macOS adapter
 /// can relax it). This test is what keeps the exception to that one module.
 #[test]
-fn unsafe_is_confined_to_the_macos_adapter() {
+fn unsafe_is_confined_to_the_allowed_files() {
     let markers = [
         "unsafe {",
         "unsafe fn",
@@ -159,9 +159,14 @@ fn unsafe_is_confined_to_the_macos_adapter() {
         "unsafe trait",
         "allow(unsafe_code",
     ];
-    let allowed = std::path::Path::new("devports-core/src/platform/macos.rs");
+    // Each exception is one file that talks to a C or Objective-C API with no safe
+    // binding for what it needs (ADR-025).
+    let allowed = [
+        std::path::Path::new("devports-core/src/platform/macos.rs"),
+        std::path::Path::new("devports-app/src/window_style.rs"),
+    ];
     for (path, text) in workspace_sources() {
-        if path.ends_with(allowed) {
+        if allowed.iter().any(|file| path.ends_with(file)) {
             continue;
         }
         for line in text
@@ -171,7 +176,7 @@ fn unsafe_is_confined_to_the_macos_adapter() {
             for marker in markers {
                 assert!(
                     !line.contains(marker),
-                    "`{marker}` found outside platform::macos in {}",
+                    "`{marker}` found outside the files allowed to use unsafe, in {}",
                     path.display()
                 );
             }
