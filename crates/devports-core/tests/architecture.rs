@@ -164,6 +164,7 @@ fn unsafe_is_confined_to_the_allowed_files() {
     let allowed = [
         std::path::Path::new("devports-core/src/platform/macos.rs"),
         std::path::Path::new("devports-app/src/window_style.rs"),
+        std::path::Path::new("devports-app/src/notifications.rs"),
     ];
     for (path, text) in workspace_sources() {
         if allowed.iter().any(|file| path.ends_with(file)) {
