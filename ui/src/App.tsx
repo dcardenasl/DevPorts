@@ -73,6 +73,13 @@ export function App(): ReactElement {
     [updatePanelState],
   );
 
+  const expandProject = useCallback(
+    (expandedProject: string | null): void => {
+      updatePanelState({ expandedProject, expandedProjectSet: true });
+    },
+    [updatePanelState],
+  );
+
   const attempt = useCallback(
     (work: Promise<unknown>, success?: string): void => {
       work.then(
@@ -189,9 +196,7 @@ export function App(): ReactElement {
           actions={actions}
           highlight={highlight}
           expandedProject={panelState.expandedProject}
-          onExpandedProjectChange={(expandedProject) => {
-            updatePanelState({ expandedProject, expandedProjectSet: true });
-          }}
+          onExpandedProjectChange={expandProject}
         />
       )}
       {tab === "shared" && (
