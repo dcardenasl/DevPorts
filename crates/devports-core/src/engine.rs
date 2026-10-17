@@ -1,0 +1,319 @@
+//! The engine: every rule of DevPorts as one deterministic state machine.
+//!
+//! The engine owns the state (the catalog, the registered instances, the last
+//! observation of the host) and answers questions and events with new state plus
+//! a list of [`Effect`]s for the caller to carry out (stop a process, show a
+//! notification). It never reads the clock, scans the host or touches a process
+//! by itself: those come in as data (`observe_host`, a `Clock`) or go out as
+//! effects, which is what makes the whole policy testable with a fake clock and
+//! fake sources (`PRUEBAS.md`, principles 1 and 3).
+//!
+//! The engine is not thread-safe on purpose: exactly one actor owns it
+//! (ADR-025, point 4).
+
+// Style lints that would only force noisier signatures here: the engine passes
+// small owned values around on purpose, and its long methods are flat tables.
+#![allow(
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    clippy::unused_self,
+    clippy::similar_names,
+    clippy::assigning_clones,
+    clippy::ref_option
+)]
+
+mod actions;
+mod binding;
+mod leases;
+mod run;
+mod views;
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use devports_proto::views::{ChainLink, InstanceView};
+use serde_json::{Value, json};
+
+use crate::catalog::Catalog;
+use crate::clock::Clock;
+use crate::config::{Config, SharedServices};
+use crate::docker::Container;
+use crate::ports::PortProbe;
+use crate::process::{ListeningProcess, ProcessId, ProcessSource};
+use crate::store::{InstanceRecord, Store, StoreError};
+
+pub use actions::ActionError;
+
+/// What the engine wants done outside itself.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Effect {
+    /// Stop a process or container, then call [`Engine::termination_finished`].
+    Terminate(TerminationRequest),
+    /// Tell the person something.
+    Notify(Notice),
+}
+
+/// A request to stop one instance.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TerminationRequest {
+    /// The instance's reference.
+    pub reference: String,
+    /// What to stop.
+    pub target: Target,
+    /// Why it is being stopped.
+    pub reason: StopReason,
+}
+
+/// What a termination acts on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Target {
+    /// A host process and its descendants.
+    Process(ProcessId),
+    /// A container, stopped with `docker stop`; never removed.
+    Container(String),
+}
+
+/// Why something is being stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StopReason {
+    /// The lease of a Temporal ended.
+    LeaseExpired,
+    /// The caller of a Temporal asked, with its token.
+    TokenRequest,
+    /// A person asked, from the application.
+    PersonRequest,
+}
+
+/// Something worth telling the person.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Notice {
+    /// A Temporal will expire in about a minute.
+    LeaseExpiring {
+        /// The instance's reference.
+        reference: String,
+        /// Project, if any.
+        project: Option<String>,
+        /// Service.
+        service: Option<String>,
+        /// Its port.
+        port: Option<u16>,
+        /// When the lease ends, seconds since the epoch.
+        expires_at: i64,
+    },
+    /// An unregistered duplicate of a Principal appeared.
+    DuplicateDetected {
+        /// The duplicate's reference.
+        reference: String,
+        /// Project it belongs to.
+        project: String,
+        /// Service it duplicates.
+        service: String,
+        /// Its port.
+        port: Option<u16>,
+    },
+}
+
+/// How the stopping of one instance ended, as reported back to the engine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Terminated {
+    /// It stopped.
+    Stopped,
+    /// It was already gone.
+    AlreadyGone,
+    /// Something survived `SIGKILL`.
+    StillAlive,
+    /// The safety rules refused (with the reason, for the log).
+    Refused(String),
+    /// The container could not be stopped.
+    Failed(String),
+}
+
+/// Why the engine could not start.
+#[derive(Debug, thiserror::Error)]
+pub enum EngineError {
+    /// The store failed.
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}
+
+/// The inputs an engine needs, so tests and production assemble it the same way.
+pub struct Parts<C, S, P> {
+    /// Time.
+    pub clock: C,
+    /// The host's processes.
+    pub source: S,
+    /// Port availability.
+    pub ports: P,
+    /// User configuration.
+    pub config: Config,
+    /// Known projects.
+    pub catalog: Catalog,
+    /// Shared services.
+    pub shared: SharedServices,
+    /// Persistent state.
+    pub store: Store,
+    /// Fresh random bytes (tokens and references).
+    pub entropy: Box<dyn FnMut() -> [u8; 16] + Send>,
+    /// The pid of the DevPorts process, which must never be stopped.
+    pub own_pid: u32,
+}
+
+/// The state machine.
+pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
+    pub(crate) clock: C,
+    pub(crate) source: S,
+    pub(crate) ports: P,
+    pub(crate) config: Config,
+    pub(crate) catalog: Catalog,
+    pub(crate) shared: SharedServices,
+    pub(crate) store: Store,
+    /// Registered instances that still count, mirroring the store.
+    pub(crate) tracked: Vec<InstanceRecord>,
+    pub(crate) host: Vec<ListeningProcess>,
+    /// `None` while the Docker daemon is unreachable: containers are then
+    /// "unknown", never "gone".
+    pub(crate) containers: Option<Vec<Container>>,
+    /// Consecutive failed health checks, by instance reference.
+    pub(crate) health: BTreeMap<String, u8>,
+    pub(crate) views: Vec<InstanceView>,
+    /// What each listed instance's stop would act on, by reference.
+    pub(crate) targets: BTreeMap<String, Target>,
+    pub(crate) seen_duplicates: BTreeSet<String>,
+    pub(crate) chain_cache: BTreeMap<ProcessId, Vec<ChainLink>>,
+    pub(crate) entropy: Box<dyn FnMut() -> [u8; 16] + Send>,
+    pub(crate) own_pid: u32,
+    pub(crate) last_prune: i64,
+    /// Failures the engine could not handle itself (a store write that failed),
+    /// for the caller to report.
+    pub(crate) problems: Vec<String>,
+}
+
+impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
+    /// Builds the engine, loading the registered instances from the store and
+    /// recording that the core started.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Store`] if the store cannot be read.
+    pub fn new(parts: Parts<C, S, P>) -> Result<Self, EngineError> {
+        let tracked = parts.store.live_instances()?;
+        let mut engine = Self {
+            clock: parts.clock,
+            source: parts.source,
+            ports: parts.ports,
+            config: parts.config,
+            catalog: parts.catalog,
+            shared: parts.shared,
+            store: parts.store,
+            tracked,
+            host: Vec::new(),
+            containers: None,
+            health: BTreeMap::new(),
+            views: Vec::new(),
+            targets: BTreeMap::new(),
+            seen_duplicates: BTreeSet::new(),
+            chain_cache: BTreeMap::new(),
+            entropy: parts.entropy,
+            own_pid: parts.own_pid,
+            last_prune: 0,
+            problems: Vec::new(),
+        };
+        engine.event(
+            "core_started",
+            None,
+            None,
+            None,
+            &json!({"pid": engine.own_pid}),
+        );
+        engine.rebuild_views();
+        Ok(engine)
+    }
+
+    /// The current time in seconds since the epoch.
+    pub(crate) fn now(&self) -> i64 {
+        self.clock.wall().as_second()
+    }
+
+    /// Writes one event to the log. A failed write does not stop the engine (the
+    /// log is a record, not the state) but is kept for [`Self::take_problems`].
+    pub(crate) fn event(
+        &mut self,
+        kind: &str,
+        project: Option<&str>,
+        service: Option<&str>,
+        reference: Option<&str>,
+        payload: &Value,
+    ) {
+        let now = self.now();
+        if let Err(error) =
+            self.store
+                .append_event(now, kind, project, service, reference, &payload.to_string())
+        {
+            self.problems.push(format!(
+                "no se pudo escribir en el registro de actividad: {error}"
+            ));
+        }
+    }
+
+    /// Writes a registered instance back to the store, keeping any failure for
+    /// [`Self::take_problems`].
+    pub(crate) fn persist(&mut self, record: &InstanceRecord) {
+        if let Err(error) = self.store.update_instance(record) {
+            self.problems.push(format!(
+                "no se pudo guardar la instancia {}: {error}",
+                record.reference
+            ));
+        }
+    }
+
+    /// The failures the engine could not handle itself since the last call.
+    pub fn take_problems(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.problems)
+    }
+
+    /// The catalog, replaced after a manifest changed.
+    pub fn set_catalog(&mut self, catalog: Catalog, shared: SharedServices) {
+        self.catalog = catalog;
+        self.shared = shared;
+        self.rebuild_views();
+    }
+
+    /// The configuration in force.
+    #[must_use]
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// The catalog in force.
+    #[must_use]
+    pub fn catalog(&self) -> &Catalog {
+        &self.catalog
+    }
+
+    /// Every instance the engine knows of, as displayed.
+    #[must_use]
+    pub fn views(&self) -> &[InstanceView] {
+        &self.views
+    }
+
+    /// Records the result of one health check of an instance. Three failures in a
+    /// row make it unhealthy; one success clears the count.
+    pub fn record_health(&mut self, reference: &str, healthy: bool) {
+        let failures = self.health.entry(reference.to_owned()).or_insert(0);
+        let before = *failures;
+        *failures = if healthy {
+            0
+        } else {
+            failures.saturating_add(1)
+        };
+        let crossed = (before >= HUNG_AFTER) != (*failures >= HUNG_AFTER);
+        if crossed {
+            self.rebuild_views();
+        }
+    }
+}
+
+/// Failed checks in a row before an instance counts as hung.
+pub(crate) const HUNG_AFTER: u8 = 3;
+
+#[cfg(test)]
+mod tests;

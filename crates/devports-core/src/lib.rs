@@ -5,18 +5,21 @@
 //! It deliberately does not depend on `tauri`, so it can run and be tested with
 //! no interface at all; the menu-bar app is just one host for it.
 
+pub mod adopt;
 pub mod catalog;
 pub mod clock;
 pub mod config;
 pub mod diagnostic;
 pub mod discovery;
 pub mod docker;
+pub mod engine;
 pub mod fingerprint;
 pub mod gitinfo;
 pub mod hash;
 pub mod ids;
 pub mod ipc;
 pub mod manifest;
+pub mod messages;
 pub mod platform;
 pub mod ports;
 pub mod probe;
