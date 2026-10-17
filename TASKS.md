@@ -23,14 +23,29 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Auditoría de UI/UX:** [bitácora del 2026-10-17](docs/audits/2026-10-17-ui-ux.md), con 14 hallazgos y evidencia. Antes de cerrar G2, reproducir en Tauri y resolver/priorizar UX-01 (detener sin adoptar), UX-02 (consumidores compartidos) y UX-03 a UX-05 (adopción y diálogos). Las propuestas no sustituyen decisiones confirmadas.
+**Siguiente trabajo de corrección:** ejecutar UXR-0 y UXR-1 del [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. Todo permanece en el panel; los compartidos no se detienen al parar un proyecto. El plan aún no está implementado.
 
-**Fases 1 y 2 construidas; esperan las puertas humanas.** Lo que sigue es de David:
+**Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
 2. **T2.0 pendiente de confirmación:** las decisiones de interfaz de ADR-027 se tomaron con valores por defecto; confirmarlas o cambiarlas con el uso.
 3. **M-15:** reiniciar el Mac una vez y comprobar que la app arranca sola (`tools/launchd-check.sh` ya verifica el reinicio tras caída y la salida limpia).
 4. **G2 / T2.8:** tras 5 días de uso diario, `/release` (el flujo y `release.yml` están listos).
 S0 (línea base) quedó sustituida por el uso real (ADR-026).
+
+---
+
+## Correcciones de UI/UX — posteriores a la auditoría
+
+Detalle y aceptación en [plan UXR](docs/audits/2026-10-17-ui-ux-plan.md). Las marcas se completan con implementación y evidencia, no con la entrevista.
+
+- [ ] **UXR-0 — Reproducción nativa con casos controlados.** Deps: ninguna. No sustituir Tauri real con mock ni detener servicios existentes del usuario.
+- [ ] **UXR-1 — Diálogos accesibles, continuidad del panel y seguimiento de acciones.** Deps: ninguna para implementar; UXR-0 para validación nativa.
+- [ ] **UXR-2 — Parada individual y puntual por proyecto.** Deps: UXR-1. Confirmación de todas las paradas manuales; excluir datos y compartidos en la acción por proyecto.
+- [ ] **UXR-3 — Adopción elegible, revisable y recuperable.** Deps: UXR-1.
+- [ ] **UXR-4 — Compartidos con consumidores editables.** Deps: UXR-1 y edición validada de UXR-3. Resultados de escritura por proyecto.
+- [ ] **UXR-5 — Ignorados restaurables y auxiliares.** Deps: UXR-1.
+- [ ] **UXR-6 — Configuración acotada, conexión y actividad.** Deps: UXR-1.
+- [ ] **UXR-7 — Integración y cierre de auditoría.** Deps: UXR-0 a UXR-6. G1/G2 siguen requiriendo decisión humana.
 
 ---
 

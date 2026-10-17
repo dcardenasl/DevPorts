@@ -194,3 +194,51 @@ Fecha: 2026-10-17. Estado: vigente. Marcas **[D]** derivadas / **[P]** propuesta
 - **[D] Contrato núcleo/interfaz:** los tipos de TypeScript se generan desde los de Rust con `specta` (`ui/src/bindings.ts`, prueba `crates/devports-core/tests/bindings.rs` que falla si el archivo difiere). Se descartó `tauri-specta` (tipa también los comandos) porque está en versión candidata y los comandos son pocos y estables; sus nombres viven en `ui/src/api.ts`. Los números exportados son de 32 bits (specta prohíbe `u64` hacia TypeScript).
 - **[D] Empaquetado** con `tools/bundle.sh` (sin `tauri-cli`): construye la interfaz, la app y el CLI, genera el `.app` y lo sella ad hoc.
 - **[D]** El CSP de la app permite estilos en atributos (`style-src-attr 'unsafe-inline'`) porque React los usa; no hay contenido remoto.
+
+## ADR-028 Todos los flujos de gestión permanecen en el panel
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** adopción, asociación de recursos compartidos, configuración y demás operaciones se realizan dentro del panel de la barra de menús. Al hacer clic fuera, el panel se cierra; este comportamiento es intencional. No se añade una ventana de gestión separada.
+
+**Conservación de borradores (confirmada por David):** al reabrir se recupera el borrador mientras la app siga abierta. Cerrar no guarda cambios; Guardar es explícito y revalida los datos. Las confirmaciones de parada se solicitan nuevamente. **Navegación (confirmada):** al reabrir durante la ejecución de la app, recuperar la última pestaña, proyecto expandido y filtro. Las alertas nuevas actualizan el contador de Atención sin cambiar automáticamente la sección. No se ha acordado persistencia tras salir o reiniciar la app. Continuidad de la entrevista en `docs/audits/2026-10-17-ui-ux-decisiones.md`.
+
+## ADR-029 Confirmación manual y conservación de recursos compartidos
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** toda parada manual desde la app requiere confirmación breve con identidad, puerto y origen; para datos se explica qué servicio se detendrá y para compartidos se muestran consumidores declarados. No cambia las reglas de parada automática de Temporales ni los permisos del CLI.
+
+Cerrar un proyecto no detiene sus recursos compartidos; detener MySQL u otro compartido es una acción independiente con confirmación. No inferir autorización de parada por desasociar un consumidor ni porque un proyecto termine. **Acción por proyecto (confirmada):** añadir «Detener servicios del proyecto», con lista previa y confirmación. Incluye servidores de aplicación y sus Temporales del proyecto; conserva compartidos y servicios de datos. No elimina el manifiesto ni las asociaciones declaradas. Los cambios de identidad o pertenencia posteriores a la confirmación deben revalidarse; no amplía por sí sola las prohibiciones del núcleo.
+
+**Operación puntual (confirmada):** actúa sobre la lista confirmada; no crea un estado de proyecto cerrado ni bloquea lanzamientos posteriores de personas o agentes. Procesos nuevos no se incorporan automáticamente a una parada ya confirmada.
+
+## ADR-030 Selección de consumidores al declarar un recurso compartido
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** al declarar un compartido, el panel ofrece seleccionar múltiples proyectos consumidores, y permite modificar la selección posteriormente. Se permite declarar sin consumidores seleccionados; la UI muestra «Sin proyectos asociados». `uses` sigue siendo la fuente de la asociación. Los consumidores declarados no son evidencia de conexiones reales ni una lista exhaustiva de quienes dependen del recurso.
+
+**Guardado (confirmado):** validar todos los manifiestos antes de comenzar; errores conocidos en esa fase bloquean el inicio. Ante un fallo durante las escrituras, mostrar resultados por proyecto, mantener la selección y permitir reintentar solo los pendientes. No se exige una transacción global con reversión de todos los archivos ni se muestra éxito global ante un resultado parcial. La edición debe preservar cambios ajenos y volver a validar antes de escribir.
+
+## ADR-031 Adopción con revisión obligatoria
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** todos los casos de adopción pasan por elegir destino y revisar/guardar dentro del panel. Antes de escribir se muestran raíz y archivo destino reales, puerto observado, nombre de servicio y comando de inicio; nombre y comando se pueden editar. Mostrar advertencias de propuestas frágiles. Adoptar registra el servidor que ya corre, sin reiniciarlo. No se omite la revisión cuando no hay advertencias. La elegibilidad y validación finales permanecen en el núcleo.
+
+## ADR-032 Ignorados persistentes con restauración desde el panel
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** ignorar persiste entre arranques del servicio. La acción se presenta como «Ignorar este servicio», explicando su alcance, y el panel ofrece «Ver ignorados → Restaurar». No detiene ni adopta el proceso o contenedor. El criterio de coincidencia debe ser visible y verificable; no se autoriza ampliar silenciosamente qué servicios quedan ocultos. Esta decisión confirma y completa la propuesta de ignorados persistentes de ADR-027.
+
+## ADR-033 Auxiliares visibles en un grupo orientativo
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** los procesos detectados como posibles auxiliares se presentan en «Posibles herramientas auxiliares», plegado inicialmente, con origen visible al expandir. La clasificación es orientativa y corregible. No se ignoran ni ocultan permanentemente procesos de forma automática por esa clasificación. No cambia las restricciones de parada del núcleo.
+
+## ADR-034 Operaciones confirmadas independientes de la vida del panel
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** Guardar o Detener, una vez confirmados y enviados, continúan aunque el panel se cierre por pérdida de foco. Al reabrir se recupera el progreso o resultado real, incluido resultado parcial, sin reenviar la acción. Cerrar el panel no intenta cancelar efectos ya iniciados. Una confirmación todavía no enviada debe solicitarse nuevamente. El seguimiento vive fuera del webview; no implica mantenerlo abierto ni define recuperación después de salir o reiniciar la app.
+
+## ADR-035 Configuración acotada desde el panel
+Fecha: 2026-10-17. **Estado: Confirmada por David** durante la entrevista de resolución de la auditoría UI/UX.
+
+**Decisión:** el panel permite añadir o quitar carpetas de exploración de proyectos, ver errores de configuración y consultar estado del núcleo y Docker. Las opciones avanzadas (vencimientos, límites de Temporales y demás) permanecen en YAML por ahora. Mantener todos estos recorridos dentro del panel según ADR-028.
