@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, type MouseEvent, type ReactElement } from "react";
 
 import type { Actions } from "../actions";
 import { ChevronIcon, CopyIcon, ExternalIcon, FolderIcon, LinkIcon, StopIcon } from "../icons";
@@ -26,21 +26,22 @@ export function ProjectsView({
   expandedProject: string | null;
   onExpandedProjectChange: (name: string | null) => void;
 }): ReactElement {
-  const nodes = buildProjects(actions.snapshot);
+  const nodes = useMemo(() => buildProjects(actions.snapshot), [actions.snapshot]);
   const open = expandedProject;
 
-  // Showing a service from "Atención" opens its project (state adjusted while
-  // rendering, the pattern React recommends for reacting to a changed prop).
-  const [seenHighlight, setSeenHighlight] = useState(highlight);
-  if (seenHighlight !== highlight) {
-    setSeenHighlight(highlight);
+  // Showing a service from "Atención" opens its project in the shell state.
+  const seenHighlight = useRef(highlight);
+  useEffect(() => {
+    if (seenHighlight.current === highlight) return;
+    seenHighlight.current = highlight;
+    if (highlight === undefined) return;
     const owner = nodes.find((node) =>
       node.repos.some((repo) =>
         repo.services.some((service) => service.principal?.ref === highlight),
       ),
     );
     if (owner !== undefined) onExpandedProjectChange(owner.summary.name);
-  }
+  }, [highlight, nodes, onExpandedProjectChange]);
 
   if (nodes.length === 0) {
     return <Empty title={text.projects.none} body={text.projects.noneBody} />;
