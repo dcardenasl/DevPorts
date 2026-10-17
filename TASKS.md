@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** UXR-1.1 a UXR-1.3 y UXR-2.1/2.2 completadas; continuar UXR-2.3 (detalle y estados), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. La parada puntual de proyecto conserva datos y compartidos. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas. Evidencia y contratos: [UXR-2.2](docs/audits/2026-10-17-uxr-2-2.md).
+**Siguiente trabajo de corrección:** UXR-1 y UXR-2 completados; continuar UXR-3.1 (elegibilidad y edición validada de adopción), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-2.3 añade detalle reutilizable, puertos observados y estados coherentes; [entrega](docs/audits/2026-10-17-uxr-2-3.md). UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -163,7 +163,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-2-3"></a>
 
-- [ ] **UXR-2.3 — Mostrar origen y estados reales de las instancias.**
+- [x] **UXR-2.3 — Mostrar origen y estados reales de las instancias.**
+
+  **Entrega:** `423321c`; [contratos, presentación, verificación y límites](docs/audits/2026-10-17-uxr-2-3.md). Detalle compartido, estados reales, puertos observados y argumentos de diagnóstico sin valores. `tools/check.sh full`, UI 41/41 y recorrido con teclado a 380×520 verdes; Tauri/VoiceOver pendiente en UXR-7.2.
 
   **Dependencias:** UXR-2.1. **Plan:** [grupo UXR-2](docs/audits/2026-10-17-ui-ux-plan.md#uxr-2). **Contexto:** UX-07 (detalle), UX-12; D3 y D10.
 
