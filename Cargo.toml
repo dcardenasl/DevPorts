@@ -60,6 +60,9 @@ print_stderr = "deny"
 string_slice = "deny"
 arithmetic_side_effects = "deny"
 disallowed_methods = "deny"
+# A trait that declares `async fn` obliges every implementation to be async, even
+# one that answers immediately (a fake, a test handler).
+unused_async_trait_impl = "allow"
 
 [workspace.dependencies]
 devports-proto = { path = "crates/devports-proto" }

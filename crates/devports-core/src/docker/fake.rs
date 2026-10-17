@@ -74,10 +74,6 @@ impl FakeContainerSource {
     }
 }
 
-#[allow(
-    clippy::unused_async_trait_impl,
-    reason = "the trait declares `list` as async; the fake answers immediately"
-)]
 impl ContainerSource for FakeContainerSource {
     async fn list(&self) -> Result<Vec<Container>, ContainerSourceError> {
         self.check_reachable()?;

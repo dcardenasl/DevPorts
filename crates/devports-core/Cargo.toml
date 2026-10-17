@@ -14,7 +14,7 @@ jiff = "0.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", default-features = false, features = ["deserialize"] }
 bollard = { version = "0.21.1", default-features = false, features = ["pipe"] }
-tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "time", "sync", "net", "io-util"] }
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "time", "sync", "net", "io-util", "signal"] }
 futures-util = "0.3.34"
 sha2 = "0.11.1"
 serde_json = "1"
