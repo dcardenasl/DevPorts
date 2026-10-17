@@ -142,8 +142,17 @@ Convenciones: **Confirmada** = aprobada por David. **Derivada** = consecuencia d
 **Estado:** Confirmada (David, 2026-10-16).
 **Decisión:** (1) Sin Principal registrada, cuenta como Principal la instancia observada que escucha en el `port` preferido o, si no hay, la de `start_time` más antiguo (`registered: false`); las demás coincidencias son duplicados sin registrar (ARQUITECTURA §5). (2) La raíz de descubrimiento por defecto es `~/developer` (ADR-019). La ruta real en la Mac es `/Users/davidcardenas/Developer`; macOS no distingue mayúsculas, así que se expande `~` y se compara canonicalizada.
 
-## ADR-025 Decisiones técnicas de implementación (reservado)
-**Estado:** Reservada. Se redacta en la tarea T0.1 de `TASKS.md`: concurrencia por actor, política de `unsafe` y `Command`, `rusqlite`, `bollard`, texto centralizado.
+## ADR-025 Decisiones técnicas de implementación
+**Estado:** Derivada (tarea T0.1, 2026-10-17). Sale de ADR-015, ADR-016 y ADR-017 y de las convenciones de GitCanvas; ajustable con una nota aquí si una medición de la Fase 0 lo exige.
+**Decisiones:**
+1. **Workspace y lints.** Cuatro crates (`devports-proto`, `devports-core`, `devports-cli`, `devports-app`), edición 2024, `resolver = "3"`, toolchain fijada en `rust-toolchain.toml` (1.98.1). Los lints viven en el workspace y se heredan: `unsafe_code = forbid`, `missing_docs = deny`, `clippy::pedantic` como aviso y `unwrap_used`, `expect_used`, `panic`, `indexing_slicing`, `todo`, `unimplemented`, `dbg_macro`, `print_stdout`, `print_stderr`, `string_slice`, `arithmetic_side_effects` y `disallowed_methods` en `deny`. CI usa `-D warnings`. `clippy.toml` permite `unwrap`, `expect`, `panic`, indexación y `print` dentro de pruebas.
+2. **Reglas de dependencia verificadas.** `crates/devports-core/tests/architecture.rs` resuelve el grafo con `cargo metadata` y falla si `devports-core` o `devports-proto` alcanzan `tauri`, o si `devports-cli` alcanza algo distinto de `devports-proto` (cierre transitivo).
+3. **`unsafe` y procesos.** `unsafe` queda prohibido en todo el workspace. Si el crate `libproc` no cubre lo que piden V1 y V2, se relaja **solo** en el módulo `platform::macos` con una nota aquí. `std::process::Command::new` y `std::thread::sleep` están en `disallowed-methods`; el único módulo que podrá crear procesos es `process_spawn` del núcleo (se crea con el primer uso real, T0.8 o T1.7), con un `#[allow]` justificado. El CLI no necesita ese módulo: reemplaza su propio proceso con `exec`. Las pruebas que lanzan procesos relajan el lint en su cabecera.
+4. **Concurrencia por actor.** El núcleo tiene un único actor que posee el estado del dominio y recibe mensajes por un canal `mpsc` (IPC, observadores, temporizador y UI). No hay `Mutex` compartido sobre el dominio: las transiciones de estado son deterministas y se prueban con reloj falso (PRUEBAS §1).
+5. **Almacén y fuentes.** SQLite con `rusqlite` (modo bundled) y un único hilo escritor. Docker con `bollard`. Procesos con el crate `libproc` detrás del trait `ProcessSource`. Tiempo detrás del trait `Clock`. Estas dependencias se incorporan en la tarea que las usa (T0.2, T0.4, T1.4), no antes.
+6. **Texto para personas.** Los mensajes del CLI y del núcleo (español) viven en un módulo de mensajes central y se verifican con *golden files*; `--json` es el contrato estable y versionado. No hay literales de interfaz dispersos.
+7. **Envoltura Tauri.** `crates/devports-app` es hoy un binario vacío con las dependencias ya fijadas; su distribución final (si Tauri exige `src-tauri/`, plugins, `MACOSX_DEPLOYMENT_TARGET`) se decide en el spike T0.5 y se anota aquí.
+8. **CI.** `dev-check` (ubuntu, `fmt`, `clippy -D warnings`, `test`) en cada push a `dev`. `quality` (ubuntu + macOS, más `cargo deny` y `cargo audit`) en el PR a `main`. Sin Windows (ADR-016).
 
 ---
 
