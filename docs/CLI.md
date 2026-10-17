@@ -117,7 +117,7 @@ Código 0, sin `exec`. En texto: `devports: api ya corre (Principal) en http://l
 Solo si `DEVPORTS_INTERACTIVE=1` **y** la entrada estándar es una terminal, un conflicto (código 10) pregunta: `[r]eutilizar / [t]emporal / [c]ancelar`. Con `t` pide el motivo (por defecto "prueba manual") y sigue como Temporal. Sin esa variable, nunca pregunta **[C]**.
 
 ### Falla abierto (núcleo inactivo)
-1. Si el socket no responde, ejecuta una vez `open -g -a "<nombre de la app>"` (salvo `DEVPORTS_NO_AUTOSTART=1`) y reintenta durante hasta 2 s **[P]**.
+1. Si el socket no responde, ejecuta una vez `open -g -b <identificador del paquete>` (salvo `DEVPORTS_NO_AUTOSTART=1`) y reintenta durante hasta 2 s **[P]**. Se usa el identificador (`-b`) y no el nombre (`-a`) porque no es ambiguo; en la Mac `open` vuelve en 40 a 130 ms y el proceso ya existe a los 60 a 160 ms (T0.7, V8).
 2. Si sigue sin responder, imprime en stderr `devports: núcleo inactivo, sin protección` y ejecuta el comando igual, sin registrar nada. No hay código de salida propio: es el del comando.
 3. Lo que se coló aparecerá luego como "sin registrar" por la detección **[C]**.
 

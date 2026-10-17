@@ -199,7 +199,7 @@ Retención de eventos: `events_retention_days` (30) **[P]**.
 
 ## 11. Arranque, supervisión y recuperación **[C]** (ADR-015) con detalle **[P]**
 
-- **Inicio de sesión:** agente de launchd en `~/Library/LaunchAgents/<BUNDLE_ID>.plist` con `RunAtLoad` y `KeepAlive` con `SuccessfulExit: false`. Si el proceso termina con error, launchd lo reinicia. "Salir" desde el menú termina con código 0 y no se reinicia. (Alternativa a evaluar: el plugin de autoarranque de Tauri; se decide en Fase 0.)
+- **Inicio de sesión:** agente de launchd en `~/Library/LaunchAgents/<BUNDLE_ID>.plist` con `RunAtLoad` y `KeepAlive` con `SuccessfulExit: false`. Si el proceso termina con error, launchd lo reinicia. "Salir" desde el menú termina con código 0 y no se reinicia. **Verificado en T0.7** con un trabajo real de launchd (`tools/spike-launchd.sh`): arranca con `RunAtLoad`; tras un `SIGKILL` vuelve a levantarse en unos 4 s con `ThrottleInterval` de 5 s (el valor por defecto, 10 s, lo alargaría); tras `exit(0)` no se reinicia (launchd informa `last exit code = 0`); `bootout` lo detiene. **El plugin de autoarranque de Tauri no sirve**: su crate `auto-launch` solo escribe `RunAtLoad`, sin `KeepAlive`. La instalación del agente queda para T2.6 (ver ADR-025, punto 7).
 - **Instancia única:** garantizada por el socket (sección 10).
 - **Recuperación:** al arrancar, cargar SQLite, reconciliar con la observación actual, marcar `down` lo que ya no existe, ejecutar la parada de Temporales vencidos aún vivos, reabrir el flujo de eventos de Docker.
 - **Falla abierto del CLI:** CLI.md sección 3.
@@ -243,7 +243,7 @@ Presupuesto de la Fase 0 **[C]** el criterio, **[P]** los números: menos de 50 
 | V5 | Tauri: contador junto al ícono, panel anclado, política accessory, destrucción del webview libera memoria | Si Tauri sirve para la envoltura |
 | V6 | Botones de acción en notificaciones de macOS | Diseño de la notificación de vencimiento |
 | V7 | launchd `KeepAlive` con la app de Tauri; "Salir" no reinicia | Supervisión |
-| V8 | Latencia de `open -g -a` para el autoarranque del CLI | Falla abierto |
+| V8 | Latencia de `open -g -b` para el autoarranque del CLI | Falla abierto |
 | V9 | `exec` conserva el PID y la ascendencia usada para el vínculo fuerte | Vínculo por puerto reservado |
 | V10 | Memoria y CPU en reposo contra el presupuesto | Criterio de salida de la Fase 0 |
 | V11 | Velocidad del descubrimiento bajo `~/developer` con 3 niveles | Valores por defecto de raíces |

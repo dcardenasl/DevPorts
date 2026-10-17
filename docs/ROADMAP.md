@@ -34,7 +34,7 @@ Objetivo: comprobar en la Mac de David lo que no se pudo verificar desde el ento
 | T0.4 | Docker: `docker context inspect`, lista y eventos; asignación por etiquetas de compose | V4, V12 |
 | T0.5 | Spike de Tauri: ícono con contador, panel anclado y efímero, política accessory, medición en reposo | V5, V10 |
 | T0.6 | Spike de notificación con botón de acción | V6 |
-| T0.7 | Spike de supervisión: launchd `KeepAlive` con la app de Tauri; autoarranque del CLI con `open -g -a` | V7, V8 |
+| T0.7 | Spike de supervisión: launchd `KeepAlive` con la app de Tauri; autoarranque del CLI con `open -g -b` | V7, V8 |
 | T0.8 | Spike de `exec`: confirmar que conserva el PID y la ascendencia | V9 |
 | T0.9 | Informe `docs/verificacion-fase0.md` con la tabla V1 a V12 (resultado y decisión) | todas |
 

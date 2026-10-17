@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.7** (launchd) y **T0.8** (spike de `exec`), en cualquier orden. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.8** (spike de `exec`, PID y ascendencia). S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -86,7 +86,7 @@
 - [x] **T0.6 — Spike de notificaciones con botón de acción.** *Deps:* T0.5. *Verifica:* V6. Resultado: botones nativos sí/no ⇒ define el diseño de la notificación de vencimiento.
   → `feat(app): add notification action spike`
 
-- [ ] **T0.7 — Spike de supervisión y autoarranque.** *Deps:* T0.5. *Verifica:* V7, V8.
+- [x] **T0.7 — Spike de supervisión y autoarranque.** *Deps:* T0.5. *Verifica:* V7, V8.
   launchd `KeepAlive{SuccessfulExit:false}`; «Salir» no reinicia; latencia de `open -g -a` desde el CLI.
   → `feat(app): add launch agent supervision spike`
 
@@ -129,7 +129,7 @@
   → `feat(core): add port reservation and instance binding rules`
 
 - [ ] **T1.7 — Política completa de `run`.** *Deps:* T1.6. RF-07, RF-17; CLI §3.
-  Tabla de decisión (códigos 0,10,11,12,13,14,16,18,19; el 15 queda **sin asignar**), mensajes texto y `--json` con *golden files*, `--reuse`, modo interactivo `DEVPORTS_INTERACTIVE=1`, falla abierto + `open -g -a`, sustitución `{PORT}`/`${PORT}`, `sh -c 'exec …'`, variables de entorno. 
+  Tabla de decisión (códigos 0,10,11,12,13,14,16,18,19; el 15 queda **sin asignar**), mensajes texto y `--json` con *golden files*, `--reuse`, modo interactivo `DEVPORTS_INTERACTIVE=1`, falla abierto + `open -g -b com.davidcardenas.devports` (módulo del CLI con `#[allow]` justificado para `Command`; el mismo módulo hace el `exec`), sustitución `{PORT}`/`${PORT}`, `sh -c 'exec …'`, variables de entorno. 
   *Pruebas:* U-04, U-11, I-01 (caos 7×), I-09, I-13.
   → `feat(core): decide run requests with deterministic conflict policy` · `feat(cli): add run with exec, reuse and fail-open` · `test: add golden files for run output`
 
@@ -184,7 +184,7 @@
 
 - [ ] **T2.5 — Vista de Actividad.** *Deps:* T2.2. RF-15; filtros Todo/Rechazos/Temporales(+Alertas si T2.0 lo confirma). → `feat(ui): add activity view with filters`
 
-- [ ] **T2.6 — Autoarranque y supervisión.** *Deps:* T2.1, T0.7. RF-18; ARQUITECTURA §11. LaunchAgent o plugin según V7. *Pruebas:* M-15. → `feat(app): add login launch and crash restart`
+- [ ] **T2.6 — Autoarranque y supervisión.** Instalar el agente con `.plist` propio (`RunAtLoad`, `KeepAlive{SuccessfulExit:false}`, `ThrottleInterval` 5; el plugin de Tauri no escribe `KeepAlive`) o con `SMAppService`; repetir `tools/spike-launchd.sh` contra el binario real. *Deps:* T2.1, T0.7. RF-18; ARQUITECTURA §11. *Pruebas:* M-15. → `feat(app): add login launch and crash restart`
 
 - [ ] **T2.7 — Medición del presupuesto y palancas.** *Deps:* T2.1–T2.6. NF-01; M-14 (1 h en reposo). Ajustar intervalo/profundidad si no cumple; si el panel anclado es deficiente, decisión sobre SwiftUI **antes** de seguir. → `perf: tune observation within idle budget`
 

@@ -3,6 +3,13 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## T0.7 — Spike de supervisión y autoarranque · 2026-10-17
+- Commits: `build(app): bundle the app as a menu-bar agent without a dock icon`, `test(tools): add launchd supervision script for the app`, `docs: record t0.7 launchd and open results`.
+- **V7 favorable, con launchd real** (`tools/spike-launchd.sh target/release/devports-app`; trabajo temporal con etiqueta propia, cargado desde un `.plist` en una carpeta temporal y retirado al terminar; no toca `~/Library/LaunchAgents`): (1) `RunAtLoad` arranca la app; (2) tras `kill -9` launchd la levanta de nuevo en **unos 4 s** con `ThrottleInterval` 5 (con el valor por defecto de 10 s tardaría más); (3) la app termina con `exit(0)`, que es la llamada que usa «Salir», y **no** se reinicia (launchd informa `last exit code = 0`; sin tercera instancia a los 11 s); (4) `bootout` detiene la app y launchd olvida el trabajo. Todas las comprobaciones en verde.
+- **V8 favorable:** con el paquete `DevPorts.app` (`LSUIElement`, construido con `tauri build --debug --bundles app`; el icono PNG basta, el empaquetador genera el `.icns`), `open -g -a <ruta>` vuelve en **42 a 129 ms** y el proceso existe a los **59 a 162 ms** (6 ejecuciones); por nombre (`-a DevPorts`) y por identificador (`-b com.davidcardenas.devports`) también funcionan (121 y 99 ms). Se elige `-b`: no es ambiguo. Una ruta relativa a `-a` falla; hay que usar ruta absoluta, nombre o identificador.
+- Hallazgos: (1) El plugin de autoarranque de Tauri (`auto-launch` 0.5) solo escribe `RunAtLoad`: **no sirve** para RF-18; hay que instalar un `.plist` propio o usar `SMAppService` (T2.6). (2) El CLI también necesita `Command` (para `exec` y para `open`), así que la afirmación de ADR-025 de que el CLI «no necesita ese módulo» era incorrecta: se corrigió; el núcleo sigue sin crear procesos. (3) Al generar `tauri.conf.json` con un script se reformateó el JSON; es inocuo. (4) El paquete de depuración pesa 39,8 MB (símbolos de depuración); el de release será mucho menor y se mide en T2.7.
+- Pendiente de comprobación manual (T0.9): arrancar la app con doble clic o `open` y confirmar que no aparece ícono en el Dock ni salto de rebote.
+
 ## T0.6 — Spike de notificación con botón de acción · 2026-10-17
 - Commits: `feat(app): add notification action spike behind a feature flag`, `ci: lint the notification spike on macos`, `docs: record t0.6 findings and the manual notification check`.
 - Verificación local: fmt, clippy `-D warnings` con `spike-autopilot` y `spike-notify` juntos, `cargo test --workspace` y `cargo deny check` en verde.
