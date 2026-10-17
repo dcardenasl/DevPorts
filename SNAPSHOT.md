@@ -7,8 +7,8 @@
 |---|---|
 | **Etapa** | 📝 v0.0, especificado, sin código |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | Definición completa (24 decisiones; ADR-023 y 024 cerraron `--replace`, Principal de hecho y raíz) y plan de implementación en `TASKS.md`. Fase B completa y T0.1 hecha: repositorio git (`main` + `dev`), docs saneados, hooks, workspace de 4 crates con lints estrictos, CI y ADR-025. Script de línea base listo, probado solo en Linux. |
-| **Próximo paso** | Seguir `TASKS.md`: siguiente tarea T0.2. David: `./tools/baseline.sh once` y luego `start` en la Mac (tarea S0). |
+| **¿Dónde quedé?** | Definición completa (24 decisiones; ADR-023 y 024 cerraron `--replace`, Principal de hecho y raíz) y plan de implementación en `TASKS.md`. Fase B completa y T0.1 hecha: repositorio git (`main` + `dev`), docs saneados, hooks, workspace de 4 crates con lints estrictos, CI y ADR-025. T0.2 hecha: `ProcessSource` de macOS verificada con servidores reales (V1, V2, V3 favorables) y sonda `devports-probe`. Script de línea base listo, probado solo en Linux. |
+| **Próximo paso** | Seguir `TASKS.md`: siguiente tarea T0.3 (o T0.4/T0.5). David: `./tools/baseline.sh once` y luego `start` en la Mac (tarea S0). |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Runtime de Docker y uso de compose (se mide en T0.4). Nombre y licencia en la Fase 4. |
 

@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.2** (`ProcessSource` de macOS y `devports ls` de solo lectura). S0 sigue pendiente de David. En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.3** (descubrimiento de manifiestos y mapeo proceso→proyecto), o T0.4 / T0.5 en paralelo. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -52,6 +52,7 @@
 ## Semana 0 — Línea base (HUMANO, en paralelo desde hoy)
 
 - [ ] **S0 — Medir la línea base.** David ejecuta `./tools/baseline.sh start` (script **no probado en macOS**: primero `./tools/baseline.sh once` y revisar `~/.devports-baseline/samples.tsv`; bash 3.2). Trabajar normal ≥5 días laborales; `report` → `docs/linea-base-AAAA-MM-DD.txt`.
+  *Sonda de la Fase 0 (T0.2):* `cargo install --path crates/devports-core --bin devports-probe --locked` instala `devports-probe`. `devports-probe ls` lista los servidores que escuchan (puerto, pid, carpeta, comando) y registra cada apertura en `~/.devports-baseline/opens.log`; `devports-probe opens` cuenta aperturas por día (criterio G0: ≥3 por día laborable).
   *Hecho cuando:* hay ≥5 días registrados. *Si `once` falla en macOS:* corregir el script como tarea `fix(tools):` antes de seguir.
 
 ---
@@ -64,7 +65,7 @@
   *Hecho cuando:* `cargo build/clippy/test --workspace` verdes local y en CI; el test de dependencias falla si se rompe la regla.
   → `build: add cargo workspace with proto, core, cli and app crates` · `ci: add dev-check and quality workflows` · `docs(adr): record adr-025 core concurrency and platform boundaries`
 
-- [ ] **T0.2 — `ProcessSource` de macOS y `devports ls` de solo lectura.** *Deps:* T0.1. *Lee:* ARQUITECTURA §3-4, CLI §4. *Verifica:* V1, V2, V3.
+- [x] **T0.2 — `ProcessSource` de macOS y `devports ls` de solo lectura.** *Deps:* T0.1. *Lee:* ARQUITECTURA §3-4, CLI §4. *Verifica:* V1, V2, V3.
   Trait `ProcessSource` + `platform::macos` (libproc: PIDs del uid, FDs, sockets TCP LISTEN, cwd, argv vía `KERN_PROCARGS2`, `(pid,start_time,ppid,pgid,uid)`). `devports ls` sin núcleo que escanea localmente y **registra cada invocación** en `~/.devports-baseline/opens.log`. Medir costo (CPU/ms) del escaneo; si supera presupuesto, implementar Plan B `lsof` detrás del mismo trait.
   *Hecho cuando:* `ls` lista `php -S`, `node`, `python -m http.server` lanzados por la prueba con cwd/argv correctos sin privilegios; medición registrada. *Pruebas:* fuente falsa (U), integración real macOS (I-02 parcial).
   → `feat(core): add macos process source on libproc` · `feat(cli): add read-only ls with baseline open log`
@@ -142,7 +143,7 @@
   → `feat(core): bind and stop docker containers for temporary instances` · `test(tools): add docker checks script`
 
 - [ ] **T1.10 — `ls`, `stop`, `extend`, `log`, `adopt` (propuesta).** *Deps:* T1.8. RF-05, RF-11, RF-15; CLI §4-7.
-  Los tokens nunca salen en `ls`/`log`. `adopt` solo lectura. *Pruebas:* I-08, I-15 (propuesta), U-08.
+  Los tokens nunca salen en `ls`/`log`. `adopt` solo lectura. **Retirar `devports-probe` (módulo `probe` y binario) y su entrada de CHANGELOG** (ADR-025, punto 8). *Pruebas:* I-08, I-15 (propuesta), U-08.
   → `feat(cli): add ls, stop, extend, log and adopt commands`
 
 - [ ] **T1.11 — Salud (health checks) y estado «colgada».** *Deps:* T1.6. *Lee:* MANIFIESTO §5. (Sustituye al `--replace` eliminado.)
