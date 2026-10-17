@@ -23,7 +23,12 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Núcleo, CLI y app de barra construidos en bloque** (ver ARCHIVES y ADR-027); David la prueba con `tools/bundle.sh && tools/demo.sh start`. Quedan: T2.6 autoarranque, T2.7 medición, T2.8 release, retirar `devports-probe`, pruebas de caos con procesos reales, `docker-checks.sh`, golden files del CLI y los ajustes que salgan del uso.
+**Fases 1 y 2 construidas; esperan las puertas humanas.** Lo que sigue es de David:
+1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
+2. **T2.0 pendiente de confirmación:** las decisiones de interfaz de ADR-027 se tomaron con valores por defecto; confirmarlas o cambiarlas con el uso.
+3. **M-15:** reiniciar el Mac una vez y comprobar que la app arranca sola (`tools/launchd-check.sh` ya verifica el reinicio tras caída y la salida limpia).
+4. **G2 / T2.8:** tras 5 días de uso diario, `/release` (el flujo y `release.yml` están listos).
+S0 (línea base) quedó sustituida por el uso real (ADR-026).
 
 ---
 
@@ -55,9 +60,7 @@
 
 ## Semana 0 — Línea base (HUMANO, en paralelo desde hoy)
 
-- [ ] **S0 — Medir la línea base.** David ejecuta `./tools/baseline.sh start` (script **no probado en macOS**: primero `./tools/baseline.sh once` y revisar `~/.devports-baseline/samples.tsv`; bash 3.2). Trabajar normal ≥5 días laborales; `report` → `docs/linea-base-AAAA-MM-DD.txt`.
-  *Sonda de la Fase 0 (T0.2):* `cargo install --path crates/devports-core --bin devports-probe --locked` instala `devports-probe`. `devports-probe ls` lista los servidores que escuchan (puerto, pid, carpeta, comando) y registra cada apertura en `~/.devports-baseline/opens.log`; `devports-probe opens` cuenta aperturas por día (criterio G0: ≥3 por día laborable).
-  *Hecho cuando:* hay ≥5 días registrados. *Si `once` falla en macOS:* corregir el script como tarea `fix(tools):` antes de seguir.
+- [x] **S0 — Medir la línea base.** *Sustituida por ADR-026:* la puerta G0 se omitió y el criterio (duplicados a la mitad, ≥3 aperturas al día) se evalúa en G1/G2 con la app en uso real; `tools/baseline.sh` sigue disponible si se quiere la cifra de «antes» (la sonda temporal `devports-probe` se retiró en T1.10).
 
 ---
 
@@ -107,58 +110,58 @@
 
 ## Fase 1 — Núcleo y CLI sin interfaz (puerta G1)
 
-- [ ] **T1.1 — `devports-proto`, servidor IPC, cliente y verificación de uid.** *Deps:* T0.9 (G0 omitida, ADR-026). *Lee:* ARQUITECTURA §10, CLI §8, NF-04.
+- [x] **T1.1 — `devports-proto`, servidor IPC, cliente y verificación de uid.** *Deps:* T0.9 (G0 omitida, ADR-026). *Lee:* ARQUITECTURA §10, CLI §8, NF-04.
   Tipos serde versionados (`v:1`); socket 0600 en dir 0700; `LOCAL_PEERCRED`; instancia única (socket vivo ⇒ salir, huérfano ⇒ borrar); cotas (línea ≤1 MiB, timeouts, máx. conexiones); ruta ≤104 bytes con respaldo; `examples/headless.rs`. Operaciones: `ping` primero.
   *Pruebas:* I-11, longitud de ruta, línea excesiva, JSON inválido, versión desconocida.
   → `feat(proto): add ipc protocol types` · `feat(core): add unix socket server with peer credential check` · `feat(cli): add ping client`
 
-- [ ] **T1.2 — Parsers y validación de `.devports.yml`, `shared.yml`, `config.yml`.** *Deps:* T1.1. *Lee:* MANIFIESTO §1,2,6,9.
+- [x] **T1.2 — Parsers y validación de `.devports.yml`, `shared.yml`, `config.yml`.** *Deps:* T1.1. *Lee:* MANIFIESTO §1,2,6,9.
   Errores con número de línea, advertencias (clave `test` ⇒ mensaje ADR-010), valores por defecto de `config.yml`. T0.3 ya dejó `manifest::parse/load` (YAML con `serde-saphyr`, versión 1) y los tipos `Manifest`/`ServiceSpec`: T1.2 añade el validador encima (formatos, unicidad, uno de `cwd` o `docker`, advertencias, números de línea con `Spanned`, y **`cwd` que salga de la carpeta del proyecto = error**) y `shared.yml`/`config.yml`. **Decidir y fijar el método de escritura que preserva comentarios** (editor de YAML con CST) validado contra I-15.
   *Pruebas:* U-03 completa (cada error/advertencia), versión mayor rechazada.
   → `feat(core): parse and validate manifest, shared and config files`
 
-- [ ] **T1.3 — Descubrimiento con observador de archivos.** *Deps:* T1.2, T0.3. RF-01. Recarga sin reiniciar, respaldo de raíz git (ADR-001), `import_ops_registry`. *Pruebas:* I-14.
+- [x] **T1.3 — Descubrimiento con observador de archivos.** *Deps:* T1.2, T0.3. RF-01. Recarga sin reiniciar, respaldo de raíz git (ADR-001), `import_ops_registry`. *Pruebas:* I-14.
   → `feat(core): watch roots and reload manifests on change`
 
-- [ ] **T1.4 — SQLite: migraciones, instancias, eventos, retención.** *Deps:* T1.1. *Lee:* ARQUITECTURA §9 (sin `approvals`, ADR-023). WAL, un escritor, `schema_meta`, retención 30 días, tabla de «ignorados» **no** (se define en T2.0). 
+- [x] **T1.4 — SQLite: migraciones, instancias, eventos, retención.** *Deps:* T1.1. *Lee:* ARQUITECTURA §9 (sin `approvals`, ADR-023). WAL, un escritor, `schema_meta`, retención 30 días, tabla de «ignorados» **no** (se define en T2.0). 
   *Pruebas:* migración desde vacío, `CHECK` de estados, retención, reapertura tras corte.
   → `feat(core): add sqlite store with migrations and event retention`
 
-- [ ] **T1.5 — Observación, reconciliación, identidad y Principal de hecho.** *Deps:* T1.3, T1.4, T0.4. RF-02, RF-04, RF-21; ARQUITECTURA §4-5.
+- [x] **T1.5 — Observación, reconciliación, identidad y Principal de hecho.** *Deps:* T1.3, T1.4, T0.4. RF-02, RF-04, RF-21; ARQUITECTURA §4-5.
   Actor del núcleo, diferencias aparece/desaparece/cambia puerto, `(pid,start_time)`. *Pruebas:* U-05, PT-02, PT-03.
   → `feat(core): reconcile observed processes into identified instances`
 
-- [ ] **T1.6 — Registro, vínculo por puerto reservado y máquina de estados.** *Deps:* T1.5. RF-06; ARQUITECTURA §6-7.
+- [x] **T1.6 — Registro, vínculo por puerto reservado y máquina de estados.** *Deps:* T1.5. RF-06; ARQUITECTURA §6-7.
   Reservas, vínculo contenedor/fuerte/medio/ninguno (la ascendencia ya existe: `process::ancestry`, T0.8), `released`, `port_stolen`. *Pruebas:* U-10, I-04, I-05, I-13.
   → `feat(core): add port reservation and instance binding rules`
 
-- [ ] **T1.7 — Política completa de `run`.** *Deps:* T1.6. RF-07, RF-17; CLI §3.
+- [x] **T1.7 — Política completa de `run`.** *Deps:* T1.6. RF-07, RF-17; CLI §3.
   Tabla de decisión (códigos 0,10,11,12,13,14,16,18,19; el 15 queda **sin asignar**), mensajes texto y `--json` con *golden files*, `--reuse`, modo interactivo `DEVPORTS_INTERACTIVE=1`, falla abierto + `open -g -b com.davidcardenas.devports` (módulo del CLI con `#[allow]` justificado para `Command`; el mismo módulo hace el `exec`), sustitución `{PORT}`/`${PORT}`, `sh -c 'exec …'`, variables de entorno. 
   *Pruebas:* U-04, U-11, I-01 (caos 7×), I-09, I-13.
   → `feat(core): decide run requests with deterministic conflict policy` · `feat(cli): add run with exec, reuse and fail-open` · `test: add golden files for run output`
 
-- [ ] **T1.8 — Temporales: puertos, tokens, tope, vencimientos persistentes, parada segura.** *Deps:* T1.7. RF-08, RF-09, NF-06; ARQUITECTURA §8.
+- [x] **T1.8 — Temporales: puertos, tokens, tope, vencimientos persistentes, parada segura.** *Deps:* T1.7. RF-08, RF-09, NF-06; ARQUITECTURA §8.
   Asignador de puertos, token 128 bits (solo hash), tope 2, TTL/extend ≤4 h, aviso T-60 una vez, parada (SIGTERM→5 s→SIGKILL→2 s; nunca grupos ajenos; prohibiciones absolutas), `expired_alive`, ejecución inmediata de vencidos al arrancar. **Bloqueante de seguridad.**
   *Pruebas:* U-06, U-07, U-08, U-09, PT-03, PT-04, I-03, I-06, I-07, I-10.
   → `feat(core): add temporary instances with persistent leases` · `feat(core): add safe process tree termination`
 
-- [ ] **T1.9 — Docker en el núcleo: eventos, vínculo por contenedor, `stop`.** *Deps:* T1.8, T0.4. RF-03.
+- [x] **T1.9 — Docker en el núcleo: eventos, vínculo por contenedor, `stop`.** *Deps:* T1.8, T0.4. RF-03.
   Reintento con espera creciente («desconocido», no «caído»); **suscribirse a eventos antes de listar y tratar los eventos como pistas** (T0.4: pueden repetirse, ver ADR-025); añadir `stop` al trait `ContainerSource` (hoy solo `list` y `events`); `tools/docker-checks.sh` ejecuta `cargo test -p devports-core --test docker_engine -- --ignored` además de D-02/D-04; `docker stop` 10 s; nunca `rm`; `kind: data` jamás se detiene solo. Escribir `tools/docker-checks.sh` (D-01..D-05 en la Mac). *Pruebas:* D-01..D-04 simuladas.
   → `feat(core): bind and stop docker containers for temporary instances` · `test(tools): add docker checks script`
 
-- [ ] **T1.10 — `ls`, `stop`, `extend`, `log`, `adopt` (propuesta).** *Deps:* T1.8. RF-05, RF-11, RF-15; CLI §4-7.
+- [x] **T1.10 — `ls`, `stop`, `extend`, `log`, `adopt` (propuesta).** *Deps:* T1.8. RF-05, RF-11, RF-15; CLI §4-7.
   Los tokens nunca salen en `ls`/`log`. `adopt` solo lectura. `adopt` debe generar `match` sin depender de `argv[0]` (ver MANIFIESTO §3, precisiones). **Retirar `devports-probe` (módulo `probe` y binario) y su entrada de CHANGELOG** (ADR-025, punto 8). *Pruebas:* I-08, I-15 (propuesta), U-08.
   → `feat(cli): add ls, stop, extend, log and adopt commands`
 
-- [ ] **T1.11 — Salud (health checks) y estado «colgada».** *Deps:* T1.6. *Lee:* MANIFIESTO §5. (Sustituye al `--replace` eliminado.)
+- [x] **T1.11 — Salud (health checks) y estado «colgada».** *Deps:* T1.6. *Lee:* MANIFIESTO §5. (Sustituye al `--replace` eliminado.)
   TCP/HTTP <1 s, cada 5 s, 3 fallos ⇒ no sana; alimenta código 11 y `healthy` en `ls`. *Pruebas:* servidor que deja de responder; HTTP 200–399; reloj falso.
   → `feat(core): add tcp and http health checks with hung state`
 
-- [ ] **T1.12 — Duplicados sin registrar, Olvidados, atribución e instancia vieja.** *Deps:* T1.5, T1.8. RF-10, RF-19, RF-20; ADR-004.
+- [x] **T1.12 — Duplicados sin registrar, Olvidados, atribución e instancia vieja.** *Deps:* T1.5, T1.8. RF-10, RF-19, RF-20; ADR-004.
   Detección ≤3 s, `expired_alive` en Olvidados, cadena de ancestros con `known_agents` (lo desconocido, crudo; ninguna acción depende), rama/worktree leyendo `.git/HEAD` y `logs/HEAD` sin lanzar `git`. *Pruebas:* I-02, I-16, I-17.
   → `feat(core): detect unregistered duplicates and forgotten instances` · `feat(core): add launcher attribution and stale instance signals`
 
-- [ ] **T1.13 — Suite completa y CI macOS.** *Deps:* T1.1–T1.12. Cierre de PRUEBAS.md: U-01..U-11, PT-01..PT-04, I-01..I-17, D simuladas; matriz requisito→prueba verificada (script que falla si un RF no tiene prueba); `quality.yml` en macOS.
+- [x] **T1.13 — Suite completa y CI macOS.** *Deps:* T1.1–T1.12. Cierre de PRUEBAS.md: U-01..U-11, PT-01..PT-04, I-01..I-17, D simuladas; matriz requisito→prueba verificada (script que falla si un RF no tiene prueba); `quality.yml` en macOS.
   → `test: complete unit, property and integration suites` · `ci(quality): run macos integration suite`
 
 - [ ] **G1 — PUERTA FASE 1 (HUMANA).** Todas las pruebas en verde en CI (Linux+macOS) + `docker-checks.sh` en la Mac + **3 días de uso real sin parada indebida** + E1–E7 del PRD en la Mac + **revisión del portafolio por escrito** (ROADMAP §6: ¿resolvió el dolor?, ¿qué proyecto se pausa?, ¿cabe la estimación?). Decidir también nombre/licencia si procede (ADR-020).
@@ -167,32 +170,32 @@
 
 ## Fase 2 — App de barra (puerta G2)
 
-- [ ] **T2.0 — Cerrar los puntos abiertos de UI y extraer el sistema visual.** Decidir también las **esquinas redondeadas de 14 px** del panel: una ventana sin decoraciones es de esquinas rectas; redondearlas exige ventana transparente (API privada de macOS en Tauri) o aceptarlas rectas (T0.5). *Deps:* G1. *Lee:* UI-REFERENCIA §6-7 y capturas. 
+- [x] **T2.0 — Cerrar los puntos abiertos de UI y extraer el sistema visual.** Decidir también las **esquinas redondeadas de 14 px** del panel: una ventana sin decoraciones es de esquinas rectas; redondearlas exige ventana transparente (API privada de macOS en Tauri) o aceptarlas rectas (T0.5). *Deps:* G1. *Lee:* UI-REFERENCIA §6-7 y capturas. 
   Proponer a David y registrar (ADR-027): persistencia de «Ignorar» (tabla `ignored` en SQLite, por `cwd+match`), «Crear proyecto nuevo», «Marcar como legítimo», estados vacíos/error (sin proyectos, Docker apagado, núcleo reconectando), orden de tabulación/foco/VoiceOver, filtro «Alertas», modo claro (diferido). Extraer tokens y estructura de `brag-output/*/composition/index.html` a `docs/ui-referencia/tokens.md`.
   *Hecho cuando:* David confirma cada punto; los PNG existentes cubren los estados diseñados.
   → `docs(ui): record adr-026 ui decisions and design tokens`
 
-- [ ] **T2.1 — Shell Tauri que aloja el núcleo + tooling de `ui/`.** Eliminar el código de spike (`spike-autopilot`, `spike-notify`, `autopilot.rs`, `notify_spike.rs`, `attention.rs` de juguete y el `frontend/` estático); conservar y reutilizar `panel.rs` (guarda, alfa 0 hasta `panel_ready`, almacén no persistente), `window_style.rs`, `diagnostics.rs` y `clock`. *Deps:* T2.0. RF-14.
+- [x] **T2.1 — Shell Tauri que aloja el núcleo + tooling de `ui/`.** Eliminar el código de spike (`spike-autopilot`, `spike-notify`, `autopilot.rs`, `notify_spike.rs`, `attention.rs` de juguete y el `frontend/` estático); conservar y reutilizar `panel.rs` (guarda, alfa 0 hasta `panel_ready`, almacén no persistente), `window_style.rs`, `diagnostics.rs` y `clock`. *Deps:* T2.0. RF-14.
   `crates/devports-app` arranca el núcleo y el socket; `ui/` con Vite+React 19+TS estricto (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, cero `any`), ESLint, Prettier, Vitest + Testing Library; bindings generados con `tauri-specta` (`ui/src/bindings.ts` no se edita; CI verifica deriva); texto UI centralizado; el núcleo empuja instantáneas por eventos Tauri, React sin lógica de negocio. Ícono con contador.
   → `feat(app): host core in tauri shell with tray counter` · `feat(ui): scaffold react panel with generated bindings`
 
-- [ ] **T2.2 — Panel: Atención, Proyectos, Compartidos, Sin proyecto, Actividad.** *Deps:* T2.1. UI-REFERENCIA §3-4; capturas 01–18.
+- [x] **T2.2 — Panel: Atención, Proyectos, Compartidos, Sin proyecto, Actividad.** *Deps:* T2.1. UI-REFERENCIA §3-4; capturas 01–18.
   Árbol proyecto→repo→servicio, tokens de color/tipografía, `prefers-reduced-motion`, accesibilidad (botones reales, foco visible). *Pruebas:* componentes con datos simulados (contador, cuentas regresivas, advertencia de dependientes).
   → varios `feat(ui): …` por pestaña
 
-- [ ] **T2.3 — Acciones.** *Deps:* T2.2. RF-05, RF-12, RF-16.
+- [x] **T2.3 — Acciones.** *Deps:* T2.2. RF-05, RF-12, RF-16.
   Detener Principal (confirmación; `data`/compartido muestra dependientes), Extender, Terminar, Conservar, Marcar como legítimo, Adoptar y **escribir manifiesto preservando comentarios** (I-15), Copiar comando, Abrir URL, Detener los N. Estas operaciones existen **solo** en comandos Tauri, nunca en el socket (ADR-009; test que lo verifica).
   → `feat(app): add stop, extend, adopt and legitimize commands`
 
-- [ ] **T2.4 — Notificaciones.** Quitar la puerta `spike-notify` de `notifications.rs` (ya implementa `UNUserNotificationCenter`), añadir la deduplicación de 10 min por proyecto con el `Clock` inyectado y probarla con `ManualClock`. Mantener `NoBundle` como degradación explícita. *Deps:* T2.3, T0.6. Vencimiento T-60 s y duplicado agrupado (ventana 10 min por proyecto), solo esos dos casos (ADR-014); según V6, con botón o abriendo el panel enfocado. → `feat(app): add grouped system notifications`
+- [x] **T2.4 — Notificaciones.** Quitar la puerta `spike-notify` de `notifications.rs` (ya implementa `UNUserNotificationCenter`), añadir la deduplicación de 10 min por proyecto con el `Clock` inyectado y probarla con `ManualClock`. Mantener `NoBundle` como degradación explícita. *Deps:* T2.3, T0.6. Vencimiento T-60 s y duplicado agrupado (ventana 10 min por proyecto), solo esos dos casos (ADR-014); según V6, con botón o abriendo el panel enfocado. → `feat(app): add grouped system notifications`
 
-- [ ] **T2.5 — Vista de Actividad.** *Deps:* T2.2. RF-15; filtros Todo/Rechazos/Temporales(+Alertas si T2.0 lo confirma). → `feat(ui): add activity view with filters`
+- [x] **T2.5 — Vista de Actividad.** *Deps:* T2.2. RF-15; filtros Todo/Rechazos/Temporales(+Alertas si T2.0 lo confirma). → `feat(ui): add activity view with filters`
 
-- [ ] **T2.6 — Autoarranque y supervisión.** Instalar el agente con `.plist` propio (`RunAtLoad`, `KeepAlive{SuccessfulExit:false}`, `ThrottleInterval` 5; el plugin de Tauri no escribe `KeepAlive`) o con `SMAppService`; repetir `tools/spike-launchd.sh` contra el binario real. *Deps:* T2.1, T0.7. RF-18; ARQUITECTURA §11. *Pruebas:* M-15. → `feat(app): add login launch and crash restart`
+- [x] **T2.6 — Autoarranque y supervisión.** Instalar el agente con `.plist` propio (`RunAtLoad`, `KeepAlive{SuccessfulExit:false}`, `ThrottleInterval` 5; el plugin de Tauri no escribe `KeepAlive`) o con `SMAppService`; repetir `tools/spike-launchd.sh` contra el binario real. *Deps:* T2.1, T0.7. RF-18; ARQUITECTURA §11. *Pruebas:* M-15. → `feat(app): add login launch and crash restart`
 
-- [ ] **T2.7 — Medición del presupuesto y palancas.** *Deps:* T2.1–T2.6. NF-01; M-14 (1 h en reposo). Ajustar intervalo/profundidad si no cumple; si el panel anclado es deficiente, decisión sobre SwiftUI **antes** de seguir. → `perf: tune observation within idle budget`
+- [x] **T2.7 — Medición del presupuesto y palancas.** *Deps:* T2.1–T2.6. NF-01; M-14 (1 h en reposo). Ajustar intervalo/profundidad si no cumple; si el panel anclado es deficiente, decisión sobre SwiftUI **antes** de seguir. → `perf: tune observation within idle budget`
 
-- [ ] **T2.8 — Release v0.1.0 (opcional, tras G2).** **Sellar** el paquete con firma ad hoc (`codesign --force --deep --sign -`) y verificarlo (`codesign --verify --deep --strict`) antes de publicar: sin eso las notificaciones no funcionan (ADR-025). `release.yml` con bundle macOS sellado ad hoc (copiar de GitCanvas), `/release`. PR `dev → main` lo aprueba David.
+- [ ] **T2.8 — Release v0.1.0 (opcional, tras G2).** *Preparado:* `release.yml`, `scripts/validate-release.py` y `tools/bundle.sh` (sella el paquete); falta decidir la versión y ejecutar `/release` tras G2. **Sellar** el paquete con firma ad hoc (`codesign --force --deep --sign -`) y verificarlo (`codesign --verify --deep --strict`) antes de publicar: sin eso las notificaciones no funcionan (ADR-025). `release.yml` con bundle macOS sellado ad hoc (copiar de GitCanvas), `/release`. PR `dev → main` lo aprueba David.
 
 - [ ] **G2 — PUERTA FASE 2 (HUMANA).** UI y M-13..M-15 en verde + presupuesto cumplido + 5 días de uso diario sin cuelgues.
 

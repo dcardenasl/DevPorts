@@ -7,11 +7,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
-- **DevPorts app and `devports` commands** — menu-bar app hosting the core with a panel (Atención, Proyectos, Compartidos, Sin proyecto, Actividad), notifications, and the `run`, `ls`, `stop`, `extend`, `log` and `adopt` commands.
-
-- **`devports-probe ls` and `opens`** — Phase 0 read-only listing of the current user's TCP listeners (port, pid, working directory, command line) with a per-day count of how often it was opened, to measure the baseline before the core exists. Removed when `devports ls` talks to the core (T1.10).
-- **`devports-probe projects`** — lists the projects found under `~/developer` (or `DEVPORTS_ROOTS`) with their services, and `ls` now shows the project and service each listener belongs to.
-- **`devports-probe docker`** — lists the containers of the active Docker context (Docker Desktop, OrbStack or Colima) with their state, published ports and the project they belong to by manifest or compose labels.
+- **DevPorts app** — menu-bar app that hosts the core: a panel with Atención, Proyectos, Compartidos, Sin proyecto and Actividad, system notifications (lease about to end with an "Extender" button, grouped duplicates), a counter in the menu bar, adopting running processes and database containers into manifests, and start at login.
+- **`devports` command** — `run` (one official server per service, test instances with a lease, `--reuse`, fail-open), `ls`, `stop`, `extend`, `log` and `adopt`, with stable exit codes and `--json`.
+- **Safe stopping** — only registered test instances with a lease are stopped automatically, by `(pid, start)` identity, never by process group, never `docker rm`.
 
 ### Fixed
 

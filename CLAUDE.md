@@ -5,13 +5,13 @@ Contexto para retomar este proyecto sin la conversación previa. Escrito para qu
 ## Qué es
 App de barra de menús para macOS que mantiene el orden de los servidores de desarrollo (qué corre, de qué proyecto, cuál es el oficial y cuáles son pruebas con vencimiento) más un CLI `devports run` para que los agentes de IA no dupliquen servidores. Nombre de trabajo; el definitivo se decide en la Fase 4 (ADR-020).
 **Stack:** Rust (núcleo y CLI), Tauri v2 (envoltura), React + TypeScript (panel), SQLite. Solo macOS en v1.
-**Estado:** especificado, sin código. Ver `TASKS.md`.
+**Estado:** núcleo, CLI y app de barra construidos (fases 1 y 2); esperan las puertas G1/G2 (uso real). Ver `TASKS.md` y `SNAPSHOT.md`.
 
 ## Cómo retomar en frío
 1. Leer [`TASKS.md`](TASKS.md): primera tarea sin marcar con dependencias cumplidas.
 2. Leer los docs que esa tarea cita. Orden general: `docs/DECISIONES.md` → `PRD.md` → `ARQUITECTURA.md` → `MANIFIESTO.md` → `CLI.md` → `PRUEBAS.md` → `ROADMAP.md`.
 3. `git branch --show-current` debe decir `dev`; `git status`; `git log --oneline | head -15` (copiar el estilo real).
-4. Si todavía no hay repositorio git: la tarea es B-1.
+4. Cada prueba automatizada del plan lleva `// covers: ID` y `tools/check_matrix.py` falla si falta una (PRUEBAS.md §4).
 
 ## Documentos
 | Archivo | Cuándo cargarlo |
@@ -65,7 +65,7 @@ Código, comentarios, commits y CHANGELOG en **inglés**. `docs/`, `TASKS.md`, `
 G0 (criterio de éxito ADR-022), G1 (+ revisión de portafolio), G2, G3, G4. Al llegar a una: detenerse y pedir la decisión a David. La Fase 3 se hace en el repo `ci4-kickstart`, en sesión aparte.
 
 ## Verificación
-Local: `cargo fmt --all --check` · `cargo clippy --workspace --all-targets -- -D warnings` · `cargo test --workspace`; desde T2.1: `npm run typecheck && npm run lint && npm run format:check && npm test` en `ui/`.
+Local: `tools/check.sh full` (fmt, matriz de pruebas, clippy `-D warnings`, todas las pruebas con `devports-core/bindings`, `cargo deny`) y en `ui/`: `pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test`. En la Mac, antes de cada versión: `tools/docker-checks.sh` y `tools/launchd-check.sh`; para el presupuesto, `tools/measure.sh`. Instalar: `tools/install.sh`.
 CI: `dev-check` (ubuntu, ligero) en push a `dev`; `quality` (ubuntu + macOS, integración con procesos reales) en PR a `main`. Docker real solo en la Mac de David con `tools/docker-checks.sh`.
 
 ## Skills opcionales

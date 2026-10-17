@@ -73,11 +73,19 @@ fn a_running_server_becomes_a_service_with_its_fingerprint() {
 #[test]
 fn the_port_is_replaced_in_every_form_it_appears() {
     assert_eq!(
-        start_command(&["node".into(), "vite".into(), "--port=5173".into()], 5173),
+        start_command(
+            &["node".into(), "vite".into(), "--port=5173".into()],
+            5173,
+            Path::new("/work/app")
+        ),
         "node vite --port=${PORT}"
     );
     assert_eq!(
-        start_command(&["php".into(), "-S".into(), "localhost:8000".into()], 8000),
+        start_command(
+            &["php".into(), "-S".into(), "localhost:8000".into()],
+            8000,
+            Path::new("/work/app")
+        ),
         "php -S localhost:${PORT}"
     );
     assert_eq!(
@@ -88,7 +96,8 @@ fn the_port_is_replaced_in_every_form_it_appears() {
                 "http.server".into(),
                 "8001".into()
             ],
-            8001
+            8001,
+            Path::new("/work/app")
         ),
         "python3 -m http.server ${PORT}"
     );
@@ -194,4 +203,46 @@ fn awkward_commands_are_quoted_in_yaml() {
     assert_eq!(scalar("--flag"), "\"--flag\"");
     assert_eq!(scalar("say \"hi\""), "say \"hi\"");
     assert_eq!(scalar("x #y"), "\"x #y\"");
+}
+
+// covers: I-15, RF-05
+#[test]
+fn paths_in_a_start_command_are_tidied_so_they_mean_the_same_later() {
+    let cwd = Path::new("/work/app");
+    let command = |argv: &[&str], port| {
+        start_command(
+            &argv
+                .iter()
+                .map(|part| (*part).to_owned())
+                .collect::<Vec<_>>(),
+            port,
+            cwd,
+        )
+    };
+    // `..` collapses and a file inside the folder becomes relative.
+    assert_eq!(
+        command(
+            &[
+                "node",
+                "/work/app/node_modules/.bin/../.pnpm/vite@8/node_modules/vite/bin/vite.js",
+                "--port",
+                "5173"
+            ],
+            5173
+        ),
+        "node node_modules/.pnpm/vite@8/node_modules/vite/bin/vite.js --port ${PORT}"
+    );
+    // The folder itself is `.`, a path outside it stays absolute, options are left alone.
+    assert_eq!(
+        command(&["php", "-S", "127.0.0.1:8192", "-t", "/work/app"], 8192),
+        "php -S 127.0.0.1:${PORT} -t ."
+    );
+    assert_eq!(
+        command(&["python3", "/elsewhere/../tools/serve.py", "9000"], 9000),
+        "python3 /tools/serve.py ${PORT}"
+    );
+    assert_eq!(
+        command(&["ruby", "app.rb", "--bind=0.0.0.0"], 4567),
+        "ruby app.rb --bind=0.0.0.0"
+    );
 }

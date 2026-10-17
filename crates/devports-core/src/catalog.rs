@@ -308,7 +308,8 @@ fn resolve(path: &Path) -> PathBuf {
     std::fs::canonicalize(&lexical).unwrap_or(lexical)
 }
 
-fn lexically_normalized(path: &Path) -> PathBuf {
+/// `path` without `.` and `x/..` segments, without touching the disk.
+pub(crate) fn lexically_normalized(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
         match component {

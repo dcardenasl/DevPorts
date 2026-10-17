@@ -58,7 +58,7 @@
 | I-17 | Señales de instancia vieja: cambiar de rama o hacer commit tras el inicio | Se marca "arrancó antes del último commit" |
 
 ### Docker (D)
-En CI con `ContainerSource` simulado: D-01 a D-04. En la Mac de David con Docker real, mediante `tools/docker-checks.sh` (a escribir en la Fase 1), antes de cada versión:
+En CI con `ContainerSource` simulado: D-01 a D-04. En la Mac de David con Docker real, mediante `tools/docker-checks.sh`, antes de cada versión:
 | ID | Escenario |
 |---|---|
 | D-01 | Contenedor de compose se asigna al proyecto por etiquetas |

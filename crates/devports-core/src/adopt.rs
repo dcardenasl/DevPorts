@@ -139,7 +139,7 @@ fn process_service(dir: &Path, cwd: &Path, view: &InstanceView) -> ProposedServi
         cwd: Some(relative.map_or_else(|| ".".to_owned(), |rel| format!("./{}", rel.display()))),
         docker: None,
         port: view.port,
-        start: view.port.map(|port| start_command(&argv, port)),
+        start: view.port.map(|port| start_command(&argv, port, cwd)),
         match_text: (!argv.is_empty()).then(|| Fingerprint::from_argv(&argv).render()),
         is_data: false,
         review,
@@ -168,7 +168,12 @@ fn container_service(name: &str, view: &InstanceView) -> ProposedService {
 }
 
 /// `argv` as one command, with the listening port replaced by `${PORT}`.
-fn start_command(argv: &[String], port: u16) -> String {
+///
+/// Paths are tidied so the command still means the same later: `a/../b`
+/// collapses, and a file inside the service's folder (`cwd`, where the command
+/// will run) is written relative to it instead of as an absolute path of this
+/// machine.
+fn start_command(argv: &[String], port: u16, cwd: &Path) -> String {
     let port_text = port.to_string();
     argv.iter()
         .enumerate()
@@ -180,7 +185,7 @@ fn start_command(argv: &[String], port: u16) -> String {
                     .unwrap_or(token)
                     .to_owned()
             } else {
-                token.clone()
+                tidy_path(token, cwd)
             };
             if token == port_text {
                 "${PORT}".to_owned()
@@ -194,6 +199,20 @@ fn start_command(argv: &[String], port: u16) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// An absolute path argument, normalised and made relative to `cwd` when it is
+/// inside it; anything else is returned as it was.
+fn tidy_path(token: &str, cwd: &Path) -> String {
+    if !token.starts_with('/') {
+        return token.to_owned();
+    }
+    let normalized = crate::catalog::lexically_normalized(Path::new(token));
+    match normalized.strip_prefix(cwd) {
+        Ok(relative) if relative.as_os_str().is_empty() => ".".to_owned(),
+        Ok(relative) => relative.display().to_string(),
+        Err(_) => normalized.display().to_string(),
+    }
 }
 
 /// Lower case, letters and digits, other runs becoming one hyphen.

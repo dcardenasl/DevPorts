@@ -3,13 +3,29 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
-## Fases 1 y 2 en bloque (T1.5–T1.12 y T2.1–T2.5) · 2026-10-17
-- Decisión de David: «construirlo de inmediato, probar la app con su UI/UX» (G0 omitida, ADR-026). Decisiones nuevas en ADR-027.
-- Núcleo: motor determinista con 58 pruebas de política (`engine/tests.rs`), runtime con actor, escáner del host, supervisor de Docker con reconexión, sonda de salud TCP/HTTP, catálogo por repaso, IPC; `adopt::apply` (escritura del manifiesto con comentarios conservados); «conservar» persistente; elementos de atención.
-- CLI: `run` (exec, banner, entorno, falla abierto, modo interactivo), `ls`, `stop`, `extend`, `log`, `adopt`; pruebas de extremo a extremo contra el núcleo real con host simulado.
-- App: núcleo alojado en el shell de Tauri, panel React con las 5 vistas, acciones, notificaciones (vencimiento con «Extender», duplicado agrupado a 10 min), contador en la barra, `tools/bundle.sh`, `tools/demo.sh`.
-- Verificación: `tools/check.sh full` (fmt, clippy `-D warnings`, todas las pruebas, `cargo deny`) y en `ui/`: `tsc`, eslint, prettier, vitest (8 pruebas).
-- Pendiente de la fase: T2.6 (autoarranque), T2.7 (medición), T2.8 (release), retirar `devports-probe` (T1.10), pruebas de caos I-01/I-02 con procesos reales, `docker-checks.sh`, golden files del CLI, la comprobación visual de las 5 vistas por David.
+## Fases 1 y 2 · 2026-10-17 · evidencia por tarea
+Verificación general: `tools/check.sh full` (fmt, matriz de pruebas, clippy `-D warnings`, 270+ pruebas de Rust con `devports-core/bindings`, `cargo deny`) y en `ui/` `tsc`, eslint, prettier y 16 pruebas de Vitest. `python3 tools/check_matrix.py`: las 37 pruebas de PRUEBAS.md y todos los RF/NF automatizables tienen una prueba que los declara (`// covers:`).
+
+| Tarea | Resultado | Pruebas / comprobación |
+|---|---|---|
+| T1.1 IPC | `devports-proto` (versionado, cotas), servidor con uid, instancia única, limpieza de huérfano | I-11 (`tests/ipc_server.rs`) |
+| T1.2 Manifiestos | validador con línea, `shared.yml`, `config.yml`; escritura que conserva comentarios (`adopt/apply.rs`, texto + validación + escritura atómica; no `yaml-edit`) | U-03, I-15 (`adopt/apply/tests.rs`) |
+| T1.3 Descubrimiento | repaso cada 5 s (ADR-027) en lugar de `notify`; recarga sin reiniciar | I-14, `tests/runtime.rs` |
+| T1.4 SQLite | WAL, migraciones 1 (instancias, eventos) y 2 (`ignored`), retención | `store/tests.rs` |
+| T1.5 a T1.8 Motor | `engine/*` determinista con reloj inyectable; vínculo, reservas, política de `run`, vencimientos, parada segura | U-04 a U-10, PT-03, `engine/tests.rs` y `scenarios.rs` |
+| T1.8 revisión de seguridad | [`docs/revision-seguridad-t1-8.md`](docs/revision-seguridad-t1-8.md): 4 hallazgos resueltos (reverificar `(pid,start)` antes de cada señal, tabla ilegible nunca es «detenido», raíz de proyecto acotada) | U-09, PT-04, `process/terminate/tests.rs` |
+| T1.9 Docker | supervisor con reconexión, `docker stop` (nunca `rm`), estado «desconocida» si no responde | D-01 a D-04 simulados; **reales** con `tools/docker-checks.sh` (pasa: Docker Desktop 20.10) |
+| T1.10 CLI | `run`, `ls`, `stop`, `extend`, `log`, `adopt`; `devports-probe` retirado | I-08, I-09, I-12, I-13, U-11 (golden files en `crates/devports-cli/tests/golden/`) |
+| T1.11 Salud | TCP/HTTP, 3 fallos = colgada, código 11 | `runtime/probe.rs`, `engine/tests.rs` |
+| T1.12 Duplicados y atribución | duplicados, olvidados, cadena con `known_agents`, instancia vieja | I-02, I-16, I-17 |
+| T1.13 Suite | I-01, I-02 e I-03 con **procesos y puertos reales** (`crates/devports-cli/tests/real_host.rs`), CI macOS, matriz verificada por script | `tools/check_matrix.py` en CI |
+| T2.0 Decisiones de UI | valores por defecto en ADR-027; **falta que David las confirme con el uso** | n/a |
+| T2.1 Shell | núcleo alojado, ícono con contador, bindings generados con `specta` (ADR-027) | `tests/bindings.rs` |
+| T2.2 a T2.5 Panel | 5 vistas, acciones, notificaciones, actividad; datos reales verificados por captura | `ui/src/App.test.tsx` (10 pruebas de vistas), `model.test.ts` |
+| T2.6 Autoarranque | LaunchAgent propio (`KeepAlive{SuccessfulExit:false}`, `ThrottleInterval 5`), salida limpia por `SIGTERM` | `tools/launchd-check.sh` contra la app real: reinicio tras `kill -9` en ~5 s, sin reinicio tras salida limpia (código 0), socket retirado. Falta el reinicio del Mac (manual) |
+| T2.7 Presupuesto | reposo con la ventana cerrada: **22 MB, 0,6 % de CPU** (presupuesto 50 MB y 1 %); `tools/measure.sh` | Antes: 1,5 % por refrescar repositorios cada segundo, leer la ruta de cada proceso y reconstruir vistas sin cambios; ahora hay caché de datos de git (10 s), de rutas y detalles (30 s), el escaneo omite los programas del sistema (3,7 → 0,7 ms) y el tick solo reconstruye si algo cambió |
+| T2.7 con el panel | abierto: app 37 MB + WebKit (WebContent 23, GPU 13, Red 5); al cerrarse quedan 35 MB + el proceso GPU (~48 MB). **Justo bajo el presupuesto**; palanca documentada: panel nativo sin WebKit | medido a mano |
+| T2.8 Release | `release.yml` (valida etiqueta en `main` y versiones, compila las dos arquitecturas, sella, publica con las notas del CHANGELOG), `scripts/validate-release.py` | no ejecutado: falta G2 |
 
 ## H0 — Endurecimiento de los hallazgos de la Fase 0 · 2026-10-17
 - Commits: `fix(core): compare programs by family so python3 matches homebrew python`, `ci: evaluate dependency policy and advisories for macos only`, `feat(core): add an injectable clock and use it to test the panel reopen guard`, `test(core): allow the window styling module as a second guarded unsafe file`, `build(app): add appkit and core animation bindings and make tokio a plain dependency`, `feat(app): round the panel corners with public appkit api and paint before showing`, `perf(app): use a non-persistent web data store for the panel`, `test(core): allow the notifications module as a third guarded unsafe file`, `build(app): replace the notification plugin with usernotifications bindings`, `feat(app): post notifications with action buttons through usernotifications`, `test(tools): add one-command notification check that seals the bundle`, y los de documentación.
