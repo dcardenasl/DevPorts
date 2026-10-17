@@ -7,6 +7,7 @@
 
 pub mod catalog;
 pub mod clock;
+pub mod diagnostic;
 pub mod discovery;
 pub mod docker;
 pub mod fingerprint;
@@ -16,6 +17,7 @@ pub mod manifest;
 pub mod platform;
 pub mod probe;
 pub mod process;
+pub mod yaml_keys;
 
 /// Protocol version the core's IPC server speaks.
 pub const SUPPORTED_PROTOCOL: u32 = devports_proto::PROTOCOL_VERSION;

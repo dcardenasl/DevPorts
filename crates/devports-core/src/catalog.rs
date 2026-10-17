@@ -555,8 +555,11 @@ mod tests {
 
     #[test]
     fn the_deepest_project_wins_for_a_compose_folder_too() {
-        let outer = project("/work/shop", "version: 1\nproject: outer\n");
-        let inner = project("/work/shop/api", "version: 1\nproject: inner\n");
+        let outer = project("/work/shop", "version: 1\nproject: outer\nservices: {}\n");
+        let inner = project(
+            "/work/shop/api",
+            "version: 1\nproject: inner\nservices: {}\n",
+        );
         let catalog = Catalog::new(vec![outer, inner]);
         let web = container("x", Some(("p", Some("/work/shop/api/compose"))));
         assert!(matches!(

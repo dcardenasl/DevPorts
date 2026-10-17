@@ -232,6 +232,10 @@ fn describe_issue(issue: &DiscoveryIssue) -> String {
             format!("no se pudo leer {}: {reason}", path.display())
         }
         DiscoveryIssue::Manifest(error) => format!("manifiesto no cargado: {error}"),
+        DiscoveryIssue::ManifestWarnings { path, diagnostics } => {
+            let lines: Vec<String> = diagnostics.iter().map(ToString::to_string).collect();
+            format!("{}: {}", path.display(), lines.join("; "))
+        }
         DiscoveryIssue::DuplicateProjectName { name, roots } => {
             let places: Vec<String> = roots
                 .iter()

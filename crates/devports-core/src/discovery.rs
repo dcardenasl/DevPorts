@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use crate::catalog::{Catalog, Project};
+use crate::diagnostic::Diagnostic;
 use crate::manifest::{self, MANIFEST_FILE, ManifestError};
 
 /// How many folder levels below a root are searched (`max_depth` in
@@ -42,6 +43,13 @@ pub enum DiscoveryIssue {
     },
     /// A manifest exists but could not be loaded; its project is not registered.
     Manifest(ManifestError),
+    /// A manifest loaded, but with warnings.
+    ManifestWarnings {
+        /// The manifest file.
+        path: PathBuf,
+        /// What is probably not as intended.
+        diagnostics: Vec<Diagnostic>,
+    },
     /// Two projects declare the same name, so `--project <name>` is ambiguous.
     DuplicateProjectName {
         /// The repeated name.
@@ -72,7 +80,21 @@ pub fn default_roots(home: &Path) -> Vec<PathBuf> {
 /// Searches `roots` for projects, going down at most `max_depth` levels.
 #[must_use]
 pub fn discover(roots: &[PathBuf], max_depth: usize) -> Discovery {
-    let mut search = Search::default();
+    discover_with(roots, max_depth, None)
+}
+
+/// Like [`discover`], also checking each manifest's `uses` against the names in
+/// `shared.yml`.
+#[must_use]
+pub fn discover_with(
+    roots: &[PathBuf],
+    max_depth: usize,
+    known_shared: Option<&std::collections::BTreeSet<String>>,
+) -> Discovery {
+    let mut search = Search {
+        known_shared,
+        ..Search::default()
+    };
     for root in roots {
         match std::fs::canonicalize(root) {
             Ok(canonical) if canonical.is_dir() => search.visit(&canonical, 0, max_depth),
@@ -85,14 +107,15 @@ pub fn discover(roots: &[PathBuf], max_depth: usize) -> Discovery {
 }
 
 #[derive(Default)]
-struct Search {
+struct Search<'a> {
+    known_shared: Option<&'a std::collections::BTreeSet<String>>,
     projects: Vec<Project>,
     issues: Vec<DiscoveryIssue>,
     /// Manifests already loaded, so overlapping roots do not register a project twice.
     loaded: BTreeSet<PathBuf>,
 }
 
-impl Search {
+impl Search<'_> {
     fn visit(&mut self, dir: &Path, depth: usize, max_depth: usize) {
         self.load_manifest_in(dir);
         if depth >= max_depth {
@@ -126,8 +149,17 @@ impl Search {
         if !path.is_file() || !self.loaded.insert(path.clone()) {
             return;
         }
-        match manifest::load(&path) {
-            Ok(manifest) => self.projects.push(Project::from_manifest(dir, &manifest)),
+        match manifest::load(&path, self.known_shared) {
+            Ok(loaded) => {
+                if !loaded.warnings.is_empty() {
+                    self.issues.push(DiscoveryIssue::ManifestWarnings {
+                        path: path.clone(),
+                        diagnostics: loaded.warnings,
+                    });
+                }
+                self.projects
+                    .push(Project::from_manifest(dir, &loaded.manifest));
+            }
             Err(error) => self.issues.push(DiscoveryIssue::Manifest(error)),
         }
     }
