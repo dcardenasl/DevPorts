@@ -118,6 +118,10 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         .skip_taskbar(true)
         .visible(false)
         .focused(false)
+        // The panel keeps nothing on disk, and a non-persistent data store lets WebKit
+        // drop one of its two shared helper processes once the panel closes (about
+        // 7 MB less at rest, measured in T0.9).
+        .incognito(true)
         .build()?;
 
     // On screen but fully transparent and deaf to the mouse until the page has
