@@ -43,3 +43,5 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --exclude devports-app --all-targets -- -D warnings
       - run: cargo test --workspace --exclude devports-app
+      - name: Every test of PRUEBAS.md exists
+        run: python3 tools/check_matrix.py

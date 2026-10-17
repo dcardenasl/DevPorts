@@ -59,7 +59,7 @@ jobs:
           cargo clippy --workspace --exclude devports-app --all-targets -- -D warnings
           cargo test --workspace --exclude devports-app
 
-      - name: Interface (macOS leg: it is embedded in the app)
+      - name: "Interface (macOS leg, because the app embeds it)"
         if: matrix.os == 'macos-latest'
         run: |
           corepack enable

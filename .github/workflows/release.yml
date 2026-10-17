@@ -1,0 +1,122 @@
+name: release
+
+# On a `vX.Y.Z` tag push: check that the tag is on `main` and agrees with the
+# versions in the code, build the application for each Mac architecture, seal it
+# (ad hoc signature, which macOS needs for notifications), and publish a GitHub
+# Release whose notes are the CHANGELOG section of that version.
+#
+# There is no Developer ID signing or notarisation yet (ADR-020: the name and
+# the way to publish are decided in phase 4). When there is, the secrets go in
+# the `bundle` job and nothing else changes.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: The tag is on main and agrees with the versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          TAG_REF: ${{ github.ref }}
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          TAG_SHA="$(git rev-parse "${TAG_REF}^{commit}")"
+          if ! git merge-base --is-ancestor "${TAG_SHA}" refs/remotes/origin/main; then
+            echo "::error::${RELEASE_TAG} is not on main."
+            exit 1
+          fi
+          python scripts/validate-release.py "${RELEASE_TAG}"
+
+  draft:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create the draft release from the CHANGELOG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [${VERSION}]" '
+            /^## \[/ { if (capture) exit; if (index($0, heading) == 1) { capture = 1; next } }
+            capture { print }
+          ' CHANGELOG.md > "${RUNNER_TEMP}/notes.md"
+          if [ ! -s "${RUNNER_TEMP}/notes.md" ]; then
+            echo "::error::empty release notes for ${VERSION}"
+            exit 1
+          fi
+          # A draft until every download is attached.
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" \
+            --notes-file "${RUNNER_TEMP}/notes.md" --draft
+
+  bundle:
+    needs: draft
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install the Rust toolchain
+        run: python scripts/install-rust-toolchain.py
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: release-${{ matrix.arch }}
+
+      - name: Build, bundle and seal DevPorts.app
+        run: |
+          corepack enable
+          tools/bundle.sh
+
+      - name: Zip and checksum
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NAME="DevPorts-${GITHUB_REF_NAME#v}-macos-${{ matrix.arch }}"
+          ditto -c -k --keepParent target/bundle/DevPorts.app "${NAME}.zip"
+          shasum -a 256 "${NAME}.zip" > "${NAME}.zip.sha256"
+          gh release upload "${GITHUB_REF_NAME}" "${NAME}.zip" "${NAME}.zip.sha256" --clobber
+
+  publish:
+    needs: bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false
