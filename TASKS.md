@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** ejecutar UXR-0; después UXR-1.1 (diálogos), UXR-1.2 (estado) y UXR-1.3 (operaciones), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. Todo permanece en el panel; los compartidos no se detienen al parar un proyecto. El plan aún no está implementado.
+**Siguiente trabajo de corrección:** UXR-1.1 completada; continuar UXR-1.2 (estado), luego UXR-1.3 (operaciones), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. Todo permanece en el panel; los compartidos no se detienen al parar un proyecto. La implementación UXR está iniciada; UXR-0 sigue pendiente de evidencia nativa y no bloquea UXR-1.2.
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -73,7 +73,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-1-1"></a>
 
-- [ ] **UXR-1.1 — Establecer diálogos accesibles dentro del panel.**
+- [x] **UXR-1.1 — Establecer diálogos accesibles dentro del panel.**
+
+  **Entrega:** `cb58060`; [informe, API y evidencia](docs/audits/2026-10-17-uxr-1-1.md). UI 25/25 y controles completos verdes; comprobación de Tauri/VoiceOver asignada a UXR-7.2.
 
   **Dependencias:** ninguna para implementar; validación nativa conjunta en UXR-7.2. **Plan:** [grupo UXR-1](docs/audits/2026-10-17-ui-ux-plan.md#uxr-1). **Contexto:** UX-05 y UX-14; D1; ADR-028.
 

@@ -3,6 +3,16 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-1.1 — Diálogos accesibles dentro del panel · 2026-10-17
+- **Commit de implementación:** `cb58060` (`fix(ui): contain dialog focus and preserve adoption steps`).
+- **Resultado:** primitiva compartida Modal en portal del mismo webview, fondo inerte/oculto a accesibilidad, foco inicial seguro, ciclo Tab/Shift+Tab, Escape (sin cancelar composición IME) y retorno al invocador. AdoptSheet añade Volver con preservación de nombre/foco. App mantiene un solo diálogo activo.
+- **Archivos/contratos:** `ui/src/Modal.tsx`, `dialogs.tsx`, `App.tsx`, `actions.ts`, tres vistas invocadoras, `text.ts`, `styles.css`, `Modal.test.tsx` y `App.test.tsx`. `requestStop` y `adopt` reciben el botón invocador; IconButton entrega el evento tipado. Sin cambios Rust, IPC, bindings o dependencias.
+- **Verificación:** UI 25/25 (nueve regresiones nuevas), typecheck/lint/format:check/build correctos con Node 22; `tools/check.sh full` verde (matriz 37, fmt, clippy, workspace con bindings, cargo-deny). Pruebas Docker ignored no se reportan como ejecución real.
+- **Evidencia y API para consumidores:** [informe UXR-1.1](docs/audits/2026-10-17-uxr-1-1.md), con ejemplo de uso, dos capturas de frontend con mock a 380×520 y recorrido real del navegador; consola sin errores/avisos. No es validación de app Tauri instalada.
+- **Limpieza:** servidor propio en 5279 detenido, sin listener residual; pestaña cerrada y viewport restaurado. No se tocaron servicios, manifiestos o instalación del usuario.
+- **Pendiente externo:** Tauri/VoiceOver y cierre nativo por foco, asignados a UXR-0/UXR-7.2. No se aprobaron G1/G2.
+- **Entrega siguiente:** UXR-1.2 reutiliza Modal; conservar estado tipado en shell, nunca el elemento DOM del invocador tras recrear webview ni una autorización pendiente. Más tarde UXR-2.1 unificará qué paradas pasan por confirmación; esta tarea no amplió esa política.
+
 ## Fases 1 y 2 · 2026-10-17 · evidencia por tarea
 Verificación general: `tools/check.sh full` (fmt, matriz de pruebas, clippy `-D warnings`, 270+ pruebas de Rust con `devports-core/bindings`, `cargo deny`) y en `ui/` `tsc`, eslint, prettier y 16 pruebas de Vitest. `python3 tools/check_matrix.py`: las 37 pruebas de PRUEBAS.md y todos los RF/NF automatizables tienen una prueba que los declara (`// covers:`).
 

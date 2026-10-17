@@ -8,7 +8,7 @@
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
 | **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. Quedan el plan UXR de correcciones UI/UX y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Ejecutar [UXR-0](TASKS.md#uxr-0) (reproducción nativa); si el acceso nativo sigue bloqueado, continuar [UXR-1.1](TASKS.md#uxr-1-1) (diálogos). TASKS contiene 18 fichas de sesión con dependencias, fuentes, aceptación, pruebas y entrega; [plan](docs/audits/2026-10-17-ui-ux-plan.md) enlazado por grupo. D1–D14/ADR-028–035 confirmadas; ninguna corrección UXR implementada todavía. |
+| **Próximo paso** | Ejecutar [UXR-1.2](TASKS.md#uxr-1-2): navegación y borradores en memoria de la shell. UXR-1.1 completada (`cb58060`): Modal compartido, foco/Tab/Escape/fondo inerte y Volver sin pérdida de nombre; [entrega](docs/audits/2026-10-17-uxr-1-1.md), 25/25 pruebas UI y controles Rust verdes. UXR-0 y validación Tauri/VoiceOver siguen pendientes para UXR-7.2; las capturas son del frontend con mock. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 
