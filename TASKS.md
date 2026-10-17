@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.5** (spike Tauri), luego T0.6 y T0.7; T0.8 (spike de `exec`) puede ir en cualquier momento. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.6** (notificaciones con botón) y **T0.7** (launchd); T0.8 (spike de `exec`) puede ir en cualquier momento. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -78,7 +78,7 @@
   Trait `ContainerSource` + implementación `bollard`; `docker context inspect` para el endpoint; asignación por etiquetas. **Registrar qué runtime usa David y si usa compose** (cierra punto abierto 2). *Pruebas:* D-01, D-03 (cliente simulado en CI; real en la Mac).
   → `feat(core): add docker container source with compose label mapping`
 
-- [ ] **T0.5 — Spike Tauri.** *Deps:* T0.1. *Lee:* ARQUITECTURA §12, §14. *Verifica:* V5, V10.
+- [x] **T0.5 — Spike Tauri.** *Deps:* T0.1. *Lee:* ARQUITECTURA §12, §14. *Verifica:* V5, V10.
   Ícono de plantilla con contador, panel 380×520 anclado, política *accessory*, webview creado/destruido por apertura; confirmar que `crates/devports-app` funciona con la CLI de Tauri (si exige `src-tauri/`, decidir y anotar en ADR-025). Medir RSS/CPU en reposo.
   *Hecho cuando:* tabla de mediciones en el informe; ¿cumple <50 MB y <1 % CPU?
   → `feat(app): add tray spike with counter and ephemeral panel`
@@ -94,7 +94,7 @@
   Confirmar que `sh -c 'exec …'` conserva PID y que `launcher_chain` permite el vínculo fuerte.
   → `test(core): verify exec keeps pid and ancestry`
 
-- [ ] **T0.9 — Informe `docs/verificacion-fase0.md` (V1–V12).** *Deps:* T0.2–T0.8. Tabla con resultado y decisión por cada V; actualizar ARQUITECTURA si algún **[P]** cambia (con ADR).
+- [ ] **T0.9 — Informe `docs/verificacion-fase0.md` (V1–V12).** *Deps:* T0.2–T0.8. Incluye la **comprobación manual de David sobre el spike de Tauri** (T0.5), que el entorno de desarrollo no pudo hacer: (1) `cargo run -p devports-app` y clic izquierdo en el ícono: el panel aparece **bajo el ícono**; (2) clic fuera del panel: se cierra; (3) clic en el ícono con el panel abierto: se cierra y **no** se reabre; (4) clic derecho: menú «Abrir panel» / «Salir»; (5) «Salir» termina el proceso. Tabla con resultado y decisión por cada V; actualizar ARQUITECTURA si algún **[P]** cambia (con ADR).
   → `docs: add phase 0 verification report`
 
 - [ ] **G0 — PUERTA FASE 0 (HUMANA, ADR-022).** (a) V1, V2, V3, V9 favorables o Plan B aceptado; (b) tras una semana usando `devports ls`: duplicados simultáneos ≤ ½ de la línea base **y** ≥3 aperturas/día laborable (`opens.log`); (c) presupuesto de reposo medido. **Si (b) falla: parar y replantear. No continuar sin decisión escrita de David.**
@@ -163,7 +163,7 @@
 
 ## Fase 2 — App de barra (puerta G2)
 
-- [ ] **T2.0 — Cerrar los puntos abiertos de UI y extraer el sistema visual.** *Deps:* G1. *Lee:* UI-REFERENCIA §6-7 y capturas. 
+- [ ] **T2.0 — Cerrar los puntos abiertos de UI y extraer el sistema visual.** Decidir también las **esquinas redondeadas de 14 px** del panel: una ventana sin decoraciones es de esquinas rectas; redondearlas exige ventana transparente (API privada de macOS en Tauri) o aceptarlas rectas (T0.5). *Deps:* G1. *Lee:* UI-REFERENCIA §6-7 y capturas. 
   Proponer a David y registrar (ADR-026): persistencia de «Ignorar» (tabla `ignored` en SQLite, por `cwd+match`), «Crear proyecto nuevo», «Marcar como legítimo», estados vacíos/error (sin proyectos, Docker apagado, núcleo reconectando), orden de tabulación/foco/VoiceOver, filtro «Alertas», modo claro (diferido). Extraer tokens y estructura de `brag-output/*/composition/index.html` a `docs/ui-referencia/tokens.md`.
   *Hecho cuando:* David confirma cada punto; los PNG existentes cubren los estados diseñados.
   → `docs(ui): record adr-026 ui decisions and design tokens`

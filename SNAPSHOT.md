@@ -7,8 +7,8 @@
 |---|---|
 | **Etapa** | 📝 v0.0, especificado, sin código |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | Definición completa (24 decisiones; ADR-023 y 024 cerraron `--replace`, Principal de hecho y raíz) y plan de implementación en `TASKS.md`. Fase B completa y T0.1 hecha: repositorio git (`main` + `dev`), docs saneados, hooks, workspace de 4 crates con lints estrictos, CI y ADR-025. T0.2 hecha: `ProcessSource` de macOS verificada con servidores reales (V1, V2, V3 favorables) y sonda `devports-probe`. T0.3 hecha: manifiesto mínimo, huella de comando, descubrimiento y asignación de procesos a servicios (V11 favorable). T0.4 hecha: fuente de contenedores de Docker con eventos verificada contra el demonio real (V4 favorable; V12: Docker Desktop, compose y `docker run`). Script de línea base listo, probado solo en Linux. |
-| **Próximo paso** | Seguir `TASKS.md`: siguiente tarea T0.5 (spike Tauri). David: `./tools/baseline.sh once` y luego `start` en la Mac (tarea S0). |
+| **¿Dónde quedé?** | Definición completa (24 decisiones; ADR-023 y 024 cerraron `--replace`, Principal de hecho y raíz) y plan de implementación en `TASKS.md`. Fase B completa y T0.1 hecha: repositorio git (`main` + `dev`), docs saneados, hooks, workspace de 4 crates con lints estrictos, CI y ADR-025. T0.2 hecha: `ProcessSource` de macOS verificada con servidores reales (V1, V2, V3 favorables) y sonda `devports-probe`. T0.3 hecha: manifiesto mínimo, huella de comando, descubrimiento y asignación de procesos a servicios (V11 favorable). T0.4 hecha: fuente de contenedores de Docker con eventos verificada contra el demonio real (V4 favorable; V12: Docker Desktop, compose y `docker run`). T0.5 hecha: spike de Tauri; reposo 21 MB, con panel usado 49 MB (presupuesto justo); anclaje bajo el ícono pendiente de comprobar a mano. Script de línea base listo, probado solo en Linux. |
+| **Próximo paso** | Seguir `TASKS.md`: siguiente tarea T0.6 (notificaciones) o T0.7 (launchd). David: `./tools/baseline.sh once` y luego `start` en la Mac (tarea S0). |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 

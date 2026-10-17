@@ -3,6 +3,22 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## T0.5 — Spike de Tauri: ícono con contador, panel anclado y efímero, medición en reposo · 2026-10-17
+- Commits: `chore(gitignore): ignore tauri generated schemas`, `feat(app): add tauri tray spike with counter and ephemeral anchored panel`, `test(tools): add footprint measurement script for the tauri spike`, `ci: build the macos shell only on macos runners`.
+- Verificación local: fmt, clippy `-D warnings` (con y sin la característica `spike-autopilot`) y `cargo test --workspace` en verde; `cargo deny check` ok (solo avisos de versiones duplicadas); `cargo audit` solo avisa de `glib` (RUSTSEC-2024-0429, dependencia de GTK que Tauri arrastra en Linux y no se compila en macOS).
+- **Layout:** la CLI de Tauri (`@tauri-apps/cli` 2.12.3) encuentra el crate sin `src-tauri/`: `info` y `build --debug --no-bundle` funcionan desde `crates/devports-app`.
+- **V5 (lo que se pudo verificar sin clic humano):** el ícono de plantilla aparece en la barra de menús (captura de pantalla); no hay ícono en el Dock (el proceso no figura entre los de primer plano); el panel se crea de 380 x 520 pt con el contenido y la IPC (`invoke`) funcionando; al cerrar, el webview se destruye. **No verificado** (hace falta un clic real y el entorno no tiene permiso de accesibilidad): el anclaje **bajo el ícono** tras un clic, el cierre por pérdida real de foco y la guarda contra reapertura. Quedan como comprobación manual en T0.9. Hallazgo visual: sin decoraciones la ventana tiene **esquinas rectas**; las de 14 px del diseño exigen ventana transparente (API privada) o aceptarlas (decisión en T2.0).
+- **V10 (memoria física, `footprint`, la cifra de «Memoria» del Monitor de Actividad; `tools/spike-measure.sh`, build release):**
+
+  | Fase | App | Ayudantes de WebKit | Total | CPU |
+  |---|---|---|---|---|
+  | Reposo, panel nunca abierto | 21,0 MB | 0 | **21,0 MB** | 0,00 % |
+  | Panel abierto | 33,4 MB | 3 procesos, 33,3 MB | 66,7 MB | 0,2 a 0,6 % (pico 11 % al abrir) |
+  | Panel cerrado tras abrirlo | 32,0 MB | 2 procesos, 17,1 MB | **49,1 MB** | 0,05 % |
+
+  El presupuesto (< 50 MB y < 1 % de CPU) se cumple, **pero con 0,9 MB de margen y antes de sumar el núcleo** (SQLite, tokio, `bollard`, observadores). Destruir el webview devuelve el proceso de contenido (~16 MB), **no** los 2 procesos compartidos de WebKit (17 MB, siguen vivos más de 2 minutos) ni los ~11 MB que la app conserva tras inicializar WebKit. Si nunca se abre el panel, el costo es 21 MB. RSS (78 a 100 MB) engaña porque cuenta los frameworks del sistema compartidos: no usarlo como presupuesto. Decisión de fondo (SwiftUI para la envoltura) queda para T2.7/G2 con el núcleo ya dentro (ADR-017).
+- Hallazgos: (1) `cargo clippy` marca `needless_pass_by_value` en comandos de Tauri; se permite en `attention.rs` porque Tauri extrae los argumentos por valor. (2) En CI Linux la app no compila sin WebKitGTK: los jobs de Linux excluyen `devports-app` y solo macOS la construye. (3) La característica `spike-autopilot` abre y cierra el panel por temporizador para medir sin humano; nunca va en un release y desaparece en T2.1.
+
 ## T0.4 — Docker: contexto, lista, eventos y etiquetas compose · 2026-10-17
 - Commits: `build: add bollard, tokio, futures-util, sha2 and serde_json`, `feat(core): add docker container source with active context resolution`, `feat(core): classify containers by manifest declaration and compose labels`, `test(core): verify container listing and lifecycle events against a real daemon`, `feat(core): list containers in the probe with their project`. Cada commit se comprobó en un worktree aparte (fmt y clippy `-D warnings`): todos compilan.
 - Verificación local: fmt, clippy `-D warnings` y `cargo test --workspace` en verde (80 pruebas unitarias del núcleo, incluidas las del resolvedor de contexto, la conversión de `bollard` y la clasificación D-01 con etiquetas compose; fuente falsa con eventos y demonio caído). Prueba real, `cargo test -p devports-core --test docker_engine -- --ignored` (marcada `#[ignore]`: el CI de macOS no tiene Docker): crea un contenedor con etiquetas compose y un puerto publicado, lo lista con etiquetas, puerto y estado correctos, y recibe `stop`+`die`, `start` y `destroy` **dentro de 3 s** cada uno; no queda ningún contenedor de prueba.
