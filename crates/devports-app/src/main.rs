@@ -16,16 +16,16 @@ mod window_style;
 
 #[cfg(feature = "spike-autopilot")]
 mod autopilot;
+#[cfg(all(target_os = "macos", feature = "spike-notify"))]
+mod notifications;
 #[cfg(feature = "spike-notify")]
 mod notify_spike;
 
 use tauri::{ActivationPolicy, RunEvent};
 
 fn main() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_positioner::init());
-    #[cfg(feature = "spike-notify")]
-    let builder = builder.plugin(tauri_plugin_notification::init());
-    let built = builder
+    let built = tauri::Builder::default()
+        .plugin(tauri_plugin_positioner::init())
         .manage(attention::Attention::default())
         .manage(panel::PanelState::default())
         .manage(panel::Revealed::default())
