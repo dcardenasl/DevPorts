@@ -105,6 +105,15 @@ export const text = {
     alerts: "Alertas",
     none: "Sin actividad en este filtro",
   },
+  operations: {
+    title: "Operaciones recientes",
+    kind: { stop: "Detener", extend: "Extender", keep: "Conservar", adopt: "Adoptar" },
+    queued: "En espera",
+    running: "En curso…",
+    succeeded: "Completado",
+    retry: "Reintentar fallidos",
+    adopted: (project: string, service: string) => `Agregado a ${project} · ${service}`,
+  },
   confirm: {
     stopTitle: (name: string) => `¿Detener ${name}?`,
     stopBody: "Se le pedirá que termine y, si no lo hace, se forzará.",

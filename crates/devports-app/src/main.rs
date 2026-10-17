@@ -10,6 +10,7 @@ mod diagnostics;
 mod host;
 mod integration;
 mod notifications;
+mod operations;
 mod panel;
 mod panel_state;
 mod tray;
@@ -24,14 +25,15 @@ fn main() {
         .manage(panel::PanelState::default())
         .manage(panel::Revealed::default())
         .manage(panel_state::PanelStateStore::default())
+        .manage(operations::OperationStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::get_panel_state,
             commands::set_panel_state,
-            commands::stop_instance,
-            commands::extend_instance,
-            commands::keep_instance,
-            commands::adopt_instance,
+            commands::get_operations,
+            commands::get_operation,
+            commands::start_operation,
+            commands::retry_operation,
             commands::get_log,
             commands::open_url,
             panel::panel_ready,

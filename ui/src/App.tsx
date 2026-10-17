@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 
 import type { Actions } from "./actions";
-import { AdoptSheet, ConfirmStop, type AdoptChoice } from "./dialogs";
-import { useConnection, useNow, useToast } from "./hooks";
+import { AdoptSheet, ConfirmStop } from "./dialogs";
+import { useConnection, useNow, useOperations, useToast } from "./hooks";
 import {
   BellIcon,
   CheckIcon,
@@ -53,6 +53,36 @@ export function App(): ReactElement {
   const [logCount, setLogCount] = useState<number>();
   const [toast, showToast] = useToast();
   const [failed, setFailed] = useState(false);
+  const operationState = useOperations(api);
+  const { start: startOperation, retry: retryOperation, operations } = operationState;
+  const runOperation = useCallback(
+    (
+      kind: "stop" | "extend" | "keep" | "adopt",
+      reference: string,
+      adoptTarget?: import("./types").AdoptTarget,
+    ): void => {
+      void startOperation({
+        kind,
+        targets: [{ reference, ...(adoptTarget === undefined ? {} : { adoptTarget }) }],
+      }).catch((failure: unknown) => {
+        setFailed(true);
+        showToast(failure instanceof Error ? failure.message : String(failure));
+      });
+    },
+    [startOperation, showToast],
+  );
+  const stopBatch = useCallback(
+    (references: string[]): void => {
+      void startOperation({
+        kind: "stop",
+        targets: references.map((reference) => ({ reference })),
+      }).catch((failure: unknown) => {
+        setFailed(true);
+        showToast(failure instanceof Error ? failure.message : String(failure));
+      });
+    },
+    [startOperation, showToast],
+  );
 
   const updatePanelState = useCallback(
     (change: Partial<PanelState>): void => {
@@ -105,13 +135,13 @@ export function App(): ReactElement {
         setDialog({ kind: "stop", view, invoker });
       },
       stopNow: (views) => {
-        for (const view of views) attempt(api.stop(view.ref));
+        stopBatch(views.map((view) => view.ref));
       },
       extend: (view) => {
-        attempt(api.extend(view.ref));
+        runOperation("extend", view.ref);
       },
       keep: (view) => {
-        attempt(api.keep(view.ref));
+        runOperation("keep", view.ref);
       },
       openUrl: (url) => {
         attempt(api.openUrl(url));
@@ -135,10 +165,10 @@ export function App(): ReactElement {
         setDraftInvoker(invoker);
       },
       declareShared: (view) => {
-        attempt(api.adopt(view.ref, "shared"), text.shared.declared);
+        runOperation("adopt", view.ref, "shared");
       },
     };
-  }, [api, snapshot, now, attempt, selectTab, updatePanelState]);
+  }, [api, snapshot, now, attempt, runOperation, stopBatch, selectTab, updatePanelState]);
 
   if (error !== undefined) {
     return (
@@ -169,6 +199,40 @@ export function App(): ReactElement {
 
   const body = (
     <>
+      {operations.length > 0 && (
+        <section className="card" aria-label="Operaciones">
+          <div className="eyebrow">{text.operations.title}</div>
+          {operations.slice(0, 5).map((operation) => (
+            <div key={operation.id} className="soft" style={{ marginTop: 8 }}>
+              <strong>{text.operations.kind[operation.kind]}</strong>
+              {operation.targets.map((target) => (
+                <div key={target.reference} role={target.status === "failed" ? "alert" : "status"}>
+                  {target.reference}:{" "}
+                  {target.status === "queued"
+                    ? text.operations.queued
+                    : target.status === "running"
+                      ? text.operations.running
+                      : target.status === "succeeded"
+                        ? target.result
+                          ? text.operations.adopted(target.result.project, target.result.service)
+                          : text.operations.succeeded
+                        : (target.error ?? "Falló")}
+                </div>
+              ))}
+              {(operation.status === "failed" || operation.status === "partial") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void retryOperation(operation.id);
+                  }}
+                >
+                  {text.operations.retry}
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
       {(missingDraft ||
         (panelState.draft !== null &&
           !snapshot.instances.some((view) => view.ref === panelState.draft?.reference))) && (
@@ -277,7 +341,7 @@ export function App(): ReactElement {
               }}
               onConfirm={() => {
                 setDialog(undefined);
-                attempt(api.stop(confirmed.view.ref));
+                runOperation("stop", confirmed.view.ref);
               }}
             />
           )}
@@ -297,7 +361,13 @@ export function App(): ReactElement {
               onChoose={(choice) => {
                 updatePanelState({ draft: null });
                 setDraftInvoker(null);
-                attempt(adoptWith(api, adoptionView, choice), "Listo");
+                if (choice.kind === "project")
+                  runOperation("adopt", adoptionView.ref, { project: choice.project });
+                else if (choice.kind === "new")
+                  runOperation("adopt", adoptionView.ref, { new: choice.name });
+                else if (choice.kind === "shared")
+                  runOperation("adopt", adoptionView.ref, "shared");
+                else runOperation("keep", adoptionView.ref);
               }}
             />
           )}
@@ -341,26 +411,6 @@ function Shell({
       {overlay}
     </div>
   );
-}
-
-async function adoptWith(
-  api: NonNullable<ReturnType<typeof useConnection>["api"]>,
-  view: InstanceView,
-  choice: AdoptChoice,
-): Promise<void> {
-  switch (choice.kind) {
-    case "project":
-      await api.adopt(view.ref, { project: choice.project });
-      return;
-    case "new":
-      await api.adopt(view.ref, { new: choice.name });
-      return;
-    case "shared":
-      await api.adopt(view.ref, "shared");
-      return;
-    case "ignore":
-      await api.keep(view.ref);
-  }
 }
 
 async function copyText(value: string): Promise<void> {

@@ -3,7 +3,7 @@
 
 import type { Backend } from "./api";
 import { sampleLog, sampleSnapshot } from "./sample";
-import type { AdoptTarget, InstanceView, PanelState, Snapshot } from "./types";
+import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
 export function mockBackend(): Backend {
   let state: Snapshot = sampleSnapshot();
@@ -16,6 +16,8 @@ export function mockBackend(): Backend {
     draft: null,
   };
   const listeners = new Set<(snapshot: Snapshot) => void>();
+  const opListeners = new Set<(operation: OperationView) => void>();
+  const history: OperationView[] = [];
   const publish = (next: Snapshot): void => {
     state = { ...next, revision: state.revision + 1 };
     for (const listener of listeners) listener(state);
@@ -38,52 +40,96 @@ export function mockBackend(): Backend {
       panelState = next;
       return Promise.resolve();
     },
+    operations: () => Promise.resolve([...history]),
+    operation: (id) => Promise.resolve(history.find((item) => item.id === id) ?? null),
+    subscribeOperations: (listener) => {
+      opListeners.add(listener);
+      return Promise.resolve(() => {
+        opListeners.delete(listener);
+      });
+    },
+    startOperation: async (request: OperationRequest) => {
+      await Promise.resolve();
+      const prior = history.find((item) => item.id === request.id);
+      if (prior) return prior;
+      const op: OperationView = {
+        id: request.id,
+        kind: request.kind,
+        status: "running",
+        revision: 1,
+        targets: request.targets.map((t) => ({
+          reference: t.reference,
+          adoptTarget: t.adoptTarget ?? null,
+          status: "running",
+          error: null,
+          result: null,
+          attempts: 1,
+        })),
+      };
+      history.unshift(op);
+      opListeners.forEach((listener) => {
+        listener(op);
+      });
+      for (const target of request.targets) {
+        const ref = target.reference;
+        if (request.kind === "stop") {
+          find(ref);
+          publish(without(ref));
+        } else if (request.kind === "keep") {
+          find(ref);
+          publish({
+            ...state,
+            instances: state.instances.map((candidate) =>
+              candidate.ref === ref ? { ...candidate, ignored: true } : candidate,
+            ),
+            attention: state.attention.filter((item) => item.instance_ref !== ref),
+          });
+        } else if (request.kind === "extend") {
+          const view = find(ref);
+          const end = Date.parse(view.expires_at ?? "") + state.extend_minutes * 60_000;
+          publish({
+            ...state,
+            instances: state.instances.map((candidate) =>
+              candidate.ref === ref
+                ? { ...candidate, expires_at: new Date(end).toISOString() }
+                : candidate,
+            ),
+            attention: state.attention.filter((item) => item.instance_ref !== ref),
+          });
+        } else if (target.adoptTarget) {
+          find(ref);
+          const dest = target.adoptTarget;
+          const project =
+            dest === "shared"
+              ? "compartidos"
+              : "project" in dest
+                ? dest.project
+                : (dest.new ?? "proyecto-nuevo");
+          const targetResult = op.targets.find((item) => item.reference === ref);
+          if (targetResult) targetResult.result = { project, service: "servicio" };
+          publish(without(ref));
+        }
+        const targetResult = op.targets.find((item) => item.reference === ref);
+        if (targetResult) targetResult.status = "succeeded";
+      }
+      op.status = "succeeded";
+      op.revision++;
+      opListeners.forEach((listener) => {
+        listener(op);
+      });
+      return op;
+    },
+    retryOperation: async (id) => {
+      await Promise.resolve();
+      const op = history.find((item) => item.id === id);
+      if (!op) throw new Error("No existe la operación");
+      return op;
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return Promise.resolve(() => {
         listeners.delete(listener);
       });
-    },
-    stop: (ref) => {
-      find(ref);
-      publish(without(ref));
-      return Promise.resolve();
-    },
-    extend: (ref) => {
-      const view = find(ref);
-      const end = Date.parse(view.expires_at ?? "") + state.extend_minutes * 60_000;
-      publish({
-        ...state,
-        instances: state.instances.map((candidate) =>
-          candidate.ref === ref
-            ? { ...candidate, expires_at: new Date(end).toISOString() }
-            : candidate,
-        ),
-        attention: state.attention.filter((item) => item.instance_ref !== ref),
-      });
-      return Promise.resolve();
-    },
-    keep: (ref) => {
-      find(ref);
-      publish({
-        ...state,
-        instances: state.instances.map((candidate) =>
-          candidate.ref === ref ? { ...candidate, ignored: true } : candidate,
-        ),
-        attention: state.attention.filter((item) => item.instance_ref !== ref),
-      });
-      return Promise.resolve();
-    },
-    adopt: (ref, target: AdoptTarget) => {
-      find(ref);
-      const project =
-        target === "shared"
-          ? "compartidos"
-          : "project" in target
-            ? target.project
-            : (target.new ?? "proyecto-nuevo");
-      publish(without(ref));
-      return Promise.resolve({ project, service: "servicio" });
     },
     log: () => Promise.resolve(sampleLog()),
     openUrl: () => Promise.resolve(),

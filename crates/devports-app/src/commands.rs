@@ -5,34 +5,14 @@
     reason = "Tauri extracts command arguments by value; the signatures are fixed"
 )]
 
-use devports_core::adopt::apply::ApplyError;
-use devports_core::runtime::{AdoptTarget, Snapshot};
+use devports_core::runtime::Snapshot;
 use devports_proto::LogArgs;
 use devports_proto::views::LogEntry;
-use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::host::CoreState;
+use crate::operations::{self, OperationRequest, OperationStore, OperationView};
 use crate::panel_state::{PanelState, PanelStateStore};
-
-/// Where the panel asked an adoption to go.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AdoptRequest {
-    /// Into an existing project.
-    Project(String),
-    /// Into a project created in the process's folder.
-    New(Option<String>),
-    /// A container declared in `shared.yml`.
-    Shared,
-}
-
-/// What was written, for the panel to confirm.
-#[derive(Debug, Serialize)]
-pub struct Adopted {
-    project: String,
-    service: String,
-}
 
 #[tauri::command]
 pub fn get_snapshot(core: State<'_, CoreState>) -> Snapshot {
@@ -50,48 +30,44 @@ pub fn set_panel_state(store: State<'_, PanelStateStore>, state: PanelState) -> 
 }
 
 #[tauri::command]
-pub async fn stop_instance(core: State<'_, CoreState>, reference: String) -> Result<(), String> {
-    core.0
-        .stop(&reference)
-        .await
-        .map_err(|error| error.to_string())
+pub fn get_operations(store: State<'_, OperationStore>) -> Vec<OperationView> {
+    store.list()
 }
 
 #[tauri::command]
-pub async fn extend_instance(core: State<'_, CoreState>, reference: String) -> Result<(), String> {
-    core.0
-        .extend(&reference)
-        .await
-        .map_err(|error| error.to_string())
+pub fn get_operation(store: State<'_, OperationStore>, id: String) -> Option<OperationView> {
+    store.get(&id)
 }
 
 #[tauri::command]
-pub async fn keep_instance(core: State<'_, CoreState>, reference: String) -> Result<(), String> {
-    core.0
-        .ignore(&reference)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub async fn adopt_instance(
+pub fn start_operation(
+    app: AppHandle,
     core: State<'_, CoreState>,
-    reference: String,
-    target: AdoptRequest,
-) -> Result<Adopted, String> {
-    let target = match target {
-        AdoptRequest::Project(name) => AdoptTarget::Project(name),
-        AdoptRequest::New(name) => AdoptTarget::New(name),
-        AdoptRequest::Shared => AdoptTarget::Shared,
-    };
-    core.0
-        .adopt(&reference, target)
-        .await
-        .map(|applied| Adopted {
-            project: applied.project,
-            service: applied.service,
-        })
-        .map_err(|error: ApplyError| error.to_string())
+    store: State<'_, OperationStore>,
+    request: OperationRequest,
+) -> Result<OperationView, String> {
+    let (operation, start) = store.start(request).map_err(|error| error.to_string())?;
+    if start {
+        operations::spawn(
+            app,
+            core.0.clone(),
+            store.inner().clone(),
+            operation.id.clone(),
+        );
+    }
+    Ok(operation)
+}
+
+#[tauri::command]
+pub fn retry_operation(
+    app: AppHandle,
+    core: State<'_, CoreState>,
+    store: State<'_, OperationStore>,
+    id: String,
+) -> Result<OperationView, String> {
+    let operation = store.retry(&id).map_err(|error| error.to_string())?;
+    operations::spawn(app, core.0.clone(), store.inner().clone(), id);
+    Ok(operation)
 }
 
 #[tauri::command]

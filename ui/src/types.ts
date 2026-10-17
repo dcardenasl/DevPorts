@@ -37,3 +37,31 @@ export interface PanelState {
   activityFilter: ActivityFilter;
   draft: AdoptDraft | null;
 }
+
+export type OperationKind = "stop" | "extend" | "keep" | "adopt";
+export type OperationStatus = "queued" | "running" | "succeeded" | "partial" | "failed";
+export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed";
+export interface OperationTargetRequest {
+  reference: string;
+  adoptTarget?: AdoptTarget;
+}
+export interface OperationRequest {
+  id: string;
+  kind: OperationKind;
+  targets: OperationTargetRequest[];
+}
+export interface OperationTargetResult {
+  reference: string;
+  adoptTarget: AdoptTarget | null;
+  status: OperationTargetStatus;
+  error: string | null;
+  result: { project: string; service: string } | null;
+  attempts: number;
+}
+export interface OperationView {
+  id: string;
+  kind: OperationKind;
+  status: OperationStatus;
+  revision: number;
+  targets: OperationTargetResult[];
+}

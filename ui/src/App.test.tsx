@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Backend } from "./api";
 import { App } from "./App";
 import { sampleLog, sampleSnapshot } from "./sample";
-import type { InstanceView, PanelState, Snapshot } from "./types";
+import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
 const state = vi.hoisted(() => ({ current: undefined as Backend | undefined }));
 
@@ -16,6 +16,7 @@ vi.mock("./api", () => ({
 function fakeBackend(
   snapshot: Snapshot,
   initialState?: PanelState,
+  initialOperations: OperationView[] = [],
 ): Backend & { calls: Record<string, unknown[][]>; getPersisted: () => PanelState } {
   const calls: Record<string, unknown[][]> = {};
   let persisted: PanelState = initialState ?? {
@@ -26,6 +27,8 @@ function fakeBackend(
     activityFilter: "all",
     draft: null,
   };
+  const history: OperationView[] = [...initialOperations];
+  const opListeners = new Set<(operation: OperationView) => void>();
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -41,11 +44,57 @@ function fakeBackend(
       persisted = next;
       return Promise.resolve();
     },
+    operations: () => Promise.resolve([...history]),
+    operation: (id) => Promise.resolve(history.find((item) => item.id === id) ?? null),
+    subscribeOperations: (listener) => {
+      opListeners.add(listener);
+      return Promise.resolve(() => {
+        opListeners.delete(listener);
+      });
+    },
+    startOperation: async (request: OperationRequest) => {
+      await Promise.resolve();
+      if (calls.operation === undefined) calls.operation = [];
+      calls.operation.push([request]);
+      const op: OperationView = {
+        id: request.id,
+        kind: request.kind,
+        status: "succeeded",
+        revision: 1,
+        targets: request.targets.map((target) => ({
+          reference: target.reference,
+          adoptTarget: target.adoptTarget ?? null,
+          status: "succeeded",
+          error: null,
+          result: request.kind === "adopt" ? { project: "x", service: "y" } : null,
+          attempts: 1,
+        })),
+      };
+      history.unshift(op);
+      opListeners.forEach((listener) => {
+        listener(op);
+      });
+      return op;
+    },
+    retryOperation: async (id) => {
+      calls.retryOperation = [[id]];
+      await Promise.resolve();
+      const operation = history.find((item) => item.id === id);
+      if (!operation) throw new Error("No existe la operación");
+      operation.status = "succeeded";
+      operation.revision += 1;
+      operation.targets.forEach((target) => {
+        if (target.status === "failed") {
+          target.status = "succeeded";
+          target.error = null;
+        }
+      });
+      opListeners.forEach((listener) => {
+        listener(operation);
+      });
+      return operation;
+    },
     subscribe: () => Promise.resolve(() => undefined),
-    stop: record("stop") as Backend["stop"],
-    extend: record("extend") as Backend["extend"],
-    keep: record("keep") as Backend["keep"],
-    adopt: record("adopt", { project: "x", service: "y" }) as Backend["adopt"],
     log: () => Promise.resolve(sampleLog()),
     openUrl: record("openUrl") as Backend["openUrl"],
     panelReady: record("panelReady") as Backend["panelReady"],
@@ -87,9 +136,46 @@ describe("the panel", () => {
     await user.click(screen.getByRole("button", { name: "Detener los 2" }));
     await user.click(screen.getByRole("button", { name: "Terminar" }));
     await waitFor(() => {
-      expect(backend.calls["extend"]).toEqual([["c3d4"]]);
-      expect(backend.calls["stop"]).toEqual([["e5f6"], ["g7h8"], ["c3d4"]]);
+      const ops = backend.calls.operation?.map(([request]) => request as OperationRequest) ?? [];
+      expect(
+        ops.map(({ kind, targets }) => [kind, targets.map(({ reference }) => reference)]),
+      ).toEqual([
+        ["extend", ["c3d4"]],
+        ["stop", ["e5f6", "g7h8"]],
+        ["stop", ["c3d4"]],
+      ]);
     });
+  });
+
+  // covers: UXR-1.3
+  it("recovers a failed operation from shell history and retries only on request", async () => {
+    const failedOperation: OperationView = {
+      id: "recover-me",
+      kind: "adopt",
+      status: "failed",
+      revision: 2,
+      targets: [
+        {
+          reference: "z9y8",
+          adoptTarget: { project: "tienda" },
+          status: "failed",
+          error: "No se pudo escribir el manifiesto",
+          result: null,
+          attempts: 1,
+        },
+      ],
+    };
+    const backend = fakeBackend(sampleSnapshot(), undefined, [failedOperation]);
+    state.current = backend;
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText(/No se pudo escribir el manifiesto/)).toBeInTheDocument();
+    expect(backend.calls.operation).toBeUndefined();
+    await user.click(screen.getByRole("button", { name: "Reintentar fallidos" }));
+    await waitFor(() => {
+      expect(backend.calls.retryOperation).toEqual([["recover-me"]]);
+    });
+    expect(screen.getByText(/z9y8: Completado/)).toBeInTheDocument();
   });
 
   // covers: UI
@@ -125,14 +211,18 @@ describe("the panel", () => {
     expect(within(dialog).getByText("¿Detener mysql?")).toBeInTheDocument();
     expect(within(dialog).getByText("tienda-demo")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
-    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls.operation).toBeUndefined();
 
     await user.click(screen.getByRole("button", { name: "Detener mysql" }));
     await user.click(
       within(screen.getByRole("alertdialog")).getByRole("button", { name: "Detener mysql" }),
     );
     await waitFor(() => {
-      expect(backend.calls["stop"]).toEqual([["m9n0"]]);
+      expect(
+        backend.calls.operation
+          ?.map(([request]) => request as OperationRequest)
+          .map(({ kind, targets }) => [kind, targets[0]?.reference]),
+      ).toEqual([["stop", "m9n0"]]);
     });
   });
 
@@ -149,7 +239,11 @@ describe("the panel", () => {
     await user.type(name, "mi-proyecto");
     await user.click(screen.getByRole("button", { name: "Crear" }));
     await waitFor(() => {
-      expect(backend.calls["adopt"]).toEqual([["z9y8", { new: "mi-proyecto" }]]);
+      expect(
+        backend.calls.operation
+          ?.map(([request]) => request as OperationRequest)
+          .map(({ kind, targets }) => [kind, targets[0]?.reference, targets[0]?.adoptTarget]),
+      ).toEqual([["adopt", "z9y8", { new: "mi-proyecto" }]]);
     });
   });
 
@@ -160,7 +254,11 @@ describe("the panel", () => {
     await user.click(screen.getByRole("button", { name: "Adoptar" }));
     await user.click(screen.getByRole("button", { name: /Ignorar este proceso/ }));
     await waitFor(() => {
-      expect(backend.calls["keep"]).toEqual([["z9y8"]]);
+      expect(
+        backend.calls.operation
+          ?.map(([request]) => request as OperationRequest)
+          .map(({ kind, targets }) => [kind, targets[0]?.reference]),
+      ).toEqual([["keep", "z9y8"]]);
     });
   });
 
@@ -217,7 +315,11 @@ describe("the panel", () => {
     expect(screen.getByText("SIN DECLARAR")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Declarar" }));
     await waitFor(() => {
-      expect(backend.calls["adopt"]).toEqual([["d1d1", "shared"]]);
+      expect(
+        backend.calls.operation
+          ?.map(([request]) => request as OperationRequest)
+          .map(({ kind, targets }) => [kind, targets[0]?.reference, targets[0]?.adoptTarget]),
+      ).toEqual([["adopt", "d1d1", "shared"]]);
     });
   });
 

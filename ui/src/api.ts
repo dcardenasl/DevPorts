@@ -1,18 +1,19 @@
 // The only file that knows how the panel reaches the core. In the application it
 // calls Tauri commands; in a browser during development it runs on sample data.
 
-import type { AdoptTarget, LogEntry, PanelState, Snapshot } from "./types";
+import type { LogEntry, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
 export interface Backend {
   snapshot(): Promise<Snapshot>;
   panelState(): Promise<PanelState>;
   savePanelState(state: PanelState): Promise<void>;
+  operations(): Promise<OperationView[]>;
+  operation(id: string): Promise<OperationView | null>;
+  subscribeOperations(listener: (operation: OperationView) => void): Promise<() => void>;
+  startOperation(request: OperationRequest): Promise<OperationView>;
+  retryOperation(id: string): Promise<OperationView>;
   /** Calls `listener` with every new snapshot; resolves to the unsubscribe function. */
   subscribe(listener: (snapshot: Snapshot) => void): Promise<() => void>;
-  stop(ref: string): Promise<void>;
-  extend(ref: string): Promise<void>;
-  keep(ref: string): Promise<void>;
-  adopt(ref: string, target: AdoptTarget): Promise<{ project: string; service: string }>;
   log(sinceSeconds: number): Promise<LogEntry[]>;
   openUrl(url: string): Promise<void>;
   /** Tells the shell the first frame is painted so it can show the window. */
@@ -35,8 +36,9 @@ declare global {
 }
 
 export const SNAPSHOT_EVENT = "snapshot";
+export const OPERATION_EVENT = "operation";
 
-function tauriBackend(tauri: TauriGlobal): Backend {
+export function createTauriBackend(tauri: TauriGlobal): Backend {
   const invoke = tauri.core.invoke;
   let stateWrites = Promise.resolve();
   return {
@@ -46,14 +48,40 @@ function tauriBackend(tauri: TauriGlobal): Backend {
       stateWrites = stateWrites.then(() => invoke("set_panel_state", { state }));
       return stateWrites;
     },
+    operations: () => invoke<OperationView[]>("get_operations"),
+    operation: (id) => invoke<OperationView | null>("get_operation", { id }),
+    subscribeOperations: (listener) =>
+      tauri.event.listen<OperationView>(OPERATION_EVENT, (event) => {
+        listener(event.payload);
+      }),
+    startOperation: async (request) => {
+      try {
+        return await invoke<OperationView>("start_operation", { request });
+      } catch (failure) {
+        const existing = await invoke<OperationView | null>("get_operation", { id: request.id });
+        if (existing !== null) return existing;
+        return invoke<OperationView>("start_operation", { request }).catch(() => {
+          throw failure;
+        });
+      }
+    },
+    retryOperation: async (id) => {
+      try {
+        return await invoke<OperationView>("retry_operation", { id });
+      } catch (failure) {
+        const existing = await invoke<OperationView | null>("get_operation", { id });
+        if (existing !== null && existing.status !== "failed" && existing.status !== "partial") {
+          return existing;
+        }
+        return invoke<OperationView>("retry_operation", { id }).catch(() => {
+          throw failure;
+        });
+      }
+    },
     subscribe: (listener) =>
       tauri.event.listen<Snapshot>(SNAPSHOT_EVENT, (event) => {
         listener(event.payload);
       }),
-    stop: (ref) => invoke("stop_instance", { reference: ref }),
-    extend: (ref) => invoke("extend_instance", { reference: ref }),
-    keep: (ref) => invoke("keep_instance", { reference: ref }),
-    adopt: (ref, target) => invoke("adopt_instance", { reference: ref, target }),
     log: (sinceSeconds) => invoke<LogEntry[]>("get_log", { sinceSeconds }),
     openUrl: (url) => invoke("open_url", { url }),
     panelReady: () => invoke("panel_ready"),
@@ -66,7 +94,7 @@ let cached: Promise<Backend> | undefined;
 export function backend(): Promise<Backend> {
   cached ??= (async () => {
     const tauri = window.__TAURI__;
-    if (tauri !== undefined) return tauriBackend(tauri);
+    if (tauri !== undefined) return createTauriBackend(tauri);
     // Development in a browser only: the sample data never reaches a release
     // build because Vite removes this branch where `import.meta.env.DEV` is false.
     if (import.meta.env.DEV) {

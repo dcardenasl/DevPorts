@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Panel operations** — confirmed stop, extend, keep and adoption actions now run in the app process, with idempotent requests, per-target progress/results, bounded in-memory recovery and explicit retries.
 - **DevPorts app** — menu-bar app that hosts the core: a panel with Atención, Proyectos, Compartidos, Sin proyecto and Actividad, system notifications (lease about to end with an "Extender" button, grouped duplicates), a counter in the menu bar, adopting running processes and database containers into manifests, and start at login.
 - **`devports` command** — `run` (one official server per service, test instances with a lease, `--reuse`, fail-open), `ls`, `stop`, `extend`, `log` and `adopt`, with stable exit codes and `--json`.
 - **Safe stopping** — only registered test instances with a lease are stopped automatically, by `(pid, start)` identity, never by process group, never `docker rm`.

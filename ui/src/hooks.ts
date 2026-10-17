@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { backend, type Backend } from "./api";
-import type { PanelState, Snapshot } from "./types";
+import type { OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
 /** Milliseconds since the epoch, refreshed every `everyMs`. */
 export function useNow(everyMs = 1000): number {
@@ -123,4 +123,79 @@ export function useToast(): [string | undefined, (message: string) => void] {
     [],
   );
   return [message, show];
+}
+
+/** Tracks shell-owned operations so panel remounts recover their actual state. */
+export function useOperations(api: Backend | undefined): {
+  operations: OperationView[];
+  start: (request: Omit<OperationRequest, "id">) => Promise<void>;
+  retry: (id: string) => Promise<void>;
+} {
+  const [operations, setOperations] = useState<OperationView[]>([]);
+  const busy = useRef(new Set<string>());
+  const merge = useCallback((next: OperationView) => {
+    setOperations((current) => {
+      const prior = current.find((item) => item.id === next.id);
+      if (prior && prior.revision > next.revision) return current;
+      return [next, ...current.filter((item) => item.id !== next.id)].slice(0, 48);
+    });
+  }, []);
+  useEffect(() => {
+    if (!api) return;
+    const life = { active: true };
+    let unsubscribe: (() => void) | undefined;
+    void (async () => {
+      const stop = await api.subscribeOperations((item) => {
+        if (life.active) merge(item);
+      });
+      if (!life.active) {
+        stop();
+        return;
+      }
+      unsubscribe = stop;
+      const all = await api.operations();
+      all.forEach(merge);
+    })().catch(() => undefined);
+    return () => {
+      life.active = false;
+      unsubscribe?.();
+    };
+  }, [api, merge]);
+  const start = useCallback(
+    async (request: Omit<OperationRequest, "id">) => {
+      if (!api) return;
+      const key = JSON.stringify(request);
+      if (busy.current.has(key)) return;
+      const existing = operations.find(
+        (item) =>
+          item.kind === request.kind &&
+          JSON.stringify(
+            item.targets.map(({ reference, adoptTarget }) => ({ reference, adoptTarget })),
+          ) ===
+            JSON.stringify(
+              request.targets.map(({ reference, adoptTarget }) => ({
+                reference,
+                adoptTarget: adoptTarget ?? null,
+              })),
+            ),
+      );
+      if (existing && existing.status !== "succeeded") return;
+      busy.current.add(key);
+      try {
+        const operation = await api.startOperation({ ...request, id: crypto.randomUUID() });
+        merge(operation);
+      } finally {
+        busy.current.delete(key);
+      }
+    },
+    [api, merge, operations],
+  );
+  const retry = useCallback(
+    async (id: string) => {
+      if (!api) return;
+      merge(await api.retryOperation(id));
+    },
+    [api, merge],
+  );
+  return { operations, start, retry };
 }
