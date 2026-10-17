@@ -7,9 +7,10 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
-[lints]
-workspace = true
-
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+thiserror = "2"
+
+[lints]
+workspace = true

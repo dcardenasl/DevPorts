@@ -12,6 +12,7 @@
 //! result (see [`run::RunOutcome`]); only protocol and permission failures are
 //! errors.
 
+pub mod duration;
 pub mod paths;
 pub mod run;
 pub mod views;
