@@ -36,11 +36,13 @@ publish = false
 # it, which is not acceptable in a tool whose job is to be dependable. Every
 # failure is modelled as a typed error and propagated as a `Result`.
 #
-# `unsafe_code` is forbidden. The one planned exception is the macOS process
-# adapter (`platform::macos`), which will relax it locally, in that module only,
-# if the `libproc` crate turns out not to cover what ADR-025 needs.
+# `unsafe_code` is `deny`, not `forbid`, on purpose: the macOS process adapter
+# (`devports-core::platform::macos`) must read a C union that libproc returns,
+# and `forbid` cannot be relaxed by an inner `#[allow]`. The exception is kept
+# honest by `crates/devports-core/tests/architecture.rs`, which fails if
+# `unsafe` appears anywhere except that one module (ADR-025).
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 missing_docs = "deny"
 
 [workspace.lints.clippy]
