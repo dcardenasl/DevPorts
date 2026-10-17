@@ -110,7 +110,15 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
     if let Some(existing) = app.get_webview_window(PANEL_LABEL) {
         return existing.set_focus();
     }
-    let window = WebviewWindowBuilder::new(app, PANEL_LABEL, WebviewUrl::App("index.html".into()))
+    // `DevPorts --show --tab=projects` opens straight on a tab (first look, screenshots).
+    let start = std::env::args()
+        .find_map(|argument| argument.strip_prefix("--tab=").map(str::to_owned))
+        .filter(|tab| tab.chars().all(|character| character.is_ascii_lowercase()))
+        .map_or_else(
+            || "index.html".to_owned(),
+            |tab| format!("index.html?tab={tab}"),
+        );
+    let window = WebviewWindowBuilder::new(app, PANEL_LABEL, WebviewUrl::App(start.into()))
         .title("DevPorts")
         .inner_size(PANEL_WIDTH, PANEL_HEIGHT)
         .resizable(false)

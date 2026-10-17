@@ -497,7 +497,12 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             service: None,
             role: InstanceRole::Unregistered,
             state: self.observed_state(&reference),
-            kind: "app".to_owned(),
+            kind: if crate::adopt::is_data_image(&container.image) {
+                "data"
+            } else {
+                "app"
+            }
+            .to_owned(),
             port,
             url: port.map(url),
             pid: None,

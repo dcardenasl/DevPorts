@@ -55,7 +55,13 @@ export const text = {
     title: "Compartidos",
     summary: (count: number) => plural(count, "servicio", "servicios"),
     none: "No hay servicios compartidos",
+    onlyUndeclared: "Ninguno declarado todavía",
     noneBody: "Se declaran en ~/.config/devports/shared.yml y los proyectos los citan en «uses».",
+    undeclared: "SIN DECLARAR",
+    undeclaredBody:
+      "Están corriendo y nadie los declaró. Decláralos para que los proyectos los citen.",
+    declare: "Declarar",
+    declared: "Declarado en shared.yml",
     usedBy: "Lo usan",
     nobody: "Ningún proyecto lo usa",
     data: "datos",
@@ -63,6 +69,8 @@ export const text = {
   },
   orphans: {
     title: "Sin proyecto",
+    group: (count: number) => `${count} ${count === 1 ? "proceso" : "procesos"}`,
+    otherGroup: "Otros",
     summary: (count: number) =>
       count === 0 ? "Nada suelto" : `${plural(count, "proceso", "procesos")} sin dueño`,
     none: "Nada suelto",

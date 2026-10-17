@@ -146,11 +146,15 @@ fn process_service(dir: &Path, cwd: &Path, view: &InstanceView) -> ProposedServi
     }
 }
 
+/// Whether a container image is a database or cache.
+#[must_use]
+pub fn is_data_image(image: &str) -> bool {
+    let image = image.to_lowercase();
+    DATA_IMAGES.iter().any(|known| image.contains(known))
+}
+
 fn container_service(name: &str, view: &InstanceView) -> ProposedService {
-    let is_data = view.image.as_deref().is_some_and(|image| {
-        let image = image.to_lowercase();
-        DATA_IMAGES.iter().any(|known| image.contains(known))
-    });
+    let is_data = view.image.as_deref().is_some_and(is_data_image);
     ProposedService {
         name: slug(name),
         cwd: None,

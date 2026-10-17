@@ -2,19 +2,24 @@ import type { ReactElement } from "react";
 
 import type { Actions } from "../actions";
 import { StopIcon } from "../icons";
-import { buildShared } from "../model";
+import { buildShared, buildUndeclaredData } from "../model";
 import { text } from "../text";
 import { ago } from "../time";
 import { Dot, Empty, Tag, dotFor } from "./shared-parts";
 import { IconButton } from "./ProjectsView";
 
 export function sharedSubtitle(actions: Actions): string {
-  return text.shared.summary(buildShared(actions.snapshot).length);
+  const declared = buildShared(actions.snapshot).length;
+  const undeclared = buildUndeclaredData(actions.snapshot).length;
+  return declared === 0 && undeclared > 0
+    ? text.shared.onlyUndeclared
+    : text.shared.summary(declared);
 }
 
 export function SharedView({ actions }: { actions: Actions }): ReactElement {
   const nodes = buildShared(actions.snapshot);
-  if (nodes.length === 0) {
+  const undeclared = buildUndeclaredData(actions.snapshot);
+  if (nodes.length === 0 && undeclared.length === 0) {
     return <Empty title={text.shared.none} body={text.shared.noneBody} />;
   }
   return (
@@ -63,6 +68,42 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
           </section>
         );
       })}
+      {undeclared.length > 0 && (
+        <>
+          <div className="eyebrow dim" style={{ marginTop: 4 }}>
+            {text.shared.undeclared}
+          </div>
+          <div className="soft" style={{ fontSize: 12 }}>
+            {text.shared.undeclaredBody}
+          </div>
+          {undeclared.map((view) => (
+            <section className="card" key={view.ref}>
+              <div className="row">
+                <Dot kind="loose" />
+                <span className="name">{view.container}</span>
+                <Tag tone="blue">{text.shared.data}</Tag>
+                <span className="grow" />
+                <span className="mono soft">{view.port === null ? "" : `:${view.port}`}</span>
+              </div>
+              <div className="soft mono" style={{ marginTop: 6, fontSize: 11 }}>
+                {text.shared.docker} · {view.image ?? "—"}
+                {view.compose === null ? "" : ` · ${view.compose}`}
+              </div>
+              <div className="row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn primary-green"
+                  onClick={() => {
+                    actions.declareShared(view);
+                  }}
+                >
+                  {text.shared.declare}
+                </button>
+              </div>
+            </section>
+          ))}
+        </>
+      )}
     </>
   );
 }

@@ -119,11 +119,20 @@ export function buildShared(snapshot: Snapshot): SharedNode[] {
     }));
 }
 
+const isLoose = (view: InstanceView): boolean =>
+  view.role === "unregistered" && view.service === null && !view.ignored;
+
+/** Running databases and caches nobody declared in `shared.yml` yet. */
+export function buildUndeclaredData(snapshot: Snapshot): InstanceView[] {
+  return snapshot.instances.filter(
+    (view) => isLoose(view) && view.container !== null && view.kind === "data",
+  );
+}
+
 /** Things that listen on a port and belong to no declared service. */
 export function buildOrphans(snapshot: Snapshot): InstanceView[] {
-  return snapshot.instances.filter(
-    (view) => view.role === "unregistered" && view.service === null && !view.ignored,
-  );
+  const undeclared = new Set(buildUndeclaredData(snapshot).map((view) => view.ref));
+  return snapshot.instances.filter((view) => isLoose(view) && !undeclared.has(view.ref));
 }
 
 export function buildAttention(snapshot: Snapshot): AttentionModel {

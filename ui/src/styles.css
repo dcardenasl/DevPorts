@@ -102,7 +102,8 @@ button {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  font-size: 11px;
+  font-size: 10.5px;
+  white-space: nowrap;
   cursor: pointer;
   position: relative;
 }

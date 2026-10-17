@@ -96,7 +96,8 @@ export function ActivityView({
     let cancelled = false;
     void api.log(24 * 3600).then((loaded) => {
       if (cancelled) return;
-      setEntries([...loaded].reverse());
+      // Starting up is bookkeeping, not something the person did or needs to see.
+      setEntries([...loaded].filter((entry) => entry.kind !== "core_started").reverse());
       onCount(loaded.length);
     });
     return () => {

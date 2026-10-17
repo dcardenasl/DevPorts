@@ -56,5 +56,8 @@ export function Tag({
 /** The program and arguments of a process, as one line. */
 export function commandLine(argv: readonly string[], container: string | null): string {
   if (container !== null) return container;
-  return argv.length === 0 ? "—" : argv.join(" ");
+  const [program, ...rest] = argv;
+  if (program === undefined) return "—";
+  const name = program.includes("/") ? (program.split("/").pop() ?? program) : program;
+  return [name, ...rest].join(" ");
 }

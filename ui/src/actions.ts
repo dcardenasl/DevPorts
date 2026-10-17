@@ -14,4 +14,6 @@ export interface Actions {
   copy: (text: string) => void;
   showInProjects: (ref: string) => void;
   adopt: (view: InstanceView) => void;
+  /** Declares a container in `shared.yml` without asking where it goes. */
+  declareShared: (view: InstanceView) => void;
 }

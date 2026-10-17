@@ -31,10 +31,15 @@ const TABS: { id: Tab; icon: (props: { size?: number }) => ReactElement }[] = [
   { id: "activity", icon: ListIcon },
 ];
 
+function initialTab(): Tab {
+  const wanted = new URLSearchParams(window.location.search).get("tab");
+  return TABS.find((entry) => entry.id === wanted)?.id ?? "attention";
+}
+
 export function App(): ReactElement {
   const { api, snapshot, error } = useConnection();
   const now = useNow();
-  const [tab, setTab] = useState<Tab>("attention");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [highlight, setHighlight] = useState<string>();
   const [confirming, setConfirming] = useState<InstanceView>();
   const [adopting, setAdopting] = useState<InstanceView>();
@@ -84,6 +89,9 @@ export function App(): ReactElement {
         setTab("projects");
       },
       adopt: setAdopting,
+      declareShared: (view) => {
+        attempt(api.adopt(view.ref, "shared"), text.shared.declared);
+      },
     };
   }, [api, snapshot, now, attempt]);
 
