@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ $# -ne 1 || ! -f "$1" ]]; then
+    echo "commit-msg: expected the path to Git's commit message file." >&2
+    exit 1
+fi
+
+MESSAGE_FILE="$1"
+LINE_COUNT="$(awk 'END { print NR }' "${MESSAGE_FILE}")"
+if [[ "${LINE_COUNT}" -ne 1 ]]; then
+    echo "commit-msg: use one subject line only; bodies and trailers are not allowed." >&2
+    exit 1
+fi
+
+SUBJECT=""
+IFS= read -r SUBJECT < "${MESSAGE_FILE}" || true
+PATTERN='^(feat|fix|docs|chore|refactor|test|perf|style|ci|build)(\([a-z0-9][a-z0-9._/-]*\))?: [a-z][^[:cntrl:]]*$'
+if [[ ! "${SUBJECT}" =~ ${PATTERN} ]]; then
+    echo "commit-msg: expected 'type(scope): subject' with a lowercase subject and allowed type." >&2
+    echo "commit-msg: allowed types: feat fix docs chore refactor test perf style ci build." >&2
+    exit 1
+fi
+
+if [[ "${SUBJECT}" == *. ]]; then
+    echo "commit-msg: do not end the subject with a period." >&2
+    exit 1
+fi
+
+if printf '%s\n' "${SUBJECT}" | grep -Eiq '(^|[^[:alpha:]])(claude|anthropic|ai)([^[:alpha:]]|$)'; then
+    echo "commit-msg: do not mention Claude, AI, or Anthropic." >&2
+    exit 1
+fi
+
+if printf '%s\n' "${SUBJECT}" | grep -Eiq '(^|[[:space:]])(co-authored-by|signed-off-by|reviewed-by|acked-by):'; then
+    echo "commit-msg: trailers and attribution are not allowed." >&2
+    exit 1
+fi

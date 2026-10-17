@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# Refuse to push to `main`.
+#
+# `main` only ever changes through a merged pull request, and that merge happens
+# server-side. This repository has no remote yet and no server-side branch
+# protection, so the rule cannot be enforced by GitHub — it is
+# enforced here instead.
+#
+# This never blocks the release flow: `gh pr merge` merges server-side, and the
+# release tag goes to refs/tags/*, not refs/heads/main.
+#
+# If you genuinely need to push to main (recovering a broken remote, say), the
+# escape hatch is deliberate and visible:
+#
+#     ALLOW_MAIN_PUSH=1 git push origin main
+#
+set -Eeuo pipefail
+
+if [[ "${ALLOW_MAIN_PUSH:-}" == "1" ]]; then
+    echo "pre-push: ALLOW_MAIN_PUSH=1 set; skipping the main branch guard."
+    exit 0
+fi
+
+# git feeds "<local ref> <local sha> <remote ref> <remote sha>" on stdin,
+# one line per ref being pushed.
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+    if [[ "${remote_ref}" == "refs/heads/main" ]]; then
+        cat >&2 <<'MSG'
+
+  ✖ Push to `main` refused.
+
+    All work goes to `dev`. `main` only changes through a merged pull request:
+
+        git push origin dev
+        gh pr create --base main --head dev
+
+    See CLAUDE.md → "Ramas".
+
+MSG
+        exit 1
+    fi
+done
+
+exit 0
