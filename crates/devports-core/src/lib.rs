@@ -11,6 +11,7 @@ pub mod discovery;
 pub mod docker;
 pub mod fingerprint;
 pub mod hash;
+pub mod ipc;
 pub mod manifest;
 pub mod platform;
 pub mod probe;
