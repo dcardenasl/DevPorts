@@ -153,3 +153,123 @@ async fn a_second_core_on_the_same_socket_is_refused() {
     first.handle().shutdown();
     first.wait().await;
 }
+
+#[tokio::test]
+async fn a_duplicate_asks_for_attention_until_the_person_keeps_it_and_adoption_writes_the_manifest()
+{
+    use devports_core::runtime::AdoptTarget;
+    use devports_proto::views::AttentionKind;
+
+    let home = TempDir::new().expect("tempdir");
+    let work = home.path().join("work");
+    let project = work.join("shop");
+    write(
+        &home.path().join(".config/devports/config.yml"),
+        &format!(
+            "version: 1\nroots: [{}]\nobservation:\n  host_interval: 250ms\n",
+            work.display()
+        ),
+    );
+    write(
+        &project.join(".devports.yml"),
+        "version: 1\nproject: shop\nservices:\n  api:\n    cwd: .\n    port: 8080\n",
+    );
+    let project = std::fs::canonicalize(&project).expect("canonical");
+    let source = Arc::new(FakeProcessSource::new(Vec::new()));
+    let core = Core::start(options(home.path()), Arc::clone(&source))
+        .await
+        .expect("the core starts");
+    let handle = core.handle();
+    wait_for(&handle, "the declared service", |handle| {
+        handle
+            .snapshot()
+            .projects
+            .iter()
+            .any(|summary| summary.name == "shop")
+    })
+    .await;
+
+    let listening = |pid: u32, port: u16, start: i64| ListeningProcess {
+        info: ProcessInfo {
+            id: ProcessId {
+                pid,
+                start: ProcessStart(u64::try_from(start).expect("positive") * 1_000_000),
+            },
+            ppid: 1,
+            pgid: pid,
+            uid: 4_000_000,
+            argv: vec!["php".to_owned(), "spark".to_owned(), "serve".to_owned()],
+            cwd: Some(project.clone()),
+        },
+        ports: vec![port],
+    };
+    let long_ago = jiff::Timestamp::now().as_second() - 3_600;
+    source.set(vec![
+        listening(11, 8080, long_ago),
+        listening(12, 8090, long_ago + 60),
+    ]);
+    wait_for(&handle, "the duplicate to be flagged", |handle| {
+        handle
+            .snapshot()
+            .attention
+            .iter()
+            .any(|item| item.kind == AttentionKind::Duplicate)
+    })
+    .await;
+    let duplicate = handle
+        .snapshot()
+        .attention
+        .iter()
+        .find(|item| item.kind == AttentionKind::Duplicate)
+        .expect("a duplicate")
+        .instance_ref
+        .clone();
+
+    handle.ignore(&duplicate).await.expect("kept");
+    wait_for(&handle, "the attention to clear", |handle| {
+        handle.snapshot().attention.is_empty()
+    })
+    .await;
+
+    // A process in a new folder is adopted as a project of its own.
+    let fresh = home.path().join("work").join("fresh");
+    std::fs::create_dir_all(&fresh).expect("mkdir");
+    let fresh = std::fs::canonicalize(&fresh).expect("canonical");
+    let mut stray = listening(21, 9100, long_ago);
+    stray.info.cwd = Some(fresh.clone());
+    stray.info.argv = vec!["node".to_owned(), "server.js".to_owned()];
+    source.set(vec![stray]);
+    wait_for(&handle, "the stray process", |handle| {
+        handle
+            .snapshot()
+            .instances
+            .iter()
+            .any(|view| view.pid == Some(21))
+    })
+    .await;
+    let reference = handle
+        .snapshot()
+        .instances
+        .iter()
+        .find(|view| view.pid == Some(21))
+        .expect("listed")
+        .instance_ref
+        .clone();
+    let applied = handle
+        .adopt(&reference, AdoptTarget::New(Some("fresh-app".to_owned())))
+        .await
+        .expect("adopted");
+    assert_eq!(applied.project, "fresh-app");
+    assert!(fresh.join(".devports.yml").exists());
+    wait_for(&handle, "the new project", |handle| {
+        handle
+            .snapshot()
+            .projects
+            .iter()
+            .any(|summary| summary.name == "fresh-app")
+    })
+    .await;
+
+    handle.shutdown();
+    core.wait().await;
+}

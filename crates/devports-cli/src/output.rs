@@ -167,6 +167,7 @@ mod tests {
             compose: None,
             argv: Vec::new(),
             image: None,
+            ignored: false,
         }
     }
 

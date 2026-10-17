@@ -169,7 +169,7 @@ pub struct ExtendResult {
 }
 
 /// Result of `log`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LogResult {
     /// The entries, oldest first.
     pub entries: Vec<LogEntry>,

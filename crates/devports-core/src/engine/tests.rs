@@ -1586,3 +1586,64 @@ fn the_socket_dispatcher_answers_each_operation() {
         .0;
     assert_eq!(adopt.error.unwrap().code, ErrorCode::NotFound);
 }
+
+// ------------------------------------------------------------------- keeping
+
+#[test]
+fn a_kept_duplicate_stops_asking_for_attention_and_the_choice_survives_a_restart() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let path = dir.path().join("devports.db");
+    let table = |base: i64| {
+        vec![
+            proc(
+                1,
+                1,
+                base,
+                "/work/shop/api",
+                Some(8080),
+                &["php", "spark", "serve"],
+            ),
+            proc(
+                2,
+                1,
+                base + 5,
+                "/work/shop/api",
+                Some(8090),
+                &["php", "spark", "serve", "--port", "8090"],
+            ),
+        ]
+    };
+    let base = START.parse::<Timestamp>().unwrap().as_second() - 100;
+    let duplicate_ref = {
+        let mut world = world_with(
+            Store::open(&path).unwrap(),
+            Arc::new(ManualClock::new(START.parse::<Timestamp>().unwrap())),
+        );
+        world.scan(table(base));
+        let duplicate = world.instance(Some("shop"), "api", InstanceRole::Unregistered)[0].clone();
+        assert!(!duplicate.ignored);
+        world
+            .engine
+            .ignore_instance(&duplicate.instance_ref)
+            .unwrap();
+        let kept = &world.instance(Some("shop"), "api", InstanceRole::Unregistered)[0];
+        assert!(kept.ignored);
+        assert!(world.events().contains(&"kept".to_owned()));
+        duplicate.instance_ref
+    };
+
+    // After a restart the same command in the same folder is still kept, and it
+    // is not announced again.
+    let mut world = world_with(
+        Store::open(&path).unwrap(),
+        Arc::new(ManualClock::new(START.parse::<Timestamp>().unwrap())),
+    );
+    let effects = world.scan(table(base));
+    let kept = &world.instance(Some("shop"), "api", InstanceRole::Unregistered)[0];
+    assert!(kept.ignored, "{duplicate_ref}");
+    assert!(
+        effects.is_empty(),
+        "a kept duplicate is not news: {effects:?}"
+    );
+    assert!(world.engine.ignore_instance("nope").is_err());
+}

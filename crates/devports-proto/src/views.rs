@@ -103,6 +103,69 @@ pub struct InstanceView {
     /// The image of a container.
     #[serde(default)]
     pub image: Option<String>,
+    /// The person chose to keep this unregistered duplicate: it no longer asks for attention.
+    #[serde(default)]
+    pub ignored: bool,
+}
+
+/// A project as the interface lays it out: repos with services inside.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectSummary {
+    /// Project name.
+    pub name: String,
+    /// Absolute folder of its manifest.
+    pub root: String,
+    /// Shared services it depends on.
+    pub uses: Vec<String>,
+    /// Repositories (or plain folders) its services live in.
+    pub repos: Vec<RepoSummary>,
+    /// Its declared services.
+    pub services: Vec<ServiceSummary>,
+}
+
+/// A repository inside a project.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepoSummary {
+    /// Folder name.
+    pub name: String,
+    /// Absolute path.
+    pub path: String,
+    /// Current branch, when it is a repository.
+    pub branch: Option<String>,
+}
+
+/// A declared service and where it lives.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceSummary {
+    /// Service name.
+    pub name: String,
+    /// Absolute path of its repository (or the project folder).
+    pub repo: String,
+    /// Preferred port.
+    pub port: Option<u16>,
+    /// `app` or `data`.
+    pub kind: String,
+}
+
+/// Why something is in the "Atención" tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttentionKind {
+    /// An unregistered duplicate of a Principal.
+    Duplicate,
+    /// A Temporal that is about to expire.
+    Expiring,
+    /// A service that stopped answering.
+    Hung,
+}
+
+/// One thing that waits for a decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttentionItem {
+    /// What kind of thing it is.
+    pub kind: AttentionKind,
+    /// The instance's reference.
+    pub instance_ref: String,
 }
 
 /// One line of the activity log.
@@ -154,6 +217,7 @@ mod tests {
             compose: None,
             argv: Vec::new(),
             image: None,
+            ignored: false,
         }
     }
 

@@ -336,6 +336,11 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
             "Apareció un duplicado de {service} {} sin registrar",
             port.unwrap_or_default()
         ),
+        "kept" => format!(
+            "Conservaste {service} {} aunque duplica a la Principal",
+            port.unwrap_or_default()
+        ),
+        "adopted" => format!("Adoptaste {service} en un manifiesto"),
         "unregistered_seen" => format!(
             "Apareció un proceso sin registrar {}",
             port.unwrap_or_default()

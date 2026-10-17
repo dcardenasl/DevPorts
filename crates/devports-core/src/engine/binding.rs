@@ -281,7 +281,11 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let duplicates: Vec<devports_proto::views::InstanceView> = self
             .views
             .iter()
-            .filter(|view| view.role == InstanceRole::Unregistered && view.duplicate_of.is_some())
+            .filter(|view| {
+                view.role == InstanceRole::Unregistered
+                    && view.duplicate_of.is_some()
+                    && !view.ignored
+            })
             .cloned()
             .collect();
         let current: std::collections::BTreeSet<String> = duplicates

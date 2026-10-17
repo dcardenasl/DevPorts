@@ -31,6 +31,7 @@ fn existing() -> InstanceView {
         compose: None,
         argv: Vec::new(),
         image: None,
+        ignored: false,
     }
 }
 

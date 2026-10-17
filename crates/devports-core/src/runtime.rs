@@ -21,10 +21,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use devports_proto::views::InstanceView;
-use devports_proto::{Request, Response};
+use devports_proto::views::{
+    AttentionItem, AttentionKind, InstanceRole, InstanceState, InstanceView, ProjectSummary,
+};
+use devports_proto::{LogArgs, LogResult, Request, Response};
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
+use crate::adopt::apply::{self, Applied, ApplyError};
 use crate::catalog::Catalog;
 use crate::clock::{Clock, SystemClock};
 use crate::config::{Config, SharedServices, config_dir};
@@ -135,6 +138,71 @@ pub struct Snapshot {
     /// Problems the core wants the person to know about (invalid manifests,
     /// failed writes).
     pub problems: Vec<String>,
+    /// The projects, laid out as repos with services.
+    pub projects: Vec<ProjectSummary>,
+    /// What waits for a decision; its length is the tray counter.
+    pub attention: Vec<AttentionItem>,
+    /// Minutes an "extend" adds, for the button's label.
+    pub extend_minutes: u64,
+}
+
+/// A Temporal with at most this long left asks for attention.
+const EXPIRING_WITHIN: Duration = Duration::from_mins(5);
+/// How often the repositories' branches are read again.
+const SUMMARY_EVERY_SECONDS: i64 = 10;
+
+/// What waits for a decision, in display order: hung services, Temporals about
+/// to expire (soonest first) and unregistered duplicates that were not kept.
+#[must_use]
+pub fn attention_items(instances: &[InstanceView], now: i64) -> Vec<AttentionItem> {
+    let window = i64::try_from(EXPIRING_WITHIN.as_secs()).unwrap_or(i64::MAX);
+    let mut hung: Vec<AttentionItem> = Vec::new();
+    let mut expiring: Vec<(i64, AttentionItem)> = Vec::new();
+    let mut duplicates: Vec<AttentionItem> = Vec::new();
+    for view in instances {
+        if view.state == InstanceState::Unhealthy && view.role == InstanceRole::Principal {
+            hung.push(AttentionItem {
+                kind: AttentionKind::Hung,
+                instance_ref: view.instance_ref.clone(),
+            });
+        }
+        if view.role == InstanceRole::Temporal
+            && let Some(end) = view
+                .expires_at
+                .as_deref()
+                .and_then(|text| text.parse::<jiff::Timestamp>().ok())
+                .map(jiff::Timestamp::as_second)
+            && end.saturating_sub(now) <= window
+        {
+            expiring.push((
+                end,
+                AttentionItem {
+                    kind: AttentionKind::Expiring,
+                    instance_ref: view.instance_ref.clone(),
+                },
+            ));
+        }
+        if view.role == InstanceRole::Unregistered && view.duplicate_of.is_some() && !view.ignored {
+            duplicates.push(AttentionItem {
+                kind: AttentionKind::Duplicate,
+                instance_ref: view.instance_ref.clone(),
+            });
+        }
+    }
+    expiring.sort_by_key(|(end, _)| *end);
+    hung.into_iter()
+        .chain(expiring.into_iter().map(|(_, item)| item))
+        .chain(duplicates)
+        .collect()
+}
+
+/// Where a person's adoption goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdoptTarget {
+    /// Add it to this existing project.
+    Project(String),
+    /// Create a project in the process's folder, named `name` or after the folder.
+    New(Option<String>),
 }
 
 /// A message to the actor.
@@ -148,6 +216,17 @@ enum Msg {
     Catalog(Box<CatalogUpdate>),
     Terminated(String, StopReason, Terminated),
     HealthTargets(oneshot::Sender<Vec<HealthTarget>>),
+    Ignore(String, oneshot::Sender<Result<(), ActionError>>),
+    Log(LogArgs, oneshot::Sender<LogResult>),
+    Describe(String, oneshot::Sender<Option<Description>>),
+    Adopted(Applied),
+}
+
+/// What an adoption needs to know about the thing being adopted.
+struct Description {
+    view: InstanceView,
+    projects: Vec<(String, PathBuf)>,
+    shared: std::collections::BTreeSet<String>,
 }
 
 struct CatalogUpdate {
@@ -163,6 +242,7 @@ pub struct CoreHandle {
     snapshot: watch::Receiver<Arc<Snapshot>>,
     notices: broadcast::Sender<Notice>,
     shutdown: watch::Sender<bool>,
+    home: Arc<PathBuf>,
 }
 
 impl CoreHandle {
@@ -221,6 +301,94 @@ impl CoreHandle {
         self.send_action(Msg::Extend(reference.to_owned(), reply))
             .await?;
         answer.await.unwrap_or_else(|_| Err(gone()))
+    }
+
+    /// Keeps an unregistered process or container: it stays and stops asking for
+    /// attention.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError`] when it does not exist or cannot be told apart from others.
+    pub async fn ignore(&self, reference: &str) -> Result<(), ActionError> {
+        let (reply, answer) = oneshot::channel();
+        self.send_action(Msg::Ignore(reference.to_owned(), reply))
+            .await?;
+        answer.await.unwrap_or_else(|_| Err(gone()))
+    }
+
+    /// The activity log.
+    pub async fn log(&self, args: LogArgs) -> LogResult {
+        let (reply, answer) = oneshot::channel();
+        if self.messages.send(Msg::Log(args, reply)).await.is_err() {
+            return LogResult::default();
+        }
+        answer.await.unwrap_or_default()
+    }
+
+    /// Writes the manifest that adopts `reference`, on a person's request.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError`] when it cannot be described there or the file cannot be
+    /// written; nothing is changed in that case.
+    pub async fn adopt(&self, reference: &str, target: AdoptTarget) -> Result<Applied, ApplyError> {
+        let (reply, answer) = oneshot::channel();
+        self.messages
+            .send(Msg::Describe(reference.to_owned(), reply))
+            .await
+            .map_err(|_| ApplyError::Io("DevPorts se está cerrando".to_owned()))?;
+        let description = answer
+            .await
+            .ok()
+            .flatten()
+            .ok_or_else(|| ApplyError::Unsuitable("esa instancia ya no existe".to_owned()))?;
+        let Description {
+            view,
+            projects,
+            shared,
+        } = description;
+        let applied = tokio::task::spawn_blocking(move || match target {
+            AdoptTarget::Project(name) => {
+                let root = projects
+                    .iter()
+                    .find(|(candidate, _)| *candidate == name)
+                    .map(|(_, root)| root.clone())
+                    .ok_or_else(|| {
+                        ApplyError::Unsuitable(format!("no existe el proyecto «{name}»"))
+                    })?;
+                apply::add_service(&root, &view, Some(&shared))
+            }
+            AdoptTarget::New(name) => {
+                let root = view.cwd.as_deref().map(PathBuf::from).ok_or_else(|| {
+                    ApplyError::Unsuitable("el proceso no tiene carpeta conocida".to_owned())
+                })?;
+                apply::create_project(&root, name.as_deref(), &view, Some(&shared))
+            }
+        })
+        .await
+        .map_err(|error| ApplyError::Io(error.to_string()))??;
+        // The new manifest is picked up now instead of at the next pass.
+        let home = Arc::clone(&self.home);
+        if let Ok(Ok((catalog, shared, problems))) = tokio::task::spawn_blocking(move || {
+            let (config, shared) = load_settings(&home)?;
+            let discovery = discover_all(&config, &shared);
+            Ok::<_, RuntimeError>((
+                discovery.catalog,
+                shared,
+                discovery_problems(&discovery.issues),
+            ))
+        })
+        .await
+        {
+            let update = CatalogUpdate {
+                catalog,
+                shared,
+                problems,
+            };
+            let _ = self.messages.send(Msg::Catalog(Box::new(update))).await;
+        }
+        let _ = self.messages.send(Msg::Adopted(applied.clone())).await;
+        Ok(applied)
     }
 
     /// Asks the whole core to stop.
@@ -337,6 +505,7 @@ impl Core {
             snapshot: snapshot_rx,
             notices: notices.clone(),
             shutdown,
+            home: Arc::new(options.home.clone()),
         };
 
         let mut tasks = vec![tokio::spawn(
@@ -353,6 +522,8 @@ impl Core {
                 docker_state: DockerState::default(),
                 catalog_problems: problems,
                 shutdown: shutdown_rx.clone(),
+                projects: Vec::new(),
+                projects_at: 0,
             }
             .run(),
         )];
@@ -441,6 +612,8 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     docker_state: DockerState,
     catalog_problems: Vec<String>,
     shutdown: watch::Receiver<bool>,
+    projects: Vec<ProjectSummary>,
+    projects_at: i64,
 }
 
 impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Actor<C, S, P> {
@@ -517,11 +690,48 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 } = *update;
                 self.catalog_problems = problems;
                 self.engine.set_catalog(catalog, shared);
+                self.projects_at = 0;
                 Vec::new()
             }
             Msg::Terminated(reference, reason, outcome) => {
                 self.engine
                     .termination_finished(&reference, reason, &outcome);
+                Vec::new()
+            }
+            Msg::Ignore(reference, reply) => {
+                let _ = reply.send(self.engine.ignore_instance(&reference));
+                Vec::new()
+            }
+            Msg::Log(args, reply) => {
+                let _ = reply.send(self.engine.log(&args));
+                Vec::new()
+            }
+            Msg::Describe(reference, reply) => {
+                let view = self
+                    .engine
+                    .views()
+                    .iter()
+                    .find(|view| view.instance_ref == reference)
+                    .cloned();
+                let _ = reply.send(view.map(|view| {
+                    Description {
+                        view,
+                        projects: self
+                            .engine
+                            .catalog()
+                            .projects()
+                            .iter()
+                            .map(|project| (project.name.clone(), project.root.clone()))
+                            .collect(),
+                        shared: self.engine.shared_names(),
+                    }
+                }));
+                Vec::new()
+            }
+            Msg::Adopted(applied) => {
+                self.engine
+                    .record_adopted(&applied.project, &applied.service);
+                self.projects_at = 0;
                 Vec::new()
             }
             Msg::HealthTargets(reply) => {
@@ -598,8 +808,16 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
         let mut problems = self.catalog_problems.clone();
         problems.extend(self.engine.take_problems());
         let instances = self.engine.views().to_vec();
+        let now = self.engine.now();
+        if now.saturating_sub(self.projects_at) >= SUMMARY_EVERY_SECONDS {
+            self.projects = self.engine.project_summaries();
+            self.projects_at = now;
+        }
+        let attention = attention_items(&instances, now);
         let current = self.snapshot.borrow().clone();
-        if current.instances == instances
+        if current.projects == self.projects
+            && current.attention == attention
+            && current.instances == instances
             && current.docker_reachable == self.docker_state.reachable
             && current.docker_error == self.docker_state.error
             && current.problems == problems
@@ -613,6 +831,16 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             docker_reachable: self.docker_state.reachable,
             docker_error: self.docker_state.error.clone(),
             problems,
+            projects: self.projects.clone(),
+            attention,
+            extend_minutes: self
+                .engine
+                .config()
+                .lease
+                .extend_by
+                .as_secs()
+                .checked_div(60)
+                .unwrap_or(0),
         }));
     }
 }

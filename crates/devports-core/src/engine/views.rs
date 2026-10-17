@@ -150,6 +150,10 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         }
 
         self.add_declared_but_down(&mut views);
+        for view in &mut views {
+            view.ignored = view.role == InstanceRole::Unregistered
+                && super::ignore_key(view).is_some_and(|key| self.ignored.contains(&key));
+        }
         views.sort_by(sort_key);
         self.views = views;
         self.targets = targets;
@@ -342,6 +346,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             compose: None,
             argv: self.argv_of(record),
             image: container.map(|container| container.image.clone()),
+            ignored: false,
         };
         (view, target)
     }
@@ -388,6 +393,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             compose: None,
             argv: info.argv.clone(),
             image: None,
+            ignored: false,
         };
 
         let key = match self.catalog.classify(process) {
@@ -481,6 +487,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             compose: None,
             argv: Vec::new(),
             image: Some(container.image.clone()),
+            ignored: false,
         };
 
         let shared_name = self
@@ -575,6 +582,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 compose: None,
                 argv: Vec::new(),
                 image: None,
+                ignored: false,
             });
         };
         for project in self.catalog.projects() {

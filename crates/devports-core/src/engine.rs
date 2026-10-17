@@ -43,6 +43,22 @@ use crate::store::{InstanceRecord, Store, StoreError};
 
 pub use actions::ActionError;
 
+/// The stable identity of something the person may choose to keep: the same
+/// command in the same folder, or the same container, survives restarts and
+/// changes of pid and port.
+#[must_use]
+pub fn ignore_key(view: &InstanceView) -> Option<String> {
+    if let Some(container) = &view.container {
+        return Some(format!("container:{container}"));
+    }
+    let cwd = view.cwd.as_deref()?;
+    let program = view.argv.first()?;
+    Some(format!(
+        "process:{cwd}\u{1f}{program}\u{1f}{}",
+        view.argv.join(" ")
+    ))
+}
+
 /// One instance whose health the prober must check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HealthTarget {
@@ -185,6 +201,8 @@ pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
     pub(crate) containers: Option<Vec<Container>>,
     /// Consecutive failed health checks, by instance reference.
     pub(crate) health: BTreeMap<String, u8>,
+    /// What the person chose to keep, by [`ignore_key`].
+    pub(crate) ignored: BTreeSet<String>,
     pub(crate) views: Vec<InstanceView>,
     /// What each listed instance's stop would act on, by reference.
     pub(crate) targets: BTreeMap<String, Target>,
@@ -207,6 +225,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     /// [`EngineError::Store`] if the store cannot be read.
     pub fn new(parts: Parts<C, S, P>) -> Result<Self, EngineError> {
         let tracked = parts.store.live_instances()?;
+        let ignored_keys = parts.store.ignored_keys()?;
         let mut engine = Self {
             clock: parts.clock,
             source: parts.source,
@@ -219,6 +238,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             host: Vec::new(),
             containers: None,
             health: BTreeMap::new(),
+            ignored: ignored_keys.into_iter().collect(),
             views: Vec::new(),
             targets: BTreeMap::new(),
             seen_duplicates: BTreeSet::new(),
@@ -304,6 +324,74 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     #[must_use]
     pub fn views(&self) -> &[InstanceView] {
         &self.views
+    }
+
+    /// The projects as the interface lays them out. Reads the repositories'
+    /// branches from disk, so call it sparingly.
+    #[must_use]
+    pub fn project_summaries(&self) -> Vec<devports_proto::views::ProjectSummary> {
+        use devports_proto::views::{ProjectSummary, RepoSummary, ServiceSummary};
+        self.catalog
+            .projects()
+            .iter()
+            .map(|project| {
+                let mut repos: BTreeMap<std::path::PathBuf, RepoSummary> = BTreeMap::new();
+                let mut services = Vec::new();
+                for service in &project.services {
+                    let folder = service.cwd.clone().unwrap_or_else(|| project.root.clone());
+                    let git = crate::gitinfo::read(&folder);
+                    let repo_path = git
+                        .as_ref()
+                        .map_or_else(|| project.root.clone(), |git| git.worktree.clone());
+                    let repo_path = if repo_path.starts_with(&project.root) {
+                        repo_path
+                    } else {
+                        project.root.clone()
+                    };
+                    repos
+                        .entry(repo_path.clone())
+                        .or_insert_with(|| RepoSummary {
+                            name: repo_path
+                                .file_name()
+                                .and_then(|name| name.to_str())
+                                .unwrap_or("proyecto")
+                                .to_owned(),
+                            path: repo_path.display().to_string(),
+                            branch: git.and_then(|git| git.branch),
+                        });
+                    services.push(ServiceSummary {
+                        name: service.name.clone(),
+                        repo: repo_path.display().to_string(),
+                        port: service.port,
+                        kind: service.kind.as_str().to_owned(),
+                    });
+                }
+                ProjectSummary {
+                    name: project.name.clone(),
+                    root: project.root.display().to_string(),
+                    uses: project.uses.clone(),
+                    repos: repos.into_values().collect(),
+                    services,
+                }
+            })
+            .collect()
+    }
+
+    /// The names `shared.yml` defines.
+    #[must_use]
+    pub fn shared_names(&self) -> BTreeSet<String> {
+        self.shared.names()
+    }
+
+    /// Writes the log line of an adoption done from the application.
+    pub fn record_adopted(&mut self, project: &str, service: &str) {
+        self.event(
+            "adopted",
+            Some(project),
+            Some(service),
+            None,
+            &json!({"project": project}),
+        );
     }
 
     /// Records the result of one health check of an instance. Three failures in a

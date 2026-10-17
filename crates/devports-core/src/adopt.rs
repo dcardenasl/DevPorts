@@ -11,6 +11,8 @@ use devports_proto::views::InstanceView;
 
 use crate::fingerprint::Fingerprint;
 
+pub mod apply;
+
 /// Images recognised as databases and caches: `kind: data` (ADR-006, ADR-013).
 const DATA_IMAGES: [&str; 7] = [
     "mysql",
@@ -88,6 +90,19 @@ pub fn propose(dir: &Path, instances: &[InstanceView]) -> Proposal {
         ),
         root: dir.to_path_buf(),
         services,
+    }
+}
+
+/// The service `view` would be inside the project at `root`, or `None` if it
+/// cannot be described there (a process whose folder is outside the project).
+#[must_use]
+pub fn service_for(root: &Path, view: &InstanceView) -> Option<ProposedService> {
+    match (&view.container, &view.cwd) {
+        (Some(container), _) => Some(container_service(container, view)),
+        (None, Some(cwd)) if Path::new(cwd).starts_with(root) => {
+            Some(process_service(root, Path::new(cwd), view))
+        }
+        _ => None,
     }
 }
 
@@ -203,6 +218,37 @@ fn name_uniquely(services: &mut [ProposedService]) {
     }
 }
 
+impl ProposedService {
+    /// The service as the lines of a `services:` entry, indented by two and four
+    /// spaces.
+    #[must_use]
+    pub fn yaml_lines(&self) -> Vec<String> {
+        let mut lines = vec![format!("  {}:", self.name)];
+        if let Some(cwd) = &self.cwd {
+            lines.push(format!("    cwd: {}", scalar(cwd)));
+        }
+        if let Some(container) = &self.docker {
+            lines.push(format!("    docker: {}", scalar(container)));
+        }
+        if self.is_data {
+            lines.push("    kind: data".to_owned());
+        }
+        if let Some(port) = self.port {
+            lines.push(format!("    port: {port}"));
+        }
+        if let Some(start) = &self.start {
+            lines.push(match &self.review {
+                Some(note) => format!("    start: {}   # revisar: {note}", scalar(start)),
+                None => format!("    start: {}", scalar(start)),
+            });
+        }
+        if let Some(text) = &self.match_text {
+            lines.push(format!("    match: {}", scalar(text)));
+        }
+        lines
+    }
+}
+
 impl Proposal {
     /// The proposal as a `.devports.yml`.
     #[must_use]
@@ -217,28 +263,7 @@ impl Proposal {
         }
         lines.push("services:".to_owned());
         for service in &self.services {
-            lines.push(format!("  {}:", service.name));
-            if let Some(cwd) = &service.cwd {
-                lines.push(format!("    cwd: {}", scalar(cwd)));
-            }
-            if let Some(container) = &service.docker {
-                lines.push(format!("    docker: {}", scalar(container)));
-            }
-            if service.is_data {
-                lines.push("    kind: data".to_owned());
-            }
-            if let Some(port) = service.port {
-                lines.push(format!("    port: {port}"));
-            }
-            if let Some(start) = &service.start {
-                lines.push(match &service.review {
-                    Some(note) => format!("    start: {}   # revisar: {note}", scalar(start)),
-                    None => format!("    start: {}", scalar(start)),
-                });
-            }
-            if let Some(text) = &service.match_text {
-                lines.push(format!("    match: {}", scalar(text)));
-            }
+            lines.extend(service.yaml_lines());
         }
         join_lines(&lines)
     }

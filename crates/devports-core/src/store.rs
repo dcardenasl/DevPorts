@@ -16,7 +16,8 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 /// The schema, one entry per version. Never edit an entry that has shipped:
 /// append a new one.
-const MIGRATIONS: [&str; 1] = ["
+const MIGRATIONS: [&str; 2] = [
+    "
     CREATE TABLE instances (
       id INTEGER PRIMARY KEY,
       ref TEXT NOT NULL UNIQUE,
@@ -49,7 +50,14 @@ const MIGRATIONS: [&str; 1] = ["
       payload TEXT NOT NULL DEFAULT '{}'
     );
     CREATE INDEX idx_events_ts ON events (ts);
-    "];
+    ",
+    "
+    CREATE TABLE ignored (
+      key TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL
+    );
+    ",
+];
 
 /// Why a store operation failed.
 #[derive(Debug, thiserror::Error)]
@@ -531,6 +539,43 @@ impl Store {
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// What the person chose to keep (see [`Self::add_ignored`]).
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn ignored_keys(&self) -> Result<Vec<String>, StoreError> {
+        let mut statement = self.connection.prepare("SELECT key FROM ignored")?;
+        let keys = statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(keys)
+    }
+
+    /// Remembers that the person chose to keep the thing with this key.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn add_ignored(&self, key: &str, at: i64) -> Result<(), StoreError> {
+        self.connection.execute(
+            "INSERT OR IGNORE INTO ignored (key, created_at) VALUES (?1, ?2)",
+            params![key, at],
+        )?;
+        Ok(())
+    }
+
+    /// Forgets a previous [`Self::add_ignored`].
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn remove_ignored(&self, key: &str) -> Result<(), StoreError> {
+        self.connection
+            .execute("DELETE FROM ignored WHERE key = ?1", [key])?;
+        Ok(())
     }
 
     /// Deletes events older than `before`; returns how many.

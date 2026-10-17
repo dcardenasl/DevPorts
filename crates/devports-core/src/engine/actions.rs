@@ -5,7 +5,7 @@ use devports_proto::{
     ErrorBody, ErrorCode, LogArgs, LogEntry, LogResult, LsArgs, LsResult, Op, PingResult, Request,
     Response,
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::leases::target_of;
 use super::{Effect, Engine, StopReason, Target, TerminationRequest};
@@ -119,6 +119,39 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             target,
             reason: StopReason::PersonRequest,
         })])
+    }
+
+    /// Keeps an unregistered process or container: it stays, and stops asking for
+    /// attention. The choice is remembered across restarts.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError`] if the instance does not exist or cannot be told apart
+    /// from others (no folder and no container).
+    pub fn ignore_instance(&mut self, reference: &str) -> Result<(), ActionError> {
+        let view = self
+            .views
+            .iter()
+            .find(|view| view.instance_ref == reference)
+            .cloned()
+            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+        let key = super::ignore_key(&view).ok_or_else(|| {
+            ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
+        })?;
+        let now = self.now();
+        self.store
+            .add_ignored(&key, now)
+            .map_err(|error| ActionError::Refused(error.to_string()))?;
+        self.ignored.insert(key);
+        self.event(
+            "kept",
+            view.project.as_deref(),
+            view.service.as_deref(),
+            Some(reference),
+            &json!({"port": view.port}),
+        );
+        self.rebuild_views();
+        Ok(())
     }
 
     /// Adds the default extension to a Temporal, at a person's request.

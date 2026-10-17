@@ -29,6 +29,7 @@ fn process(cwd: &str, port: u16, argv: &[&str]) -> InstanceView {
         compose: None,
         argv: argv.iter().map(|part| (*part).to_owned()).collect(),
         image: None,
+        ignored: false,
     }
 }
 
@@ -36,6 +37,7 @@ fn container(name: &str, port: u16, image: &str, cwd: &str) -> InstanceView {
     InstanceView {
         container: Some(name.to_owned()),
         image: Some(image.to_owned()),
+        ignored: false,
         argv: Vec::new(),
         pid: None,
         ..process(cwd, port, &[])
