@@ -13,12 +13,16 @@ mod tray;
 
 #[cfg(feature = "spike-autopilot")]
 mod autopilot;
+#[cfg(feature = "spike-notify")]
+mod notify_spike;
 
 use tauri::{ActivationPolicy, RunEvent};
 
 fn main() {
-    let built = tauri::Builder::default()
-        .plugin(tauri_plugin_positioner::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_positioner::init());
+    #[cfg(feature = "spike-notify")]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+    let built = builder
         .manage(attention::Attention::default())
         .manage(panel::PanelState::default())
         .invoke_handler(tauri::generate_handler![
@@ -32,6 +36,8 @@ fn main() {
             tray::create(app.handle())?;
             #[cfg(feature = "spike-autopilot")]
             autopilot::start(app.handle());
+            #[cfg(feature = "spike-notify")]
+            notify_spike::start(app.handle());
             Ok(())
         })
         .build(tauri::generate_context!());
