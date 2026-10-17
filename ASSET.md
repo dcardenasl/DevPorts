@@ -8,11 +8,11 @@
 
 | Campo | Valor |
 |---|---|
-| **Versión actual** | v0.0, especificado, sin código |
-| **Estado** | En desarrollo (documentación de implementación completa) |
-| **Última sesión** | 2026-10-16 |
-| **¿Dónde quedé?** | Sesión de definición completa con David: 22 decisiones confirmadas y documentación de implementación escrita en `docs/`. Script de línea base listo en `tools/baseline.sh`, probado en Linux, no en macOS. |
-| **Próximo paso concreto** | Ejecutar `tools/baseline.sh start` en la Mac de David durante una semana (Semana 0). Luego, Fase 0, tarea T0.1 (ver `docs/ROADMAP.md`). |
+| **Versión actual** | v0.0.0 local; v0.1 en pruebas, sin release |
+| **Estado** | Núcleo, CLI y app construidos; correcciones UXR en curso, G1/G2 pendientes |
+| **Última sesión** | 2026-10-17 |
+| **¿Dónde quedé?** | UXR-1.1–1.3 y UXR-2.1/2.2 implementadas; parada puntual por proyecto verificada con procesos propios. Estado y evidencia vigentes en [SNAPSHOT.md](SNAPSHOT.md) y [ARCHIVES.md](ARCHIVES.md). |
+| **Próximo paso concreto** | UXR-2.3 (detalle y estados reales). UXR-0 sigue abierta por timeout de acceso nativo; cierre nativo pendiente en UXR-7.2. |
 | **Bloqueante activo** | Ninguno |
 
 ---
@@ -23,8 +23,8 @@
 |---|---|
 | **Slug** | devports |
 | **Tipo** | Herramienta de escritorio (app de barra) + CLI |
-| **Visibilidad** | Privado (repo aún no creado) |
-| **Repositorio** | {{PENDIENTE}} (se crea en la tarea T0.1) |
+| **Visibilidad** | Repositorio local privado, sin remoto |
+| **Repositorio** | Checkout local `devports`, rama `dev`; remoto pendiente de autorización |
 | **Licencia** | {{PENDIENTE}} (se decide al terminar la Fase 1, ADR-020) |
 | **Nombre definitivo** | {{PENDIENTE}} (candidatos: Faro, Portero, Muelle; DevPorts es de trabajo) |
 | **Inicio** | 2026-10-16 |
@@ -63,10 +63,10 @@ David trabaja con varios proyectos a la vez en una misma máquina. Los agentes d
 | Componente | Estado | Descripción |
 |---|---|---|
 | Documentación de implementación | ✅ | `docs/`: PRD, ARQUITECTURA, MANIFIESTO, CLI, ROADMAP, PRUEBAS, DECISIONES |
-| Script de línea base | ✅ | `tools/baseline.sh`; probado en Linux, no en macOS |
-| Núcleo (`devports-core`) | ⏳ | Fase 1 |
-| CLI (`devports-cli`) | ⏳ | Fase 0 (solo `ls`) y Fase 1 |
-| App de barra (`devports-app`, `ui/`) | ⏳ | Fase 2 |
+| Script de línea base | Histórico | Sustituido por uso real (ADR-026); no es requisito vigente |
+| Núcleo (`devports-core`) | ✅ | Construido y probado; G1 humana pendiente |
+| CLI (`devports-cli`) | ✅ | Construido y probado con permisos acotados al protocolo |
+| App de barra (`devports-app`, `ui/`) | En pruebas | Construida; correcciones UXR y G2 pendientes |
 | Integración `ci4-kickstart` | ⏳ | Fase 3 |
 
 ---
@@ -74,9 +74,7 @@ David trabaja con varios proyectos a la vez en una misma máquina. Los agentes d
 ## Roadmap
 
 ### Próximas mejoras (corto plazo)
-- [ ] Semana 0: línea base con `tools/baseline.sh`
-- [ ] Fase 0: sondeo en la Mac (V1 a V12) y `devports ls` de solo lectura
-- [x] `--replace` eliminado de v1 (ADR-023, 2026-10-16)
+La cola vigente es [TASKS.md](TASKS.md): UXR-2.3 es la siguiente tarea de implementación. UXR-0/UXR-7.2 conservan la verificación nativa pendiente; G1/G2 requieren uso real y decisión humana. `--replace` permanece fuera de v1 (ADR-023).
 
 ### Ideas para el futuro (largo plazo)
 - Servidor MCP, adaptadores por agente, proxy de nombres estables `*.localhost`, Linux, equipos con manifiestos compartidos (todo fuera de la v1, ADR-015)
@@ -138,9 +136,11 @@ Orden de lectura para quien implemente: DECISIONES, PRD, ARQUITECTURA, MANIFIEST
 
 ## Log de avances
 
+- 2026-10-17: Núcleo, CLI y app construidos; UXR-1.1–1.3 y UXR-2.1/2.2 completas. Parada puntual de proyecto, recuperación de operaciones y confirmaciones verificadas; [evidencia](ARCHIVES.md). G1/G2 siguen pendientes.
+
 - 2026-10-16: Exploración visual de la interfaz con videos de presentación (`brag-output/`). Capturas del panel y documento de referencia en `docs/UI-REFERENCIA.md`; incluye propuestas nuevas (árbol proyecto/repo/servicio, adopción por opciones) pendientes de confirmar con David.
 - 2026-10-16: Idea registrada en el pipeline y definida en sesión con David (22 decisiones). Promovida a Asset. Documentación de implementación escrita en `docs/`. Script de línea base en `tools/baseline.sh`.
 
 ---
 
-*VentureOS · Asset creado: 2026-10-16 · Última actualización: 2026-10-16*
+*VentureOS · Asset creado: 2026-10-16 · Última actualización: 2026-10-17*

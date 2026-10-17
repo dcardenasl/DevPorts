@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** UXR-1.1 completada; continuar UXR-1.2 (estado), luego UXR-1.3 (operaciones), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. Todo permanece en el panel; los compartidos no se detienen al parar un proyecto. La implementación UXR está iniciada; UXR-0 sigue pendiente de evidencia nativa y no bloquea UXR-1.2.
+**Siguiente trabajo de corrección:** UXR-1.1 a UXR-1.3 y UXR-2.1/2.2 completadas; continuar UXR-2.3 (detalle y estados), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. La parada puntual de proyecto conserva datos y compartidos. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas. Evidencia y contratos: [UXR-2.2](docs/audits/2026-10-17-uxr-2-2.md).
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -145,7 +145,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-2-2"></a>
 
-- [ ] **UXR-2.2 — Detener aplicaciones de un proyecto como acción puntual.**
+- [x] **UXR-2.2 — Detener aplicaciones de un proyecto como acción puntual.**
+
+  **Entrega:** `8f693b4`; [contrato, evidencia y límites](docs/audits/2026-10-17-uxr-2-2.md). Vista previa del núcleo, operación puntual por objetivos, conservación de datos/compartidos y resultados reales de terminación. Controles completos, UI 35/35 y caso host propio verdes; verificación Tauri asignada a UXR-7.2.
 
   **Dependencias:** UXR-2.1. **Plan:** [grupo UXR-2](docs/audits/2026-10-17-ui-ux-plan.md#uxr-2). **Contexto:** UX-01; D4, D5, D14; ADR-029.
 
