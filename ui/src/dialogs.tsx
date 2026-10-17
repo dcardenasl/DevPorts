@@ -7,12 +7,14 @@ import type { AdoptDraft, InstanceView, ProjectSummary } from "./types";
 
 export function ConfirmStop({
   views,
+  project,
   affected,
   onCancel,
   onConfirm,
   returnFocusTo,
 }: {
   views: InstanceView[];
+  project?: string | undefined;
   affected: string[];
   onCancel: () => void;
   onConfirm: () => void;
@@ -25,11 +27,19 @@ export function ConfirmStop({
   return (
     <Modal
       title={
-        views.length === 1
-          ? text.confirm.stopTitle(name)
-          : text.confirm.stopGroupTitle(views.length)
+        project !== undefined
+          ? text.confirm.stopProjectTitle(project)
+          : views.length === 1
+            ? text.confirm.stopTitle(name)
+            : text.confirm.stopGroupTitle(views.length)
       }
-      description={data ? text.confirm.dataStopBody : text.confirm.stopBody}
+      description={
+        project !== undefined
+          ? text.confirm.projectStopBody
+          : data
+            ? text.confirm.dataStopBody
+            : text.confirm.stopBody
+      }
       role="alertdialog"
       onCancel={onCancel}
       returnFocusTo={returnFocusTo}
@@ -40,7 +50,7 @@ export function ConfirmStop({
         </span>
       }
     >
-      <div className="stack" style={{ marginTop: 8 }}>
+      <div className="stack stop-targets" style={{ marginTop: 8 }}>
         {views.map((view) => {
           const targetName = view.service ?? view.container ?? view.ref;
           const consumers = affectedNames.size > 0 && (view.shared || view.kind === "data");
@@ -70,7 +80,11 @@ export function ConfirmStop({
           {text.confirm.cancel}
         </button>
         <button type="button" className="btn primary-coral" onClick={onConfirm}>
-          {views.length === 1 ? text.confirm.stop(name) : text.confirm.stopGroup}
+          {project !== undefined
+            ? text.confirm.stopGroup
+            : views.length === 1
+              ? text.confirm.stop(name)
+              : text.confirm.stopGroup}
         </button>
       </div>
     </Modal>

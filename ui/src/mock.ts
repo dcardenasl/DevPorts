@@ -35,6 +35,17 @@ export function mockBackend(): Backend {
 
   return {
     snapshot: () => Promise.resolve(state),
+    previewProjectStop: (project) =>
+      Promise.resolve(
+        state.instances.filter(
+          (view) =>
+            view.project === project &&
+            view.kind === "app" &&
+            !view.shared &&
+            view.target_identity !== null &&
+            ["healthy", "unhealthy", "forgotten"].includes(view.state),
+        ),
+      ),
     panelState: () => Promise.resolve(panelState),
     savePanelState: (next) => {
       panelState = next;
@@ -73,7 +84,7 @@ export function mockBackend(): Backend {
       });
       for (const target of request.targets) {
         const ref = target.reference;
-        if (request.kind === "stop") {
+        if (request.kind === "stop" || request.kind === "stopProject") {
           find(ref);
           publish(without(ref));
         } else if (request.kind === "keep") {

@@ -39,6 +39,18 @@ function fakeBackend(
     calls,
     getPersisted: () => persisted,
     snapshot: () => Promise.resolve(snapshot),
+    previewProjectStop: (project) => {
+      void record("previewProjectStop")(project);
+      return Promise.resolve(
+        snapshot.instances.filter(
+          (view) =>
+            view.project === project &&
+            view.kind === "app" &&
+            !view.shared &&
+            ["healthy", "unhealthy", "forgotten"].includes(view.state),
+        ),
+      );
+    },
     panelState: () => Promise.resolve(persisted),
     savePanelState: (next) => {
       persisted = next;
@@ -273,6 +285,108 @@ describe("the panel", () => {
     expect(within(dialog).getByText("Sin proyecto")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
     expect(backend.calls.operation).toBeUndefined();
+  });
+
+  // covers: UXR-2.2
+  it("previews an exact project stop, preserves data and does not include later arrivals", async () => {
+    const snapshot = sampleSnapshot();
+    const original = snapshot.instances.find((view) => view.ref === "a1b2");
+    if (original === undefined) throw new Error("principal fixture missing");
+    snapshot.instances.push({ ...original, ref: "local-db", kind: "data", service: "local-db" });
+    const { backend, user } = await open(snapshot);
+    await user.click(tab(/Proyectos/));
+    const invoke = screen.getByRole("button", { name: "Detener servicios del proyecto" });
+    await user.click(invoke);
+    let dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("¿Detener aplicaciones de tienda-demo?")).toBeInTheDocument();
+    expect(within(dialog).queryByText("mysql")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("local-db")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Los datos y compartidos seguirán activos/),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    expect(backend.calls.operation).toBeUndefined();
+    await user.click(invoke);
+    dialog = await screen.findByRole("alertdialog");
+    const expected = snapshot.instances
+      .filter(
+        (view) =>
+          view.project === "tienda-demo" &&
+          view.kind === "app" &&
+          !view.shared &&
+          view.state !== "down",
+      )
+      .map((view) => view.ref);
+    snapshot.instances.push({ ...original, ref: "new-arrival", pid: 99999 });
+    // Send original expectations to the core: one stale member must not suppress other outcomes.
+    snapshot.instances = snapshot.instances.map((view) =>
+      view.ref === "a1b2" ? { ...view, project: "moved-project" } : view,
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Detener seleccionados" }));
+    await waitFor(() => {
+      const request = backend.calls.operation?.[0]?.[0] as OperationRequest | undefined;
+      expect(request?.kind).toBe("stopProject");
+      expect(request?.targets.map((target) => target.reference)).toEqual(expected);
+      expect(
+        request?.targets.every((target) => target.stopExpectation?.project === "tienda-demo"),
+      ).toBe(true);
+    });
+  });
+
+  // covers: UXR-2.2
+  it("handles empty project previews and read failures without sending a stop", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Proyectos/));
+    backend.previewProjectStop = () => Promise.resolve([]);
+    await user.click(screen.getByRole("button", { name: "Detener servicios del proyecto" }));
+    expect(
+      await screen.findByText(/No hay aplicaciones activas que se puedan detener/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    backend.previewProjectStop = () => Promise.reject(new Error("núcleo no disponible"));
+    await user.click(screen.getByRole("button", { name: "Detener servicios del proyecto" }));
+    expect(await screen.findByText("núcleo no disponible")).toBeInTheDocument();
+    expect(backend.calls.operation).toBeUndefined();
+  });
+
+  // covers: UXR-2.2
+  it("recovers partial project results and retries the stored operation without a new selection", async () => {
+    const result: OperationView = {
+      id: "project-partial",
+      kind: "stopProject",
+      status: "partial",
+      revision: 4,
+      targets: [
+        {
+          reference: "a1b2",
+          adoptTarget: null,
+          status: "succeeded",
+          error: null,
+          result: null,
+          attempts: 1,
+        },
+        {
+          reference: "c3d4",
+          adoptTarget: null,
+          status: "failed",
+          error: "La instancia cambió; revisa el objetivo",
+          result: null,
+          attempts: 1,
+        },
+      ],
+    };
+    const backend = fakeBackend(sampleSnapshot(), undefined, [result]);
+    state.current = backend;
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText(/a1b2: Completado/)).toBeInTheDocument();
+    expect(screen.getByText(/c3d4: La instancia cambió/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reintentar fallidos" }));
+    await waitFor(() => {
+      expect(backend.calls.retryOperation).toEqual([["project-partial"]]);
+    });
+    expect(backend.calls.operation).toBeUndefined();
+    expect(backend.calls.previewProjectStop).toBeUndefined();
   });
 
   // covers: UI

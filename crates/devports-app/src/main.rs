@@ -28,6 +28,7 @@ fn main() {
         .manage(operations::OperationStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            commands::preview_project_stop,
             commands::get_panel_state,
             commands::set_panel_state,
             commands::get_operations,

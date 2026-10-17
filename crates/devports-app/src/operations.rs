@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::panel::PANEL_LABEL;
 
 const MAX_OPERATIONS: usize = 48;
-const MAX_TARGETS: usize = 64;
+pub(crate) const MAX_TARGETS: usize = 64;
 
 /// Event carrying an operation snapshot to an open panel.
 pub const OPERATION_EVENT: &str = "operation";
@@ -34,6 +34,8 @@ pub struct OperationRequest {
 pub enum OperationKind {
     /// Stop an observed instance.
     Stop,
+    /// Stop only confirmed application instances belonging to a project.
+    StopProject,
     /// Extend a temporary instance.
     Extend,
     /// Ignore an observed instance.
@@ -345,14 +347,32 @@ fn validate(request: &OperationRequest) -> Result<(), OperationError> {
     {
         return Err(OperationError::InvalidRequest);
     }
+    let stopping = matches!(
+        request.kind,
+        OperationKind::Stop | OperationKind::StopProject
+    );
+    let project = request
+        .targets
+        .first()
+        .and_then(|target| target.stop_expectation.as_ref())
+        .and_then(|expected| expected.project.as_deref());
+    if request.kind == OperationKind::StopProject && project.is_none() {
+        return Err(OperationError::InvalidRequest);
+    }
     let mut references = std::collections::HashSet::new();
     for target in &request.targets {
         if target.reference.is_empty()
             || target.reference.len() > 128
             || !references.insert(&target.reference)
+            || (request.kind == OperationKind::StopProject
+                && target.stop_expectation.as_ref().is_none_or(|expected| {
+                    expected.project.as_deref() != project
+                        || expected.kind != "app"
+                        || expected.shared
+                }))
             || (request.kind == OperationKind::Adopt) != target.adopt_target.is_some()
-            || (request.kind == OperationKind::Stop) != target.stop_expectation.is_some()
-            || (request.kind == OperationKind::Stop
+            || stopping != target.stop_expectation.is_some()
+            || (stopping
                 && target
                     .stop_expectation
                     .as_ref()
@@ -431,17 +451,18 @@ async fn perform(
     target: &OperationTarget,
 ) -> Result<Option<AdoptedSummary>, String> {
     match kind {
-        OperationKind::Stop => core
-            .stop(
-                &target.reference,
-                target
-                    .stop_expectation
-                    .clone()
-                    .ok_or_else(|| "falta confirmar la identidad del objetivo".to_owned())?,
-            )
-            .await
-            .map(|()| None)
-            .map_err(|error| error.to_string()),
+        OperationKind::Stop | OperationKind::StopProject => {
+            let expected = target
+                .stop_expectation
+                .clone()
+                .ok_or_else(|| "falta confirmar la identidad del objetivo".to_owned())?;
+            let outcome = if kind == OperationKind::StopProject {
+                core.stop_project(&target.reference, expected).await
+            } else {
+                core.stop(&target.reference, expected).await
+            };
+            outcome.map(|()| None).map_err(|error| error.to_string())
+        }
         OperationKind::Extend => core
             .extend(&target.reference)
             .await
@@ -558,7 +579,9 @@ mod tests {
     #[test]
     fn partial_retry_resets_only_failed_targets_and_keeps_successes() {
         let store = OperationStore::default();
-        store.start(request("operation-1")).expect("start");
+        let mut project = request("operation-1");
+        project.kind = OperationKind::StopProject;
+        store.start(project).expect("start");
         store.begin_target("operation-1", 0).expect("first begins");
         store
             .finish_target("operation-1", 0, Ok(None))
@@ -586,6 +609,27 @@ mod tests {
             store.start(missing_destination),
             Err(OperationError::InvalidRequest)
         );
+    }
+
+    // covers: UXR-2.2
+    #[test]
+    fn project_stop_requests_cannot_mix_projects_or_include_data_and_shared_targets() {
+        for policy in ["project", "data", "shared", "missing"] {
+            let store = OperationStore::default();
+            let mut project = request("project-stop");
+            project.kind = OperationKind::StopProject;
+            let expected = project.targets[1]
+                .stop_expectation
+                .as_mut()
+                .expect("expectation");
+            match policy {
+                "project" => expected.project = Some("another".to_owned()),
+                "data" => expected.kind = "data".to_owned(),
+                "shared" => expected.shared = true,
+                _ => expected.project = None,
+            }
+            assert_eq!(store.start(project), Err(OperationError::InvalidRequest));
+        }
     }
 
     // covers: UXR-1.3

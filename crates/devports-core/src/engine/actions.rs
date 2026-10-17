@@ -1,6 +1,7 @@
 //! What callers can ask of the engine besides `run`: listing, the log, and the
 //! actions only a person may take from the application.
 
+use devports_proto::views::{InstanceState, InstanceView};
 use devports_proto::{
     ErrorBody, ErrorCode, LogArgs, LogEntry, LogResult, LsArgs, LsResult, Op, PingResult, Request,
     Response,
@@ -152,6 +153,43 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         self.stop_instance(reference)
     }
 
+    /// Captures the concrete application instances eligible for a project stop.
+    /// Data, shared resources and instances without a known live target are excluded.
+    #[must_use]
+    pub fn preview_project_stop(&self, project: &str) -> Vec<InstanceView> {
+        self.views
+            .iter()
+            .filter(|view| project_stop_eligible(view, project))
+            .filter(|view| self.targets.contains_key(&view.instance_ref))
+            .cloned()
+            .collect()
+    }
+
+    /// Revalidates one member of a confirmed project stop without expanding it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an action error when membership, policy or identity changed.
+    pub fn stop_project_confirmed(
+        &mut self,
+        reference: &str,
+        expected: &StopExpectation,
+    ) -> Result<Vec<Effect>, ActionError> {
+        let project = expected
+            .project
+            .as_deref()
+            .ok_or(ActionError::TargetChanged)?;
+        let view = self
+            .views
+            .iter()
+            .find(|view| view.instance_ref == reference)
+            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+        if !project_stop_eligible(view, project) {
+            return Err(ActionError::TargetChanged);
+        }
+        self.stop_confirmed(reference, expected)
+    }
+
     /// Keeps an unregistered process or container: it stays, and stops asking for
     /// attention. The choice is remembered across restarts.
     ///
@@ -292,5 +330,16 @@ fn start_of_today(now: i64) -> i64 {
         .map_or_else(
             || now.saturating_sub(86_400),
             |start| start.timestamp().as_second(),
+        )
+}
+
+fn project_stop_eligible(view: &InstanceView, project: &str) -> bool {
+    view.project.as_deref() == Some(project)
+        && view.kind == "app"
+        && !view.shared
+        && view.target_identity.is_some()
+        && matches!(
+            view.state,
+            InstanceState::Healthy | InstanceState::Unhealthy | InstanceState::Forgotten
         )
 }

@@ -6,6 +6,8 @@ export interface Actions {
   now: number;
   /** Stops these exact instances after a single confirmation. */
   requestStop: (views: InstanceView[], invoker: HTMLButtonElement) => void;
+  preparingProjectStop: boolean;
+  requestProjectStop: (project: string, invoker: HTMLButtonElement) => void;
   extend: (view: InstanceView) => void;
   keep: (view: InstanceView) => void;
   openUrl: (url: string) => void;

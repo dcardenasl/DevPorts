@@ -22,7 +22,12 @@ import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
 import { SharedView, sharedSubtitle } from "./views/SharedView";
 
 type Tab = "attention" | "projects" | "shared" | "orphans" | "activity";
-type DialogRequest = { kind: "stop"; views: InstanceView[]; invoker: HTMLButtonElement | null };
+type DialogRequest = {
+  kind: "stop" | "stopProject";
+  views: InstanceView[];
+  invoker: HTMLButtonElement | null;
+  project?: string;
+};
 
 const TABS: { id: Tab; icon: (props: { size?: number }) => ReactElement }[] = [
   { id: "attention", icon: BellIcon },
@@ -49,6 +54,7 @@ export function App(): ReactElement {
   const tab = panelState?.tab ?? initialTab();
   const [highlight, setHighlight] = useState<string>();
   const [dialog, setDialog] = useState<DialogRequest>();
+  const [preparingProjectStop, setPreparingProjectStop] = useState(false);
   const [draftInvoker, setDraftInvoker] = useState<HTMLButtonElement | null>(null);
   const [logCount, setLogCount] = useState<number>();
   const [toast, showToast] = useToast();
@@ -72,9 +78,9 @@ export function App(): ReactElement {
     [startOperation, showToast],
   );
   const stopBatch = useCallback(
-    (views: InstanceView[]): void => {
+    (views: InstanceView[], kind: "stop" | "stopProject"): void => {
       void startOperation({
-        kind: "stop",
+        kind,
         targets: views.map((view) => ({
           reference: view.ref,
           stopExpectation: stopExpectation(view),
@@ -134,6 +140,26 @@ export function App(): ReactElement {
     return {
       snapshot,
       now,
+      preparingProjectStop,
+      requestProjectStop: (project, invoker) => {
+        if (preparingProjectStop) return;
+        setPreparingProjectStop(true);
+        void api
+          .previewProjectStop(project)
+          .then(
+            (views) => {
+              if (views.length === 0) showToast(text.projects.nothingToStop);
+              else setDialog({ kind: "stopProject", project, views, invoker });
+            },
+            (failure: unknown) => {
+              setFailed(true);
+              showToast(failure instanceof Error ? failure.message : String(failure));
+            },
+          )
+          .finally(() => {
+            setPreparingProjectStop(false);
+          });
+      },
       requestStop: (views, invoker) => {
         setDialog({ kind: "stop", views, invoker });
       },
@@ -168,7 +194,17 @@ export function App(): ReactElement {
         runOperation("adopt", view.ref, "shared");
       },
     };
-  }, [api, snapshot, now, attempt, runOperation, selectTab, updatePanelState]);
+  }, [
+    api,
+    snapshot,
+    now,
+    attempt,
+    runOperation,
+    selectTab,
+    updatePanelState,
+    preparingProjectStop,
+    showToast,
+  ]);
 
   if (error !== undefined) {
     return (
@@ -334,6 +370,7 @@ export function App(): ReactElement {
           {confirmed !== undefined && (
             <ConfirmStop
               views={confirmed.views}
+              project={confirmed.project}
               returnFocusTo={confirmed.invoker}
               affected={[
                 ...new Set(confirmed.views.flatMap((view) => dependentsOf(view, snapshot))),
@@ -347,6 +384,7 @@ export function App(): ReactElement {
                   snapshot.instances.find((candidate) => candidate.ref === view.ref),
                 );
                 if (
+                  confirmed.kind === "stop" &&
                   current.some((view, index) => {
                     const requested = confirmed.views[index];
                     return (
@@ -360,7 +398,7 @@ export function App(): ReactElement {
                   showToast(text.confirm.targetChanged);
                   return;
                 }
-                stopBatch(confirmed.views);
+                stopBatch(confirmed.views, confirmed.kind);
               }}
             />
           )}

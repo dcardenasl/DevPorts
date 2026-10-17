@@ -1,10 +1,18 @@
 // The only file that knows how the panel reaches the core. In the application it
 // calls Tauri commands; in a browser during development it runs on sample data.
 
-import type { LogEntry, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
+import type {
+  InstanceView,
+  LogEntry,
+  OperationRequest,
+  OperationView,
+  PanelState,
+  Snapshot,
+} from "./types";
 
 export interface Backend {
   snapshot(): Promise<Snapshot>;
+  previewProjectStop(project: string): Promise<InstanceView[]>;
   panelState(): Promise<PanelState>;
   savePanelState(state: PanelState): Promise<void>;
   operations(): Promise<OperationView[]>;
@@ -43,6 +51,7 @@ export function createTauriBackend(tauri: TauriGlobal): Backend {
   let stateWrites = Promise.resolve();
   return {
     snapshot: () => invoke<Snapshot>("get_snapshot"),
+    previewProjectStop: (project) => invoke<InstanceView[]>("preview_project_stop", { project }),
     panelState: () => invoke<PanelState>("get_panel_state"),
     savePanelState: (state) => {
       stateWrites = stateWrites.then(() => invoke("set_panel_state", { state }));

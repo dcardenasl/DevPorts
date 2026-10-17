@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Project stop** — preview and confirm an exact list of project applications and Temporals while preserving data services, shared resources and later arrivals; each target is revalidated independently.
+
 - **Manual stop confirmation** — every stop route now shows the target identity, port and origin; shared consumers and data-container effects are explicit. Stop requests revalidate the confirmed process/container identity and port before dispatch, so a stale view cannot stop a replacement.
 - **Panel operations** — confirmed stop, extend, keep and adoption actions now run in the app process, with idempotent requests, per-target progress/results, bounded in-memory recovery and explicit retries.
 - **DevPorts app** — menu-bar app that hosts the core: a panel with Atención, Proyectos, Compartidos, Sin proyecto and Actividad, system notifications (lease about to end with an "Extender" button, grouped duplicates), a counter in the menu bar, adopting running processes and database containers into manifests, and start at login.
@@ -14,6 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Safe stopping** — only registered test instances with a lease are stopped automatically, by `(pid, start)` identity, never by process group, never `docker rm`.
 
 ### Fixed
+
+- **Stop results** — manual operations now wait for actual termination and retain per-target failures instead of reporting acceptance as successful completion.
 
 - **Panel dialogs** — adoption and stop confirmations now keep keyboard focus inside, cancel with Escape, restore focus to their opener, and let adoption steps go back without losing the project name.
 

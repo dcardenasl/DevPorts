@@ -546,3 +546,12 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+.project-actions {
+  padding: 8px 14px;
+}
+.stop-targets {
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}

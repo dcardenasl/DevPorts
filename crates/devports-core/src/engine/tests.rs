@@ -1861,3 +1861,118 @@ fn workers_that_share_their_parents_socket_are_one_server() {
     // Unrelated processes on the same port (two dev servers) stay separate.
     assert_eq!(pids, vec![100, 200, 201]);
 }
+
+// covers: UXR-2.2
+#[test]
+fn project_stop_excludes_data_shared_and_non_running_instances_in_the_core() {
+    let (mut world, temporal, _, _) = bound_temporal();
+    world.engine.observe_containers(Some(vec![
+        container("cache-id", "shop-redis", "redis:7", 6379, None),
+        container("mysql-id", "mysql", "mysql:8", 3306, None),
+    ]));
+    let preview = world.engine.preview_project_stop("shop");
+    assert_eq!(preview.len(), 1);
+    assert_eq!(preview[0].instance_ref, temporal);
+    assert_eq!(preview[0].role, InstanceRole::Temporal);
+    assert!(world.engine.preview_project_stop("absent").is_empty());
+    let forbidden: Vec<_> = world
+        .engine
+        .views()
+        .iter()
+        .filter(|view| view.kind == "data" || view.shared)
+        .cloned()
+        .collect();
+    for view in forbidden {
+        assert!(
+            world
+                .engine
+                .stop_project_confirmed(&view.instance_ref, &StopExpectation::from_view(&view))
+                .is_err()
+        );
+    }
+    assert!(
+        world
+            .engine
+            .stop_project_confirmed(&temporal, &StopExpectation::from_view(&preview[0]))
+            .is_ok()
+    );
+}
+
+// covers: UXR-2.2
+#[test]
+fn project_stop_uses_only_confirmed_targets_and_revalidates_each_member() {
+    let mut world = world();
+    let now = epoch(&world) - 100;
+    let first = proc(
+        77,
+        1,
+        now,
+        "/work/shop/api",
+        Some(8080),
+        &["php", "spark", "serve"],
+    );
+    world.scan(vec![first.clone()]);
+    let preview = world.engine.preview_project_stop("shop");
+    assert_eq!(preview.len(), 1);
+    let view = &preview[0];
+    let expected = StopExpectation::from_view(view);
+    // A later arrival is deliberately outside the confirmed set.
+    world.scan(vec![
+        first,
+        proc(
+            78,
+            1,
+            now,
+            "/work/shop/admin",
+            Some(8081),
+            &["node", "server.js"],
+        ),
+    ]);
+    assert_eq!(world.engine.preview_project_stop("shop").len(), 2);
+    for field in ["project", "identity", "kind", "shared"] {
+        let mut changed = expected.clone();
+        match field {
+            "project" => changed.project = Some("another-project".to_owned()),
+            "identity" => changed.target_identity = Some("replacement".to_owned()),
+            "kind" => changed.kind = "data".to_owned(),
+            _ => changed.shared = true,
+        }
+        assert!(
+            world
+                .engine
+                .stop_project_confirmed(&view.instance_ref, &changed)
+                .is_err()
+        );
+    }
+    let effects = world
+        .engine
+        .stop_project_confirmed(&view.instance_ref, &expected)
+        .unwrap();
+    assert_eq!(effects.len(), 1);
+    assert!(
+        matches!(&effects[0], Effect::Terminate(request) if request.reference == view.instance_ref)
+    );
+    // Removing membership after preview also invalidates a previously correct expectation.
+    world
+        .engine
+        .views
+        .iter_mut()
+        .find(|current| current.pid == Some(78))
+        .unwrap()
+        .project = None;
+    let later = world
+        .engine
+        .views()
+        .iter()
+        .find(|current| current.pid == Some(78))
+        .unwrap()
+        .clone();
+    let mut old_membership = StopExpectation::from_view(&later);
+    old_membership.project = Some("shop".to_owned());
+    assert!(
+        world
+            .engine
+            .stop_project_confirmed(&later.instance_ref, &old_membership)
+            .is_err()
+    );
+}

@@ -20,6 +20,25 @@ pub fn get_snapshot(core: State<'_, CoreState>) -> Snapshot {
 }
 
 #[tauri::command]
+pub async fn preview_project_stop(
+    core: State<'_, CoreState>,
+    project: String,
+) -> Result<Vec<devports_proto::views::InstanceView>, String> {
+    let targets = core
+        .0
+        .preview_project_stop(&project)
+        .await
+        .map_err(|error| error.to_string())?;
+    if targets.len() > operations::MAX_TARGETS {
+        return Err(
+            "hay demasiadas instancias para una sola operación; detén servicios individualmente"
+                .to_owned(),
+        );
+    }
+    Ok(targets)
+}
+
+#[tauri::command]
 pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
     state.get()
 }

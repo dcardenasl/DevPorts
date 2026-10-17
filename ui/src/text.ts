@@ -50,6 +50,9 @@ export const text = {
     copy: "Copiar comando de inicio",
     copied: "Comando copiado",
     stop: "Detener",
+    stopProject: "Detener servicios del proyecto",
+    preparingStop: "Preparando lista…",
+    nothingToStop: "No hay aplicaciones activas que se puedan detener en este proyecto.",
     unregistered: "sin registrar",
   },
   shared: {
@@ -107,7 +110,13 @@ export const text = {
   },
   operations: {
     title: "Operaciones recientes",
-    kind: { stop: "Detener", extend: "Extender", keep: "Conservar", adopt: "Adoptar" },
+    kind: {
+      stop: "Detener",
+      stopProject: "Detener proyecto",
+      extend: "Extender",
+      keep: "Conservar",
+      adopt: "Adoptar",
+    },
     queued: "En espera",
     running: "En curso…",
     succeeded: "Completado",
@@ -115,6 +124,9 @@ export const text = {
     adopted: (project: string, service: string) => `Agregado a ${project} · ${service}`,
   },
   confirm: {
+    stopProjectTitle: (project: string) => `¿Detener aplicaciones de ${project}?`,
+    projectStopBody:
+      "Solo se detendrán las instancias enumeradas. Los datos y compartidos seguirán activos. Los nuevos lanzamientos quedan fuera de esta acción.",
     stopTitle: (name: string) => `¿Detener ${name}?`,
     stopBody: "Se le pedirá que termine y, si no lo hace, se forzará.",
     stopGroupTitle: (count: number) => `¿Detener estas ${count} instancias?`,

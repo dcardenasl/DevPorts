@@ -98,6 +98,20 @@ function ProjectCard({
       </button>
       {open && (
         <>
+          <div className="project-actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={actions.preparingProjectStop}
+              onClick={(event) => {
+                actions.requestProjectStop(node.summary.name, event.currentTarget);
+              }}
+            >
+              {actions.preparingProjectStop
+                ? text.projects.preparingStop
+                : text.projects.stopProject}
+            </button>
+          </div>
           {node.repos.map((repo) => (
             <div key={repo.repo.path}>
               <div className="repo">

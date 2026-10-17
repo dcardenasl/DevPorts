@@ -210,14 +210,22 @@ pub enum AdoptTarget {
     Shared,
 }
 
+#[derive(Clone, Copy)]
+enum StopScope {
+    Instance,
+    Project,
+}
+
 /// A message to the actor.
 enum Msg {
     Request(Request, oneshot::Sender<Response>),
     Stop(
         String,
         StopExpectation,
+        StopScope,
         oneshot::Sender<Result<(), ActionError>>,
     ),
+    PreviewProjectStop(String, oneshot::Sender<Vec<InstanceView>>),
     Extend(String, oneshot::Sender<Result<(), ActionError>>),
     Host(Vec<ListeningProcess>),
     Containers(Result<Vec<Container>, String>),
@@ -298,10 +306,35 @@ impl CoreHandle {
         reference: &str,
         expected: StopExpectation,
     ) -> Result<(), ActionError> {
+        self.stop_with_scope(reference, expected, StopScope::Instance)
+            .await
+    }
+
+    /// Returns a read-only, exact preview of stoppable project applications.
+    ///
+    /// # Errors
+    /// Returns an action error if the core has shut down.
+    pub async fn preview_project_stop(
+        &self,
+        project: &str,
+    ) -> Result<Vec<InstanceView>, ActionError> {
         let (reply, answer) = oneshot::channel();
-        self.send_action(Msg::Stop(reference.to_owned(), expected, reply))
+        self.send_action(Msg::PreviewProjectStop(project.to_owned(), reply))
             .await?;
-        answer.await.unwrap_or_else(|_| Err(gone()))
+        answer.await.map_err(|_| gone())
+    }
+
+    /// Stops only one confirmed project application and waits for termination.
+    ///
+    /// # Errors
+    /// Returns an error on changed identity/membership, forbidden policy or failed termination.
+    pub async fn stop_project(
+        &self,
+        reference: &str,
+        expected: StopExpectation,
+    ) -> Result<(), ActionError> {
+        self.stop_with_scope(reference, expected, StopScope::Project)
+            .await
     }
 
     /// Extends a Temporal because the person asked.
@@ -424,6 +457,18 @@ impl CoreHandle {
     /// Asks the whole core to stop.
     pub fn shutdown(&self) {
         let _ = self.shutdown.send(true);
+    }
+
+    async fn stop_with_scope(
+        &self,
+        reference: &str,
+        expected: StopExpectation,
+        scope: StopScope,
+    ) -> Result<(), ActionError> {
+        let (reply, answer) = oneshot::channel();
+        self.send_action(Msg::Stop(reference.to_owned(), expected, scope, reply))
+            .await?;
+        answer.await.unwrap_or_else(|_| Err(gone()))
     }
 
     async fn send_action(&self, message: Msg) -> Result<(), ActionError> {
@@ -558,6 +603,7 @@ impl Core {
                 published_views: u64::MAX,
                 dirty: true,
                 engine_problems: Vec::new(),
+                pending_stops: std::collections::BTreeMap::new(),
             }
             .run(),
         )];
@@ -654,6 +700,7 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     dirty: bool,
     /// What the engine could not do, kept for the interface.
     engine_problems: Vec<String>,
+    pending_stops: std::collections::BTreeMap<String, oneshot::Sender<Result<(), ActionError>>>,
 }
 
 impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Actor<C, S, P> {
@@ -686,7 +733,13 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 let _ = reply.send(response);
                 effects
             }
-            Msg::Stop(reference, expected, reply) => self.handle_stop(&reference, &expected, reply),
+            Msg::Stop(reference, expected, scope, reply) => {
+                self.handle_stop(&reference, &expected, scope, reply)
+            }
+            Msg::PreviewProjectStop(project, reply) => {
+                let _ = reply.send(self.engine.preview_project_stop(&project));
+                Vec::new()
+            }
             Msg::Extend(reference, reply) => {
                 let _ = reply.send(self.engine.extend_instance(&reference));
                 Vec::new()
@@ -727,6 +780,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             Msg::Terminated(reference, reason, outcome) => {
                 self.engine
                     .termination_finished(&reference, reason, &outcome);
+                self.finish_stop(&reference, outcome);
                 Vec::new()
             }
             Msg::Ignore(reference, reply) => {
@@ -772,15 +826,39 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
         }
     }
 
+    fn finish_stop(&mut self, reference: &str, outcome: Terminated) {
+        if let Some(reply) = self.pending_stops.remove(reference) {
+            let result = match outcome {
+                Terminated::Stopped | Terminated::AlreadyGone => Ok(()),
+                Terminated::StillAlive => Err(ActionError::Refused(
+                    "la instancia sigue activa tras intentar detenerla".to_owned(),
+                )),
+                Terminated::Refused(reason) | Terminated::Failed(reason) => {
+                    Err(ActionError::Refused(reason))
+                }
+            };
+            let _ = reply.send(result);
+        }
+    }
+
     fn handle_stop(
         &mut self,
         reference: &str,
         expected: &StopExpectation,
+        scope: StopScope,
         reply: oneshot::Sender<Result<(), ActionError>>,
     ) -> Vec<Effect> {
-        match self.engine.stop_confirmed(reference, expected) {
+        if self.pending_stops.contains_key(reference) {
+            let _ = reply.send(Err(ActionError::NotRunning(reference.to_owned())));
+            return Vec::new();
+        }
+        let result = match scope {
+            StopScope::Instance => self.engine.stop_confirmed(reference, expected),
+            StopScope::Project => self.engine.stop_project_confirmed(reference, expected),
+        };
+        match result {
             Ok(effects) => {
-                let _ = reply.send(Ok(()));
+                self.pending_stops.insert(reference.to_owned(), reply);
                 effects
             }
             Err(error) => {

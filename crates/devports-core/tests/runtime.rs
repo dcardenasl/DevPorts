@@ -284,3 +284,63 @@ async fn a_duplicate_asks_for_attention_until_the_person_keeps_it_and_adoption_w
     handle.shutdown();
     core.wait().await;
 }
+
+// covers: UXR-2.2
+#[tokio::test]
+async fn a_manual_stop_reports_termination_refusal_instead_of_acceptance_as_success() {
+    use devports_core::engine::StopExpectation;
+    let home = TempDir::new().expect("home");
+    let project = home.path().join("work/shop");
+    write(
+        &home.path().join(".config/devports/config.yml"),
+        &format!(
+            "version: 1\nroots: [{}]\nobservation:\n  host_interval: 250ms\n",
+            home.path().join("work").display()
+        ),
+    );
+    write(
+        &project.join(".devports.yml"),
+        "version: 1\nproject: shop\nservices:\n  api:\n    cwd: .\n",
+    );
+    let source = Arc::new(FakeProcessSource::new(Vec::new()));
+    let own = std::process::id();
+    source.set(vec![ListeningProcess {
+        info: ProcessInfo {
+            id: ProcessId {
+                pid: own,
+                start: ProcessStart(1_000_000),
+            },
+            ppid: 1,
+            pgid: own,
+            uid: rustix::process::getuid().as_raw(),
+            argv: vec!["controlled-listener".to_owned()],
+            cwd: Some(std::fs::canonicalize(&project).expect("canonical")),
+        },
+        ports: vec![12345],
+    }]);
+    let core = Core::start(options(home.path()), source)
+        .await
+        .expect("core");
+    let handle = core.handle();
+    wait_for(&handle, "protected target", |handle| {
+        handle
+            .snapshot()
+            .instances
+            .iter()
+            .any(|view| view.pid == Some(own))
+    })
+    .await;
+    let preview = handle.preview_project_stop("shop").await.expect("preview");
+    let view = preview.first().expect("target");
+    let result = handle
+        .stop_project(&view.instance_ref, StopExpectation::from_view(view))
+        .await;
+    assert!(
+        result
+            .expect_err("protected target cannot stop")
+            .to_string()
+            .contains("protegido")
+    );
+    handle.shutdown();
+    core.wait().await;
+}

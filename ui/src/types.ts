@@ -38,7 +38,7 @@ export interface PanelState {
   draft: AdoptDraft | null;
 }
 
-export type OperationKind = "stop" | "extend" | "keep" | "adopt";
+export type OperationKind = "stop" | "stopProject" | "extend" | "keep" | "adopt";
 export type OperationStatus = "queued" | "running" | "succeeded" | "partial" | "failed";
 export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed";
 export interface OperationTargetRequest {
