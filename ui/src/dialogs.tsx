@@ -1,9 +1,9 @@
-import { useRef, useState, type ReactElement } from "react";
+import { useRef, type ReactElement } from "react";
 
 import { Modal } from "./Modal";
 import { WarningIcon } from "./icons";
 import { text } from "./text";
-import type { InstanceView, ProjectSummary } from "./types";
+import type { AdoptDraft, InstanceView, ProjectSummary } from "./types";
 
 export function ConfirmStop({
   view,
@@ -65,31 +65,32 @@ export type AdoptChoice =
 export function AdoptSheet({
   view,
   projects,
+  draft,
   onCancel,
   onChoose,
+  onDraftChange,
   returnFocusTo,
 }: {
   view: InstanceView;
   projects: ProjectSummary[];
+  draft: AdoptDraft;
   onCancel: () => void;
   onChoose: (choice: AdoptChoice) => void;
+  onDraftChange: (draft: AdoptDraft) => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
-  const [mode, setMode] = useState<"options" | "others" | "new">("options");
+  const { mode, name, lastStep } = draft;
   const folder = view.cwd?.split("/").filter(Boolean).pop() ?? "";
-  const [name, setName] = useState(folder);
   const suggested = view.project;
-  const [lastStep, setLastStep] = useState<"others" | "new">();
   const nameRef = useRef<HTMLInputElement>(null);
   const firstProjectRef = useRef<HTMLButtonElement>(null);
   const optionsFocusRef = useRef<HTMLButtonElement>(null);
 
   const enterStep = (step: "others" | "new"): void => {
-    setLastStep(step);
-    setMode(step);
+    onDraftChange({ ...draft, lastStep: step, mode: step });
   };
   const goBack = (): void => {
-    setMode("options");
+    onDraftChange({ ...draft, mode: "options" });
   };
 
   return (
@@ -212,7 +213,7 @@ export function AdoptSheet({
             value={name}
             ref={nameRef}
             onChange={(event) => {
-              setName(event.target.value);
+              onDraftChange({ ...draft, name: event.target.value });
             }}
           />
           <div className="row" style={{ justifyContent: "flex-end" }}>

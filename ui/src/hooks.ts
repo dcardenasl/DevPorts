@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { backend, type Backend } from "./api";
-import type { Snapshot } from "./types";
+import type { PanelState, Snapshot } from "./types";
 
 /** Milliseconds since the epoch, refreshed every `everyMs`. */
 export function useNow(everyMs = 1000): number {
@@ -21,6 +21,8 @@ export interface Connection {
   api: Backend | undefined;
   snapshot: Snapshot | undefined;
   error: string | undefined;
+  panelState: PanelState | undefined;
+  missingDraft: boolean;
 }
 
 /** Connects to the core, follows its snapshots and reports the first paint. */
@@ -28,6 +30,8 @@ export function useConnection(): Connection {
   const [api, setApi] = useState<Backend>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [error, setError] = useState<string>();
+  const [panelState, setPanelState] = useState<PanelState>();
+  const [missingDraft, setMissingDraft] = useState(false);
   const reported = useRef(false);
 
   useEffect(() => {
@@ -37,8 +41,36 @@ export function useConnection(): Connection {
     void (async () => {
       try {
         const connected = await backend();
-        const first = await connected.snapshot();
+        const [first, stored] = await Promise.all([connected.snapshot(), connected.panelState()]);
         if (gone()) return;
+        const expandedProject = stored.expandedProjectSet
+          ? first.projects.some((project) => project.name === stored.expandedProject)
+            ? stored.expandedProject
+            : null
+          : (first.projects[0]?.name ?? null);
+        const draftExists =
+          stored.draft === null ||
+          first.instances.some((view) => view.ref === stored.draft?.reference);
+        const restored: PanelState = {
+          ...stored,
+          expandedProject,
+          expandedProjectSet: true,
+          draft: draftExists ? stored.draft : null,
+        };
+        const requestedTab = new URLSearchParams(window.location.search).get("tab");
+        const validTab = ["attention", "projects", "shared", "orphans", "activity"].find(
+          (tab) => tab === requestedTab,
+        );
+        if (validTab !== undefined) restored.tab = validTab as PanelState["tab"];
+        setMissingDraft(!draftExists);
+        setPanelState(restored);
+        if (
+          restored.expandedProject !== stored.expandedProject ||
+          !stored.expandedProjectSet ||
+          !draftExists
+        ) {
+          void connected.savePanelState(restored);
+        }
         setApi(connected);
         setSnapshot(first);
         const stop = await connected.subscribe((next) => {
@@ -70,7 +102,7 @@ export function useConnection(): Connection {
     });
   }, [api, snapshot]);
 
-  return { api, snapshot, error };
+  return { api, snapshot, error, panelState, missingDraft };
 }
 
 /** A message that disappears by itself. */

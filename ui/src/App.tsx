@@ -14,7 +14,7 @@ import {
 } from "./icons";
 import { buildOrphans, dependentsOf } from "./model";
 import { text } from "./text";
-import type { InstanceView } from "./types";
+import type { AdoptDraft, InstanceView, PanelState, PanelTab } from "./types";
 import { ActivityView, activitySubtitle } from "./views/ActivityView";
 import { AttentionView, attentionSubtitle } from "./views/AttentionView";
 import { OrphansView, orphansSubtitle } from "./views/OrphansView";
@@ -22,6 +22,7 @@ import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
 import { SharedView, sharedSubtitle } from "./views/SharedView";
 
 type Tab = "attention" | "projects" | "shared" | "orphans" | "activity";
+type DialogRequest = { kind: "stop"; view: InstanceView; invoker: HTMLButtonElement | null };
 
 const TABS: { id: Tab; icon: (props: { size?: number }) => ReactElement }[] = [
   { id: "attention", icon: BellIcon },
@@ -37,18 +38,40 @@ function initialTab(): Tab {
 }
 
 export function App(): ReactElement {
-  const { api, snapshot, error } = useConnection();
+  const { api, snapshot, error, panelState: hydratedState, missingDraft } = useConnection();
   const now = useNow();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [panelState, setPanelState] = useState<PanelState | undefined>(hydratedState);
+  const [previousHydratedState, setPreviousHydratedState] = useState(hydratedState);
+  if (hydratedState !== previousHydratedState) {
+    setPreviousHydratedState(hydratedState);
+    setPanelState(hydratedState);
+  }
+  const tab = panelState?.tab ?? initialTab();
   const [highlight, setHighlight] = useState<string>();
-  const [dialog, setDialog] = useState<{
-    kind: "stop" | "adopt";
-    view: InstanceView;
-    invoker: HTMLButtonElement;
-  }>();
+  const [dialog, setDialog] = useState<DialogRequest>();
+  const [draftInvoker, setDraftInvoker] = useState<HTMLButtonElement | null>(null);
   const [logCount, setLogCount] = useState<number>();
   const [toast, showToast] = useToast();
   const [failed, setFailed] = useState(false);
+
+  const updatePanelState = useCallback(
+    (change: Partial<PanelState>): void => {
+      setPanelState((current) => {
+        if (current === undefined) return current;
+        const next = { ...current, ...change };
+        if (api !== undefined) void api.savePanelState(next);
+        return next;
+      });
+    },
+    [api],
+  );
+
+  const selectTab = useCallback(
+    (next: PanelTab): void => {
+      updatePanelState({ tab: next });
+    },
+    [updatePanelState],
+  );
 
   const attempt = useCallback(
     (work: Promise<unknown>, success?: string): void => {
@@ -91,16 +114,24 @@ export function App(): ReactElement {
       },
       showInProjects: (ref) => {
         setHighlight(ref);
-        setTab("projects");
+        selectTab("projects");
       },
       adopt: (view, invoker) => {
-        setDialog({ kind: "adopt", view, invoker });
+        const draft: AdoptDraft = {
+          kind: "adopt",
+          reference: view.ref,
+          mode: "options",
+          name: view.cwd?.split("/").filter(Boolean).pop() ?? "",
+          lastStep: null,
+        };
+        updatePanelState({ draft });
+        setDraftInvoker(invoker);
       },
       declareShared: (view) => {
         attempt(api.adopt(view.ref, "shared"), text.shared.declared);
       },
     };
-  }, [api, snapshot, now, attempt]);
+  }, [api, snapshot, now, attempt, selectTab, updatePanelState]);
 
   if (error !== undefined) {
     return (
@@ -111,7 +142,12 @@ export function App(): ReactElement {
       />
     );
   }
-  if (api === undefined || snapshot === undefined || actions === undefined) {
+  if (
+    api === undefined ||
+    snapshot === undefined ||
+    actions === undefined ||
+    panelState === undefined
+  ) {
     return <Shell title="DevPorts" subtitle={text.status.connecting} body={null} />;
   }
 
@@ -126,6 +162,13 @@ export function App(): ReactElement {
 
   const body = (
     <>
+      {(missingDraft ||
+        (panelState.draft !== null &&
+          !snapshot.instances.some((view) => view.ref === panelState.draft?.reference))) && (
+        <p className="card blue" role="status">
+          {text.status.draftGone}
+        </p>
+      )}
       {tab === "attention" && (
         <>
           <AttentionView actions={actions} />
@@ -141,7 +184,16 @@ export function App(): ReactElement {
           )}
         </>
       )}
-      {tab === "projects" && <ProjectsView actions={actions} highlight={highlight} />}
+      {tab === "projects" && (
+        <ProjectsView
+          actions={actions}
+          highlight={highlight}
+          expandedProject={panelState.expandedProject}
+          onExpandedProjectChange={(expandedProject) => {
+            updatePanelState({ expandedProject, expandedProjectSet: true });
+          }}
+        />
+      )}
       {tab === "shared" && (
         <>
           {!snapshot.docker_reachable && snapshot.docker_error !== null && (
@@ -155,13 +207,25 @@ export function App(): ReactElement {
       )}
       {tab === "orphans" && <OrphansView actions={actions} />}
       {tab === "activity" && (
-        <ActivityView api={api} revision={snapshot.revision} onCount={setLogCount} />
+        <ActivityView
+          api={api}
+          revision={snapshot.revision}
+          onCount={setLogCount}
+          filter={panelState.activityFilter}
+          onFilterChange={(activityFilter) => {
+            updatePanelState({ activityFilter });
+          }}
+        />
       )}
     </>
   );
 
-  const confirmed = dialog?.kind === "stop" ? dialog : undefined;
-  const adopting = dialog?.kind === "adopt" ? dialog : undefined;
+  const confirmed = dialog;
+  const adoptionDraft = panelState.draft;
+  const adoptionView =
+    adoptionDraft === null
+      ? undefined
+      : snapshot.instances.find((view) => view.ref === adoptionDraft.reference);
   return (
     <Shell
       title={text.tabs[tab]}
@@ -181,7 +245,7 @@ export function App(): ReactElement {
                 className="tab"
                 aria-selected={tab === id}
                 onClick={() => {
-                  setTab(id);
+                  selectTab(id);
                 }}
               >
                 <Icon size={18} />
@@ -212,18 +276,23 @@ export function App(): ReactElement {
               }}
             />
           )}
-          {adopting !== undefined && (
+          {adoptionDraft !== null && adoptionView !== undefined && (
             <AdoptSheet
-              view={adopting.view}
-              returnFocusTo={adopting.invoker}
+              view={adoptionView}
+              draft={adoptionDraft}
+              returnFocusTo={draftInvoker}
               projects={snapshot.projects}
               onCancel={() => {
-                setDialog(undefined);
+                updatePanelState({ draft: null });
+                setDraftInvoker(null);
+              }}
+              onDraftChange={(draft) => {
+                updatePanelState({ draft });
               }}
               onChoose={(choice) => {
-                const view = adopting.view;
-                setDialog(undefined);
-                attempt(adoptWith(api, view, choice), "Listo");
+                updatePanelState({ draft: null });
+                setDraftInvoker(null);
+                attempt(adoptWith(api, adoptionView, choice), "Listo");
               }}
             />
           )}

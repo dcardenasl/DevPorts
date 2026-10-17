@@ -1,0 +1,160 @@
+//! Volatile panel context that survives destruction of the webview.
+
+use std::sync::{Mutex, PoisonError};
+
+use serde::{Deserialize, Serialize};
+
+/// The panel context kept by the application shell, never written to disk.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PanelState {
+    /// Contract version, incremented when the serialized shape changes.
+    pub version: u32,
+    /// Last selected panel tab.
+    pub tab: PanelTab,
+    /// Expanded project in the project list, if any.
+    pub expanded_project: Option<String>,
+    /// Whether the person has chosen an expansion state, including "all closed".
+    pub expanded_project_set: bool,
+    /// Activity filter selection.
+    pub activity_filter: ActivityFilter,
+    /// A non-destructive, resumable form draft.
+    pub draft: Option<PanelDraft>,
+}
+
+impl Default for PanelState {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            tab: PanelTab::Attention,
+            expanded_project: None,
+            expanded_project_set: false,
+            activity_filter: ActivityFilter::All,
+            draft: None,
+        }
+    }
+}
+
+/// Available panel sections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PanelTab {
+    /// Attention and active alerts.
+    Attention,
+    /// Projects and their services.
+    Projects,
+    /// Shared resources.
+    Shared,
+    /// Services without a project.
+    Orphans,
+    /// Recent activity.
+    Activity,
+}
+
+/// Available activity filters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityFilter {
+    /// All activity.
+    All,
+    /// Rejected commands.
+    Rejections,
+    /// Temporary services.
+    Temporals,
+    /// Alerts.
+    Alerts,
+}
+
+/// Draft data that can safely resume after recreating the webview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PanelDraft {
+    /// Adoption destination form.
+    Adopt {
+        /// Stable instance reference; checked against the live snapshot on restore.
+        reference: String,
+        /// Active adoption step.
+        mode: AdoptMode,
+        /// Uncommitted new project name.
+        name: String,
+        /// Last substep visited, so focus can return to the same option.
+        last_step: Option<AdoptMode>,
+    },
+}
+
+/// Adoption dialog step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AdoptMode {
+    /// Destination choices.
+    Options,
+    /// Existing project list.
+    Others,
+    /// New project name form.
+    New,
+}
+
+/// Thread-safe owner for the volatile panel context.
+#[derive(Debug, Default)]
+pub struct PanelStateStore(Mutex<PanelState>);
+
+impl PanelStateStore {
+    /// Returns the current context.
+    pub fn get(&self) -> PanelState {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Replaces the current context, accepting only the current contract version.
+    pub fn set(&self, state: PanelState) -> Result<(), &'static str> {
+        if state.version != 1 {
+            return Err("unsupported panel state version");
+        }
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = state;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn panel_context_round_trips_through_json() {
+        let state = PanelState {
+            tab: PanelTab::Projects,
+            expanded_project: Some("shop".to_owned()),
+            activity_filter: ActivityFilter::Alerts,
+            draft: Some(PanelDraft::Adopt {
+                reference: "instance-1".to_owned(),
+                mode: AdoptMode::New,
+                name: "new-project".to_owned(),
+                last_step: Some(AdoptMode::Others),
+            }),
+            ..PanelState::default()
+        };
+        let encoded = serde_json::to_string(&state).expect("serialize panel state");
+        let decoded: PanelState = serde_json::from_str(&encoded).expect("deserialize panel state");
+        assert_eq!(decoded, state);
+    }
+
+    #[test]
+    fn store_rejects_unknown_versions_without_replacing_state() {
+        let store = PanelStateStore::default();
+        let unknown = PanelState {
+            version: 2,
+            ..PanelState::default()
+        };
+        assert_eq!(store.set(unknown), Err("unsupported panel state version"));
+        assert_eq!(store.get(), PanelState::default());
+    }
+
+    #[test]
+    fn state_has_no_place_for_a_stop_confirmation() {
+        let encoded = serde_json::to_string(&PanelState::default()).expect("serialize state");
+        assert!(!encoded.contains("stop"));
+        assert!(!encoded.contains("invoker"));
+    }
+}

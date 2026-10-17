@@ -1,10 +1,12 @@
 // The only file that knows how the panel reaches the core. In the application it
 // calls Tauri commands; in a browser during development it runs on sample data.
 
-import type { AdoptTarget, LogEntry, Snapshot } from "./types";
+import type { AdoptTarget, LogEntry, PanelState, Snapshot } from "./types";
 
 export interface Backend {
   snapshot(): Promise<Snapshot>;
+  panelState(): Promise<PanelState>;
+  savePanelState(state: PanelState): Promise<void>;
   /** Calls `listener` with every new snapshot; resolves to the unsubscribe function. */
   subscribe(listener: (snapshot: Snapshot) => void): Promise<() => void>;
   stop(ref: string): Promise<void>;
@@ -36,8 +38,14 @@ export const SNAPSHOT_EVENT = "snapshot";
 
 function tauriBackend(tauri: TauriGlobal): Backend {
   const invoke = tauri.core.invoke;
+  let stateWrites = Promise.resolve();
   return {
     snapshot: () => invoke<Snapshot>("get_snapshot"),
+    panelState: () => invoke<PanelState>("get_panel_state"),
+    savePanelState: (state) => {
+      stateWrites = stateWrites.then(() => invoke("set_panel_state", { state }));
+      return stateWrites;
+    },
     subscribe: (listener) =>
       tauri.event.listen<Snapshot>(SNAPSHOT_EVENT, (event) => {
         listener(event.payload);

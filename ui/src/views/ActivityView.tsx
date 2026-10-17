@@ -84,13 +84,16 @@ export function ActivityView({
   api,
   revision,
   onCount,
+  filter,
+  onFilterChange,
 }: {
   api: Backend;
   revision: number;
   onCount: (count: number) => void;
+  filter: Filter;
+  onFilterChange: (filter: Filter) => void;
 }): ReactElement {
   const [entries, setEntries] = useState<LogEntry[]>([]);
-  const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +119,7 @@ export function ActivityView({
             className="pill"
             aria-pressed={filter === name}
             onClick={() => {
-              setFilter(name);
+              onFilterChange(name);
             }}
           >
             {text.activity[name]}

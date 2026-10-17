@@ -11,6 +11,7 @@ mod host;
 mod integration;
 mod notifications;
 mod panel;
+mod panel_state;
 mod tray;
 #[cfg(target_os = "macos")]
 mod window_style;
@@ -22,8 +23,11 @@ fn main() {
         .plugin(tauri_plugin_positioner::init())
         .manage(panel::PanelState::default())
         .manage(panel::Revealed::default())
+        .manage(panel_state::PanelStateStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            commands::get_panel_state,
+            commands::set_panel_state,
             commands::stop_instance,
             commands::extend_instance,
             commands::keep_instance,

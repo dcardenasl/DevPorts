@@ -19,4 +19,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- **Panel context** — reopening the panel restores its tab, expanded project, activity filter and resumable adoption draft while the app stays running; stale drafts are discarded without taking action.
 - **Panel memory** — the panel uses a non-persistent web data store, which lets WebKit release one of its two shared helper processes after it closes (about 7 MB less at rest).

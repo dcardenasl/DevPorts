@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::host::CoreState;
+use crate::panel_state::{PanelState, PanelStateStore};
 
 /// Where the panel asked an adoption to go.
 #[derive(Debug, Deserialize)]
@@ -36,6 +37,16 @@ pub struct Adopted {
 #[tauri::command]
 pub fn get_snapshot(core: State<'_, CoreState>) -> Snapshot {
     core.0.snapshot().as_ref().clone()
+}
+
+#[tauri::command]
+pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
+    state.get()
+}
+
+#[tauri::command]
+pub fn set_panel_state(store: State<'_, PanelStateStore>, state: PanelState) -> Result<(), String> {
+    store.set(state).map_err(str::to_owned)
 }
 
 #[tauri::command]

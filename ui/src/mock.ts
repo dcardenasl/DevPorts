@@ -3,10 +3,18 @@
 
 import type { Backend } from "./api";
 import { sampleLog, sampleSnapshot } from "./sample";
-import type { AdoptTarget, InstanceView, Snapshot } from "./types";
+import type { AdoptTarget, InstanceView, PanelState, Snapshot } from "./types";
 
 export function mockBackend(): Backend {
   let state: Snapshot = sampleSnapshot();
+  let panelState: PanelState = {
+    version: 1,
+    tab: "attention",
+    expandedProject: null,
+    expandedProjectSet: false,
+    activityFilter: "all",
+    draft: null,
+  };
   const listeners = new Set<(snapshot: Snapshot) => void>();
   const publish = (next: Snapshot): void => {
     state = { ...next, revision: state.revision + 1 };
@@ -25,6 +33,11 @@ export function mockBackend(): Backend {
 
   return {
     snapshot: () => Promise.resolve(state),
+    panelState: () => Promise.resolve(panelState),
+    savePanelState: (next) => {
+      panelState = next;
+      return Promise.resolve();
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return Promise.resolve(() => {

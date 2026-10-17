@@ -18,12 +18,16 @@ export function projectsSubtitle(actions: Actions): string {
 export function ProjectsView({
   actions,
   highlight,
+  expandedProject,
+  onExpandedProjectChange,
 }: {
   actions: Actions;
   highlight: string | undefined;
+  expandedProject: string | null;
+  onExpandedProjectChange: (name: string | null) => void;
 }): ReactElement {
   const nodes = buildProjects(actions.snapshot);
-  const [open, setOpen] = useState<string | undefined>(() => nodes[0]?.summary.name);
+  const open = expandedProject;
 
   // Showing a service from "Atención" opens its project (state adjusted while
   // rendering, the pattern React recommends for reacting to a changed prop).
@@ -35,7 +39,7 @@ export function ProjectsView({
         repo.services.some((service) => service.principal?.ref === highlight),
       ),
     );
-    if (owner !== undefined) setOpen(owner.summary.name);
+    if (owner !== undefined) onExpandedProjectChange(owner.summary.name);
   }
 
   if (nodes.length === 0) {
@@ -49,7 +53,7 @@ export function ProjectsView({
           node={node}
           open={open === node.summary.name}
           onToggle={() => {
-            setOpen((current) => (current === node.summary.name ? undefined : node.summary.name));
+            onExpandedProjectChange(open === node.summary.name ? null : node.summary.name);
           }}
           actions={actions}
           highlight={highlight}

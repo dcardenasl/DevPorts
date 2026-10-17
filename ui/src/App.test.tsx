@@ -1,11 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Backend } from "./api";
 import { App } from "./App";
 import { sampleLog, sampleSnapshot } from "./sample";
-import type { InstanceView, Snapshot } from "./types";
+import type { InstanceView, PanelState, Snapshot } from "./types";
 
 const state = vi.hoisted(() => ({ current: undefined as Backend | undefined }));
 
@@ -13,8 +13,19 @@ vi.mock("./api", () => ({
   backend: () => Promise.resolve(state.current),
 }));
 
-function fakeBackend(snapshot: Snapshot): Backend & { calls: Record<string, unknown[][]> } {
+function fakeBackend(
+  snapshot: Snapshot,
+  initialState?: PanelState,
+): Backend & { calls: Record<string, unknown[][]>; getPersisted: () => PanelState } {
   const calls: Record<string, unknown[][]> = {};
+  let persisted: PanelState = initialState ?? {
+    version: 1,
+    tab: "attention",
+    expandedProject: null,
+    expandedProjectSet: false,
+    activityFilter: "all",
+    draft: null,
+  };
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -23,7 +34,13 @@ function fakeBackend(snapshot: Snapshot): Backend & { calls: Record<string, unkn
     };
   return {
     calls,
+    getPersisted: () => persisted,
     snapshot: () => Promise.resolve(snapshot),
+    panelState: () => Promise.resolve(persisted),
+    savePanelState: (next) => {
+      persisted = next;
+      return Promise.resolve();
+    },
     subscribe: () => Promise.resolve(() => undefined),
     stop: record("stop") as Backend["stop"],
     extend: record("extend") as Backend["extend"],
@@ -40,7 +57,7 @@ async function open(snapshot: Snapshot = sampleSnapshot()) {
   state.current = backend;
   const user = userEvent.setup();
   render(<App />);
-  await screen.findByRole("heading", { level: 1 });
+  await screen.findByRole("tab", { name: /Atención/ });
   return { backend, user };
 }
 
@@ -270,5 +287,86 @@ describe("the panel", () => {
     expect(invoker).toHaveFocus();
     expect(backend.calls["adopt"]).toBeUndefined();
     expect(backend.calls["keep"]).toBeUndefined();
+  });
+
+  // covers: UI, UXR-1.2
+  it("restores navigation and the activity filter after the panel is recreated", async () => {
+    const backend = fakeBackend(sampleSnapshot());
+    state.current = backend;
+    const user = userEvent.setup();
+    const first = render(<App />);
+    await screen.findByRole("tab", { name: /Atención/ });
+    await user.click(tab(/Proyectos/));
+    await user.click(screen.getByRole("button", { name: /ci4-kickstart/ }));
+    await user.click(tab(/Actividad/));
+    await user.click(screen.getByRole("button", { name: "Alertas" }));
+    await waitFor(() => {
+      expect(backend.getPersisted().activityFilter).toBe("alerts");
+    });
+    first.unmount();
+
+    render(<App />);
+    await waitFor(() => expect(tab(/Actividad/)).toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByRole("button", { name: "Alertas" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(tab(/Proyectos/));
+    expect(screen.queryByText("tienda-api")).not.toBeInTheDocument();
+    expect(screen.getByText("ci4-kickstart", { selector: ".mono" })).toBeInTheDocument();
+    cleanup();
+  });
+
+  // covers: UI, UXR-1.2
+  it("restores an adoption draft without restoring a destructive confirmation", async () => {
+    const backend = fakeBackend(sampleSnapshot(), {
+      version: 1,
+      tab: "orphans",
+      expandedProject: null,
+      expandedProjectSet: true,
+      activityFilter: "all",
+      draft: {
+        kind: "adopt",
+        reference: "z9y8",
+        mode: "new",
+        name: "unfinished-project",
+        lastStep: "new",
+      },
+    });
+    state.current = backend;
+    const user = userEvent.setup();
+    render(<App />);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Nombre del proyecto")).toHaveValue("unfinished-project");
+    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls["adopt"]).toBeUndefined();
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(backend.getPersisted().draft).toBeNull();
+    });
+  });
+
+  // covers: UI, UXR-1.2
+  it("discards and explains a draft whose process no longer exists", async () => {
+    const backend = fakeBackend(sampleSnapshot(), {
+      version: 1,
+      tab: "orphans",
+      expandedProject: null,
+      expandedProjectSet: true,
+      activityFilter: "all",
+      draft: {
+        kind: "adopt",
+        reference: "gone",
+        mode: "new",
+        name: "unfinished-project",
+        lastStep: null,
+      },
+    });
+    state.current = backend;
+    render(<App />);
+    expect(await screen.findByText(/ya no está disponible/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(backend.getPersisted().draft).toBeNull();
+    });
+    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls["adopt"]).toBeUndefined();
   });
 });

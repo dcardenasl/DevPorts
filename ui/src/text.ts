@@ -115,6 +115,8 @@ export const text = {
   status: {
     dockerDown: "Docker no responde",
     dockerDownBody: "Los contenedores aparecen como desconocidos hasta que vuelva.",
+    draftGone:
+      "El proceso de este borrador ya no está disponible. Se descartó el formulario; no se realizó ninguna acción.",
     problems: "Avisos del núcleo",
     connecting: "Conectando con el núcleo…",
     failed: "No se pudo completar la acción",
