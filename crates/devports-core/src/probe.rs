@@ -16,8 +16,9 @@ use std::path::{Path, PathBuf};
 
 use jiff::Zoned;
 
-use crate::catalog::{Catalog, Classification};
+use crate::catalog::{Catalog, Classification, ContainerClassification};
 use crate::discovery::{self, Discovery, DiscoveryIssue};
+use crate::docker::Container;
 use crate::fingerprint::Fingerprint;
 use crate::process::ListeningProcess;
 
@@ -154,6 +155,50 @@ pub fn render_table(processes: &[ListeningProcess], catalog: &Catalog) -> String
     out
 }
 
+/// What the catalog says about a container, in one short phrase.
+fn describe_container(classification: &ContainerClassification<'_>) -> String {
+    match classification {
+        ContainerClassification::Service { project, service } => {
+            format!("{}/{}", project.name, service.name)
+        }
+        ContainerClassification::Ambiguous { .. } => "ambiguo".to_owned(),
+        ContainerClassification::InProject { project } => {
+            format!("{} (compose, sin registrar)", project.name)
+        }
+        ContainerClassification::Compose { name, .. } => format!("compose: {name}"),
+        ContainerClassification::NoProject => "sin proyecto".to_owned(),
+    }
+}
+
+/// Renders the containers as a table: state, name, published ports and owner.
+#[must_use]
+pub fn render_containers(containers: &[Container], catalog: &Catalog) -> String {
+    if containers.is_empty() {
+        return "No hay contenedores.\n".to_owned();
+    }
+    let mut sorted: Vec<&Container> = containers.iter().collect();
+    sorted.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut out =
+        String::from("ESTADO       CONTENEDOR                     PUERTOS      PROYECTO\n");
+    for container in sorted {
+        let ports = container
+            .ports
+            .iter()
+            .map(|port| format!("{}->{}", port.host_port, port.container_port))
+            .collect::<Vec<_>>()
+            .join(",");
+        let _ = writeln!(
+            out,
+            "{:<12} {:<30} {:<12} {}",
+            format!("{:?}", container.state).to_lowercase(),
+            container.name,
+            if ports.is_empty() { "-" } else { &ports },
+            describe_container(&catalog.classify_container(container)),
+        );
+    }
+    out
+}
+
 /// Renders the discovered projects, their services and any issues.
 #[must_use]
 pub fn render_projects(discovery: &Discovery, elapsed: std::time::Duration) -> String {
@@ -265,6 +310,46 @@ mod tests {
         );
         assert!(table.contains(&"é".repeat(COMMAND_WIDTH)));
         assert!(!table.contains(&"é".repeat(COMMAND_WIDTH + 1)));
+    }
+
+    #[test]
+    fn containers_are_listed_with_state_ports_and_owner() {
+        use crate::docker::{ComposeLabels, ContainerState, PublishedPort};
+        let containers = [
+            Container {
+                id: "1".to_owned(),
+                name: "mysql".to_owned(),
+                image: "mysql:8".to_owned(),
+                state: ContainerState::Running,
+                ports: vec![PublishedPort {
+                    host_port: 3306,
+                    container_port: 3306,
+                }],
+                compose: Some(ComposeLabels {
+                    project: "docker-services".to_owned(),
+                    working_dir: None,
+                }),
+                created: 1,
+            },
+            Container {
+                id: "2".to_owned(),
+                name: "adminer".to_owned(),
+                image: "adminer".to_owned(),
+                state: ContainerState::Exited,
+                ports: Vec::new(),
+                compose: None,
+                created: 1,
+            },
+        ];
+        let table = render_containers(&containers, &Catalog::default());
+        let adminer = table.find("adminer").unwrap();
+        let mysql = table.find("mysql").unwrap();
+        assert!(adminer < mysql, "sorted by name:\n{table}");
+        assert!(table.contains("running"));
+        assert!(table.contains("3306->3306"));
+        assert!(table.contains("compose: docker-services"));
+        assert!(table.contains("exited"));
+        assert!(table.contains("sin proyecto"));
     }
 
     #[test]

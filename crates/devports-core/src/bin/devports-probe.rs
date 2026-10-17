@@ -5,6 +5,7 @@
 //! devports-probe ls      list the TCP listeners of the current user
 //! devports-probe opens   show how many times `ls` was run per day
 //! devports-probe projects   list the projects found under the search roots
+//! devports-probe docker     list the containers of the active Docker context
 //! ```
 
 // A command-line tool talks to the terminal; the workspace denies printing
@@ -20,8 +21,9 @@ fn main() -> ExitCode {
         Some("ls") => list(),
         Some("opens") => opens(),
         Some("projects") => projects(),
+        Some("docker") => docker(),
         _ => {
-            eprintln!("uso: devports-probe ls | opens | projects");
+            eprintln!("uso: devports-probe ls | opens | projects | docker");
             ExitCode::from(16)
         }
     }
@@ -81,4 +83,44 @@ fn projects() -> ExitCode {
     );
     print!("{}", probe::render_projects(&discovery, started.elapsed()));
     ExitCode::SUCCESS
+}
+
+fn docker() -> ExitCode {
+    use devports_core::docker::ContainerSource;
+    use devports_core::docker::engine::EngineContainerSource;
+
+    let runtime = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("devports-probe: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let result = runtime.block_on(async {
+        let source = EngineContainerSource::connect().await?;
+        let containers = source.list().await?;
+        Ok::<_, devports_core::docker::ContainerSourceError>((source.context().clone(), containers))
+    });
+    match result {
+        Ok((context, containers)) => {
+            let catalog = devports_core::discovery::discover(
+                &probe::search_roots(),
+                devports_core::discovery::DEFAULT_MAX_DEPTH,
+            )
+            .catalog;
+            println!(
+                "contexto Docker: {} ({:?})\n",
+                context.name, context.endpoint
+            );
+            print!("{}", probe::render_containers(&containers, &catalog));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("devports-probe: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
