@@ -118,3 +118,77 @@ fn cli_depends_on_proto_only() {
         );
     }
 }
+
+/// Source files of every workspace crate (`crates/*/src/**/*.rs`).
+fn workspace_sources() -> Vec<(std::path::PathBuf, String)> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("read dir") {
+            let path = entry.expect("dir entry").path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|ext| ext == "rs") {
+                out.push(path);
+            }
+        }
+    }
+    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(&crates).expect("read crates dir") {
+        let src = entry.expect("crate dir").path().join("src");
+        if src.is_dir() {
+            walk(&src, &mut files);
+        }
+    }
+    files
+        .into_iter()
+        .map(|path| {
+            let text = std::fs::read_to_string(&path).expect("read source");
+            (path, text)
+        })
+        .collect()
+}
+
+/// `unsafe_code` is `deny` workspace-wide (not `forbid`, so the macOS adapter
+/// can relax it). This test is what keeps the exception to that one module.
+#[test]
+fn unsafe_is_confined_to_the_macos_adapter() {
+    let markers = [
+        "unsafe {",
+        "unsafe fn",
+        "unsafe impl",
+        "unsafe trait",
+        "allow(unsafe_code",
+    ];
+    let allowed = std::path::Path::new("devports-core/src/platform/macos.rs");
+    for (path, text) in workspace_sources() {
+        if path.ends_with(allowed) {
+            continue;
+        }
+        for line in text
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+        {
+            for marker in markers {
+                assert!(
+                    !line.contains(marker),
+                    "`{marker}` found outside platform::macos in {}",
+                    path.display()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_workspace_denies_unsafe_code() {
+    let manifest = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.toml"),
+    )
+    .expect("read workspace manifest");
+    assert!(
+        manifest
+            .lines()
+            .any(|line| line.trim() == "unsafe_code = \"deny\""),
+        "the workspace must keep `unsafe_code = \"deny\"`"
+    );
+}
