@@ -22,6 +22,7 @@ thiserror = "2"
 # Only the tests drive the real core; the shipped binary never links it.
 devports-core.workspace = true
 tempfile = "3"
+jiff = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 
 [lints]
