@@ -933,6 +933,8 @@ name = "devports-app"
 version = "0.0.0"
 dependencies = [
  "devports-core",
+ "objc2-app-kit",
+ "objc2-quartz-core",
  "tauri",
  "tauri-build",
  "tauri-plugin-notification",

@@ -11,6 +11,11 @@ doc-valid-idents = [
     "Colima",
     "GitHub",
     "TypeScript",
+    "WebKit",
+    "WKWebView",
+    "AppKit",
+    "NSWindow",
+    "SMAppService",
 ]
 
 # Tests may panic, unwrap and print: a failing assertion IS the point there.
