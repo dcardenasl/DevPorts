@@ -46,9 +46,21 @@ jobs:
           workspaces: ". -> target"
           key: ${{ matrix.os }}
 
+      # The menu-bar shell is macOS-only (ADR-016); Linux would need WebKitGTK to
+      # compile it, so only the macOS leg builds, lints and tests it.
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cargo test --workspace
+
+      - name: Lint and test (Linux, without the macOS shell)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo clippy --workspace --exclude devports-app --all-targets -- -D warnings
+          cargo test --workspace --exclude devports-app
+
+      - name: Lint and test (macOS, whole workspace)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cargo clippy --workspace --all-targets --features devports-app/spike-autopilot -- -D warnings
+          cargo test --workspace
 
   dependency-security:
     runs-on: ubuntu-latest
