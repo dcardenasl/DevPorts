@@ -59,7 +59,7 @@ jobs:
       - name: Lint and test (macOS, whole workspace)
         if: matrix.os == 'macos-latest'
         run: |
-          cargo clippy --workspace --all-targets --features devports-app/spike-autopilot -- -D warnings
+          cargo clippy --workspace --all-targets --features devports-app/spike-autopilot,devports-app/spike-notify -- -D warnings
           cargo test --workspace
 
   dependency-security:
