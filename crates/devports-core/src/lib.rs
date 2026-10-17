@@ -6,6 +6,7 @@
 //! no interface at all; the menu-bar app is just one host for it.
 
 pub mod catalog;
+pub mod clock;
 pub mod discovery;
 pub mod docker;
 pub mod fingerprint;
