@@ -126,7 +126,7 @@ Se aplica igual al proceso observado y al valor de `match`:
 Decisiones que el algoritmo anterior dejaba abiertas; el código y sus pruebas (U-01, U-02, PT-01, PT-02) las fijan:
 - El rango 1024 a 65535 aplica también a la forma `texto:número` y a `--opcion=número`; `localhost:80` no cambia.
 - Cada token pasa por todas las reglas **en una sola pasada** (primero el nombre base de rutas, luego los puertos). Así `/opt/8080` pasa a `N` y la normalización es idempotente (PT-01).
-- `argv[0]` se reduce a su nombre base aunque sea una ruta relativa. En macOS, el Python de Homebrew se relanza como `Python`, así que un `match` no debe apoyarse en `argv[0]` (usar `-m http.server N`, no `python3 -m http.server N`).
+- `argv[0]` se reduce a su nombre base aunque sea una ruta relativa, y **el programa se compara por su familia**: minúsculas y sin versión final (`python3`, `python3.14` y el `Python` en que se relanza el de Homebrew son la misma familia; `php8.2` es `php`). La familia solo se aplica cuando el primer token del `match` coincide con el `argv[0]` del proceso; en cualquier otra posición los tokens se comparan exactos. Así `match: python3 -m http.server N` reconoce lo que el kernel informa.
 - Un `match` vacío no reconoce nada. Un `match` es una secuencia contigua de tokens, en el mismo orden.
 - Las rutas de proyecto y de `cwd` se comparan **canonicalizadas** (`/var` y `/private/var`; mayúsculas y minúsculas en volúmenes que no las distinguen). Se compara por componentes de ruta: `/work/shop-old` no está dentro de `/work/shop`.
 - Desempate de varios servicios: `match` con más tokens; luego el `port` en el que escucha el proceso; si persiste, ambiguo. Los servicios de contenedor (`docker`) nunca reciben procesos del host.

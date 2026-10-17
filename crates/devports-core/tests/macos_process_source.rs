@@ -223,14 +223,15 @@ mod identity {
     use devports_core::discovery::{DEFAULT_MAX_DEPTH, discover};
     use devports_core::platform::macos::MacProcessSource;
 
-    // The framework build of Python re-executes itself as `Python`, so `argv[0]`
-    // is not `python3`; the fingerprint avoids depending on it.
+    // The framework build of Python re-executes itself as `Python`, so `argv[0]` is
+    // not `python3`; comparing programs by family lets the natural `python3 ...`
+    // match what the kernel reports.
     const MANIFEST: &str = "version: 1\n\
         project: shop\n\
         services:\n\
         \x20 api:\n\
         \x20   cwd: ./api\n\
-        \x20   match: -m http.server N\n";
+        \x20   match: python3 -m http.server N\n";
 
     #[test]
     fn a_real_server_is_assigned_to_its_service_whatever_its_port() {

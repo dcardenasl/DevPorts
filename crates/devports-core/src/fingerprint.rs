@@ -61,21 +61,61 @@ impl Fingerprint {
 
     /// Whether `needle` appears in `self` as a run of consecutive tokens.
     ///
+    /// When the run starts at the very beginning, the first token is the program
+    /// and is compared by its [`program_family`], so `python3`, `python3.14` and
+    /// the `Python` that Homebrew re-executes itself as all match each other.
+    /// Everywhere else tokens must be equal.
+    ///
     /// An empty `needle` is contained in nothing: a service with an empty
     /// `match` has no fingerprint to recognise.
     #[must_use]
     pub fn contains(&self, needle: &Self) -> bool {
-        !needle.tokens.is_empty()
-            && self
-                .tokens
-                .windows(needle.tokens.len())
-                .any(|window| window == needle.tokens.as_slice())
+        let Some((first, rest)) = needle.tokens.split_first() else {
+            return false;
+        };
+        self.tokens
+            .windows(needle.tokens.len())
+            .enumerate()
+            .any(|(start, window)| {
+                let Some((head, tail)) = window.split_first() else {
+                    return false;
+                };
+                let same_head = if start == 0 {
+                    head == first || program_family(head) == program_family(first)
+                } else {
+                    head == first
+                };
+                same_head && tail == rest
+            })
     }
 
     /// The tokens joined with single spaces, as shown to people.
     #[must_use]
     pub fn render(&self) -> String {
         self.tokens.join(" ")
+    }
+}
+
+/// The name of a program with the parts that vary between installs removed: lower
+/// case, and a trailing version (`python3.14` -> `python`, `php8.2` -> `php`).
+///
+/// A version is stripped only when what remains is at least two characters and
+/// ends in a letter, so `h264` and `x1` are left alone. The result never ends in
+/// a digit, which makes the function idempotent.
+#[must_use]
+pub fn program_family(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let without_version =
+        lower.trim_end_matches(|character: char| character.is_ascii_digit() || character == '.');
+    let versioned = without_version.len() < lower.len();
+    let ends_in_letter = without_version
+        .chars()
+        .next_back()
+        .is_some_and(char::is_alphabetic);
+    if versioned && ends_in_letter && without_version.chars().count() >= 2 {
+        without_version.to_owned()
+    } else {
+        lower
     }
 }
 
@@ -202,6 +242,65 @@ mod tests {
     }
 
     #[test]
+    fn the_program_is_compared_by_family() {
+        // Homebrew's framework Python re-executes itself as `Python`.
+        let homebrew = Fingerprint::from_argv(&[
+            "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python",
+            "-m",
+            "http.server",
+            "18083",
+        ]);
+        for needle in [
+            "python3 -m http.server N",
+            "python -m http.server N",
+            "Python -m http.server N",
+            "python3.14 -m http.server N",
+            "-m http.server N",
+        ] {
+            assert!(
+                homebrew.contains(&Fingerprint::from_match_text(needle)),
+                "{needle}"
+            );
+        }
+        assert!(!homebrew.contains(&Fingerprint::from_match_text("node -m http.server N")));
+
+        let php = Fingerprint::from_argv(&["php8.2", "spark", "serve"]);
+        assert!(php.contains(&Fingerprint::from_match_text("php spark serve")));
+        assert!(php.contains(&Fingerprint::from_match_text("PHP8.2 spark serve")));
+    }
+
+    #[test]
+    fn family_folding_applies_only_to_the_program_position() {
+        let process = Fingerprint::from_argv(&["node", "server2", "Serve3"]);
+        // Mid-command tokens are compared exactly: `server` is not `server2`.
+        assert!(!process.contains(&Fingerprint::from_match_text("server")));
+        assert!(!process.contains(&Fingerprint::from_match_text("serve3")));
+        assert!(process.contains(&Fingerprint::from_match_text("server2 Serve3")));
+        // A needle that starts mid-command must not be folded either.
+        assert!(!process.contains(&Fingerprint::from_match_text("Server2")));
+    }
+
+    #[test]
+    fn program_family_strips_only_trailing_versions() {
+        for (name, family) in [
+            ("python3", "python"),
+            ("python3.14", "python"),
+            ("Python", "python"),
+            ("php8.2", "php"),
+            ("node", "node"),
+            ("h264", "h264"),
+            ("x1", "x1"),
+            ("vite", "vite"),
+            ("a1b2", "a1b"),
+            ("node-18", "node-18"),
+            ("python3.", "python"),
+            ("foo.2", "foo"),
+        ] {
+            assert_eq!(program_family(name), family, "for {name}");
+        }
+    }
+
+    #[test]
     fn an_empty_needle_matches_nothing() {
         let process = Fingerprint::from_argv(&["php"]);
         assert!(!process.contains(&Fingerprint::default()));
@@ -222,6 +321,13 @@ mod tests {
         fn rendered_text_is_a_fixed_point(argv in prop::collection::vec("\\S{1,14}", 0..8)) {
             let once = Fingerprint::from_argv(&argv).render();
             prop_assert_eq!(Fingerprint::from_match_text(&once).render(), once);
+        }
+
+        /// Folding a program name twice changes nothing.
+        #[test]
+        fn program_family_is_idempotent(name in "\\PC{0,14}") {
+            let once = program_family(&name);
+            prop_assert_eq!(program_family(&once), once);
         }
 
         /// Any in-range port is erased, whichever way it is written.
