@@ -5,7 +5,7 @@ export interface Actions {
   snapshot: Snapshot;
   now: number;
   /** Stops it after the person confirms (always asks first). */
-  requestStop: (view: InstanceView) => void;
+  requestStop: (view: InstanceView, invoker: HTMLButtonElement) => void;
   /** Stops without asking: duplicates and Temporals, which the card already offers. */
   stopNow: (views: InstanceView[]) => void;
   extend: (view: InstanceView) => void;
@@ -13,7 +13,7 @@ export interface Actions {
   openUrl: (url: string) => void;
   copy: (text: string) => void;
   showInProjects: (ref: string) => void;
-  adopt: (view: InstanceView) => void;
+  adopt: (view: InstanceView, invoker: HTMLButtonElement) => void;
   /** Declares a container in `shared.yml` without asking where it goes. */
   declareShared: (view: InstanceView) => void;
 }

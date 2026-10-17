@@ -13,6 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Panel dialogs** — adoption and stop confirmations now keep keyboard focus inside, cancel with Escape, restore focus to their opener, and let adoption steps go back without losing the project name.
+
 - **Command fingerprint** — a service declared as `match: python3 -m http.server N` is now recognised when the kernel reports Homebrew's Python as `Python`: programs are compared by family (lower case, no trailing version) in the program position only.
 
 ### Changed

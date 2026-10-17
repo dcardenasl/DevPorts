@@ -438,7 +438,7 @@ button {
 }
 
 .veil {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: var(--veil);
   display: grid;
@@ -456,7 +456,20 @@ button {
   border-radius: 14px;
   padding: 16px;
   width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
   animation: fade 0.25s ease both;
+}
+.sheet-heading {
+  margin-bottom: 10px;
+}
+.sheet-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.sheet-description {
+  margin: 8px 0;
 }
 .veil.bottom .sheet {
   border-bottom-left-radius: 0;

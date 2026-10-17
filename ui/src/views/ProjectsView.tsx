@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactElement } from "react";
 
 import type { Actions } from "../actions";
 import { ChevronIcon, CopyIcon, ExternalIcon, FolderIcon, LinkIcon, StopIcon } from "../icons";
@@ -247,8 +247,8 @@ function ServiceButtons({
         <IconButton
           label={`${text.projects.stop} ${service.name}`}
           danger
-          onClick={() => {
-            actions.requestStop(principal);
+          onClick={(event) => {
+            actions.requestStop(principal, event.currentTarget);
           }}
         >
           <StopIcon size={14} />
@@ -288,7 +288,7 @@ export function IconButton({
   danger = false,
 }: {
   label: string;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   children: ReactElement;
   danger?: boolean;
 }): ReactElement {

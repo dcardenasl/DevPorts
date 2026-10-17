@@ -203,4 +203,72 @@ describe("the panel", () => {
       expect(backend.calls["adopt"]).toEqual([["d1d1", "shared"]]);
     });
   });
+
+  // covers: UI, UXR-1.1
+  it("cancels a shared stop with Escape, traps Tab and restores its invoker", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Compartidos/));
+    const invoker = screen.getByRole("button", { name: "Detener mysql" });
+    await user.click(invoker);
+    const dialog = screen.getByRole("alertdialog");
+    const cancel = within(dialog).getByRole("button", { name: "Cancelar" });
+    const confirm = within(dialog).getByRole("button", { name: "Detener mysql" });
+    expect(cancel).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(invoker).toHaveFocus();
+    expect(backend.calls["stop"]).toBeUndefined();
+  });
+
+  // covers: UI, UXR-1.1
+  it("returns from both adoption steps without losing the draft or writing anything", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    const invoker = screen.getByRole("button", { name: "Adoptar" });
+    await user.click(invoker);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    const create = within(dialog).getByRole("button", { name: /Crear un proyecto nuevo/ });
+    await user.click(create);
+    const input = screen.getByLabelText("Nombre del proyecto");
+    expect(input).toHaveFocus();
+    await user.clear(input);
+    await user.type(input, "mi borrador");
+    await user.click(screen.getByRole("button", { name: "Volver" }));
+    expect(screen.getByRole("button", { name: /Crear un proyecto nuevo/ })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: /Otro proyecto/ }));
+    expect(screen.getByRole("button", { name: "Como servicio de tienda-demo" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Volver" }));
+    expect(screen.getByRole("button", { name: /Otro proyecto/ })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: /Crear un proyecto nuevo/ }));
+    expect(screen.getByLabelText("Nombre del proyecto")).toHaveValue("mi borrador");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(invoker).toHaveFocus();
+    expect(backend.calls["adopt"]).toBeUndefined();
+    expect(backend.calls["keep"]).toBeUndefined();
+    expect(backend.calls["stop"]).toBeUndefined();
+  });
+
+  // covers: UI, UXR-1.1
+  it("keeps keyboard navigation inside the adoption form and cancels without submitting", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    const invoker = screen.getByRole("button", { name: "Adoptar" });
+    await user.click(invoker);
+    await user.click(screen.getByRole("button", { name: /Crear un proyecto nuevo/ }));
+    const input = screen.getByLabelText("Nombre del proyecto");
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus();
+    await user.tab();
+    expect(input).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(invoker).toHaveFocus();
+    expect(backend.calls["adopt"]).toBeUndefined();
+    expect(backend.calls["keep"]).toBeUndefined();
+  });
 });

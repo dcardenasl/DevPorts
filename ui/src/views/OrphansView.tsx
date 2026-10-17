@@ -85,8 +85,8 @@ function OrphanCard({ view, actions }: { view: InstanceView; actions: Actions })
         <button
           type="button"
           className={view.project !== null ? "btn primary-green" : "btn"}
-          onClick={() => {
-            actions.adopt(view);
+          onClick={(event) => {
+            actions.adopt(view, event.currentTarget);
           }}
         >
           {text.orphans.adopt}

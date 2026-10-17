@@ -79,6 +79,7 @@ export const text = {
     adopt: "Adoptar",
     seems: (project: string) => `Parece de ${project}`,
     sheetTitle: "¿Dónde va?",
+    back: "Volver",
     asService: (project: string) => `Como servicio de ${project}`,
     suggested: "SUGERIDO",
     another: "Otro proyecto",

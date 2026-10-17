@@ -1,5 +1,6 @@
-import { useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 
+import { Modal } from "./Modal";
 import { WarningIcon } from "./icons";
 import { text } from "./text";
 import type { InstanceView, ProjectSummary } from "./types";
@@ -9,50 +10,49 @@ export function ConfirmStop({
   affected,
   onCancel,
   onConfirm,
+  returnFocusTo,
 }: {
   view: InstanceView;
   affected: string[];
   onCancel: () => void;
   onConfirm: () => void;
+  returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const name = view.service ?? view.container ?? view.ref;
   return (
-    <div className="veil" role="presentation">
-      <div
-        className="sheet"
-        role="alertdialog"
-        aria-modal="true"
-        aria-label={text.confirm.stopTitle(name)}
-      >
-        <div className="row">
-          <span className="coral-text">
-            <WarningIcon size={22} />
-          </span>
-          <span className="name">{text.confirm.stopTitle(name)}</span>
+    <Modal
+      title={text.confirm.stopTitle(name)}
+      description={text.confirm.stopBody}
+      role="alertdialog"
+      onCancel={onCancel}
+      returnFocusTo={returnFocusTo}
+      initialFocusRef={cancelRef}
+      icon={
+        <span className="coral-text">
+          <WarningIcon size={22} />
+        </span>
+      }
+    >
+      {affected.length > 0 && (
+        <div className="card coral" style={{ margin: "8px 0" }}>
+          <div className="eyebrow coral-text">{text.confirm.affects}</div>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {affected.map((entry) => (
+              <li key={entry}>{entry}</li>
+            ))}
+          </ul>
         </div>
-        <p className="soft" style={{ margin: "8px 0" }}>
-          {text.confirm.stopBody}
-        </p>
-        {affected.length > 0 && (
-          <div className="card coral" style={{ margin: "8px 0" }}>
-            <div className="eyebrow coral-text">{text.confirm.affects}</div>
-            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-              {affected.map((entry) => (
-                <li key={entry}>{entry}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-          <button type="button" className="btn" onClick={onCancel} autoFocus>
-            {text.confirm.cancel}
-          </button>
-          <button type="button" className="btn primary-coral" onClick={onConfirm}>
-            {text.confirm.stop(name)}
-          </button>
-        </div>
+      )}
+      <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+        <button type="button" className="btn" onClick={onCancel} ref={cancelRef}>
+          {text.confirm.cancel}
+        </button>
+        <button type="button" className="btn primary-coral" onClick={onConfirm}>
+          {text.confirm.stop(name)}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -67,146 +67,173 @@ export function AdoptSheet({
   projects,
   onCancel,
   onChoose,
+  returnFocusTo,
 }: {
   view: InstanceView;
   projects: ProjectSummary[];
   onCancel: () => void;
   onChoose: (choice: AdoptChoice) => void;
+  returnFocusTo: HTMLElement | null;
 }): ReactElement {
   const [mode, setMode] = useState<"options" | "others" | "new">("options");
   const folder = view.cwd?.split("/").filter(Boolean).pop() ?? "";
   const [name, setName] = useState(folder);
   const suggested = view.project;
+  const [lastStep, setLastStep] = useState<"others" | "new">();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const firstProjectRef = useRef<HTMLButtonElement>(null);
+  const optionsFocusRef = useRef<HTMLButtonElement>(null);
+
+  const enterStep = (step: "others" | "new"): void => {
+    setLastStep(step);
+    setMode(step);
+  };
+  const goBack = (): void => {
+    setMode("options");
+  };
 
   return (
-    <div className="veil bottom" role="presentation">
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={text.orphans.sheetTitle}>
-        <div className="name" style={{ marginBottom: 10 }}>
-          {text.orphans.sheetTitle}
-        </div>
-        {mode === "options" && (
-          <div className="stack">
-            {suggested !== null && (
-              <button
-                type="button"
-                className="option suggested"
-                onClick={() => {
-                  onChoose({ kind: "project", project: suggested });
-                }}
-              >
-                <span className="grow">
-                  <div>{text.orphans.asService(suggested)}</div>
-                </span>
-                <span className="tag green">{text.orphans.suggested}</span>
-              </button>
-            )}
-            {projects.length > (suggested === null ? 0 : 1) && (
-              <button
-                type="button"
-                className="option"
-                onClick={() => {
-                  setMode("others");
-                }}
-              >
-                <span className="grow">
-                  <div>{text.orphans.another}</div>
-                  <div className="soft">{text.orphans.anotherBody}</div>
-                </span>
-              </button>
-            )}
-            {view.container !== null && (
-              <button
-                type="button"
-                className="option"
-                onClick={() => {
-                  onChoose({ kind: "shared" });
-                }}
-              >
-                <span className="grow">
-                  <div>{text.orphans.shared}</div>
-                  <div className="soft">{text.orphans.sharedBody}</div>
-                </span>
-              </button>
-            )}
-            {view.container === null && (
-              <button
-                type="button"
-                className="option"
-                onClick={() => {
-                  setMode("new");
-                }}
-              >
-                <span className="grow">
-                  <div>{text.orphans.newProject}</div>
-                  <div className="soft ellipsis">
-                    {text.orphans.newProjectBody(folder || "la carpeta")}
-                  </div>
-                </span>
-              </button>
-            )}
+    <Modal
+      title={text.orphans.sheetTitle}
+      bottom
+      onCancel={onCancel}
+      returnFocusTo={returnFocusTo}
+      initialFocusRef={
+        mode === "new" ? nameRef : mode === "others" ? firstProjectRef : optionsFocusRef
+      }
+    >
+      {mode === "options" && (
+        <div className="stack">
+          {suggested !== null && (
+            <button
+              type="button"
+              className="option suggested"
+              onClick={() => {
+                onChoose({ kind: "project", project: suggested });
+              }}
+            >
+              <span className="grow">
+                <div>{text.orphans.asService(suggested)}</div>
+              </span>
+              <span className="tag green">{text.orphans.suggested}</span>
+            </button>
+          )}
+          {projects.length > (suggested === null ? 0 : 1) && (
+            <button
+              type="button"
+              className="option"
+              ref={lastStep === "others" ? optionsFocusRef : undefined}
+              onClick={() => {
+                enterStep("others");
+              }}
+            >
+              <span className="grow">
+                <div>{text.orphans.another}</div>
+                <div className="soft">{text.orphans.anotherBody}</div>
+              </span>
+            </button>
+          )}
+          {view.container !== null && (
             <button
               type="button"
               className="option"
               onClick={() => {
-                onChoose({ kind: "ignore" });
+                onChoose({ kind: "shared" });
               }}
             >
               <span className="grow">
-                <div>{text.orphans.ignore}</div>
-                <div className="soft">{text.orphans.ignoreBody}</div>
+                <div>{text.orphans.shared}</div>
+                <div className="soft">{text.orphans.sharedBody}</div>
               </span>
             </button>
-          </div>
-        )}
-        {mode === "others" && (
-          <div className="stack">
-            {projects.map((project) => (
-              <button
-                key={project.name}
-                type="button"
-                className="option"
-                onClick={() => {
-                  onChoose({ kind: "project", project: project.name });
-                }}
-              >
-                {text.orphans.asService(project.name)}
-              </button>
-            ))}
-          </div>
-        )}
-        {mode === "new" && (
-          <form
-            className="stack"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onChoose({ kind: "new", name: name.trim() === "" ? null : name.trim() });
+          )}
+          {view.container === null && (
+            <button
+              type="button"
+              className="option"
+              ref={lastStep === "new" ? optionsFocusRef : undefined}
+              onClick={() => {
+                enterStep("new");
+              }}
+            >
+              <span className="grow">
+                <div>{text.orphans.newProject}</div>
+                <div className="soft ellipsis">
+                  {text.orphans.newProjectBody(folder || "la carpeta")}
+                </div>
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="option"
+            onClick={() => {
+              onChoose({ kind: "ignore" });
             }}
           >
-            <label className="soft" htmlFor="project-name">
-              {text.orphans.projectName}
-            </label>
-            <input
-              id="project-name"
-              className="input"
-              value={name}
-              autoFocus
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-            />
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button type="submit" className="btn primary-green">
-                {text.orphans.create}
-              </button>
-            </div>
-          </form>
-        )}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-          <button type="button" className="link-btn" onClick={onCancel}>
-            {text.orphans.cancel}
+            <span className="grow">
+              <div>{text.orphans.ignore}</div>
+              <div className="soft">{text.orphans.ignoreBody}</div>
+            </span>
           </button>
         </div>
+      )}
+      {mode === "others" && (
+        <div className="stack">
+          {projects.map((project, index) => (
+            <button
+              key={project.name}
+              ref={index === 0 ? firstProjectRef : undefined}
+              type="button"
+              className="option"
+              onClick={() => {
+                onChoose({ kind: "project", project: project.name });
+              }}
+            >
+              {text.orphans.asService(project.name)}
+            </button>
+          ))}
+        </div>
+      )}
+      {mode === "new" && (
+        <form
+          className="stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onChoose({ kind: "new", name: name.trim() === "" ? null : name.trim() });
+          }}
+        >
+          <label className="soft" htmlFor="project-name">
+            {text.orphans.projectName}
+          </label>
+          <input
+            id="project-name"
+            className="input"
+            value={name}
+            ref={nameRef}
+            onChange={(event) => {
+              setName(event.target.value);
+            }}
+          />
+          <div className="row" style={{ justifyContent: "flex-end" }}>
+            <button type="submit" className="btn primary-green">
+              {text.orphans.create}
+            </button>
+          </div>
+        </form>
+      )}
+      <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
+        {mode !== "options" ? (
+          <button type="button" className="btn" onClick={goBack}>
+            {text.orphans.back}
+          </button>
+        ) : (
+          <span />
+        )}
+        <button type="button" className="link-btn" onClick={onCancel}>
+          {text.orphans.cancel}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

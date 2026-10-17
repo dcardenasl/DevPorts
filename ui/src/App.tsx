@@ -41,8 +41,11 @@ export function App(): ReactElement {
   const now = useNow();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [highlight, setHighlight] = useState<string>();
-  const [confirming, setConfirming] = useState<InstanceView>();
-  const [adopting, setAdopting] = useState<InstanceView>();
+  const [dialog, setDialog] = useState<{
+    kind: "stop" | "adopt";
+    view: InstanceView;
+    invoker: HTMLButtonElement;
+  }>();
   const [logCount, setLogCount] = useState<number>();
   const [toast, showToast] = useToast();
   const [failed, setFailed] = useState(false);
@@ -68,7 +71,9 @@ export function App(): ReactElement {
     return {
       snapshot,
       now,
-      requestStop: setConfirming,
+      requestStop: (view, invoker) => {
+        setDialog({ kind: "stop", view, invoker });
+      },
       stopNow: (views) => {
         for (const view of views) attempt(api.stop(view.ref));
       },
@@ -88,7 +93,9 @@ export function App(): ReactElement {
         setHighlight(ref);
         setTab("projects");
       },
-      adopt: setAdopting,
+      adopt: (view, invoker) => {
+        setDialog({ kind: "adopt", view, invoker });
+      },
       declareShared: (view) => {
         attempt(api.adopt(view.ref, "shared"), text.shared.declared);
       },
@@ -153,7 +160,8 @@ export function App(): ReactElement {
     </>
   );
 
-  const confirmed = confirming;
+  const confirmed = dialog?.kind === "stop" ? dialog : undefined;
+  const adopting = dialog?.kind === "adopt" ? dialog : undefined;
   return (
     <Shell
       title={text.tabs[tab]}
@@ -192,27 +200,29 @@ export function App(): ReactElement {
         <>
           {confirmed !== undefined && (
             <ConfirmStop
-              view={confirmed}
-              affected={dependentsOf(confirmed, snapshot)}
+              view={confirmed.view}
+              returnFocusTo={confirmed.invoker}
+              affected={dependentsOf(confirmed.view, snapshot)}
               onCancel={() => {
-                setConfirming(undefined);
+                setDialog(undefined);
               }}
               onConfirm={() => {
-                setConfirming(undefined);
-                attempt(api.stop(confirmed.ref));
+                setDialog(undefined);
+                attempt(api.stop(confirmed.view.ref));
               }}
             />
           )}
           {adopting !== undefined && (
             <AdoptSheet
-              view={adopting}
+              view={adopting.view}
+              returnFocusTo={adopting.invoker}
               projects={snapshot.projects}
               onCancel={() => {
-                setAdopting(undefined);
+                setDialog(undefined);
               }}
               onChoose={(choice) => {
-                const view = adopting;
-                setAdopting(undefined);
+                const view = adopting.view;
+                setDialog(undefined);
                 attempt(adoptWith(api, view, choice), "Listo");
               }}
             />

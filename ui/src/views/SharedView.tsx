@@ -39,8 +39,8 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                 <IconButton
                   label={`${text.projects.stop} ${node.name}`}
                   danger
-                  onClick={() => {
-                    actions.requestStop(view);
+                  onClick={(event) => {
+                    actions.requestStop(view, event.currentTarget);
                   }}
                 >
                   <StopIcon size={14} />
