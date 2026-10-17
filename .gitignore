@@ -1,0 +1,16 @@
+# Build output
+target/
+dist/
+node_modules/
+
+# Local data and settings
+*.db
+*.db-wal
+*.db-shm
+.claude/settings.local.json
+
+# Rendered presentation videos (the design reference lives in docs/ui-referencia)
+brag-output/
+
+# macOS
+.DS_Store
