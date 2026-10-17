@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.8** (spike de `exec`, PID y ascendencia). S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.9** (informe de la Fase 0) y, por David, **S0** y las comprobaciones manuales de T0.9. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -90,7 +90,7 @@
   launchd `KeepAlive{SuccessfulExit:false}`; «Salir» no reinicia; latencia de `open -g -a` desde el CLI.
   → `feat(app): add launch agent supervision spike`
 
-- [ ] **T0.8 — Spike de `exec`, PID y ascendencia.** *Deps:* T0.2. *Verifica:* V9.
+- [x] **T0.8 — Spike de `exec`, PID y ascendencia.** *Deps:* T0.2. *Verifica:* V9.
   Confirmar que `sh -c 'exec …'` conserva PID y que `launcher_chain` permite el vínculo fuerte.
   → `test(core): verify exec keeps pid and ancestry`
 
@@ -125,7 +125,7 @@
   → `feat(core): reconcile observed processes into identified instances`
 
 - [ ] **T1.6 — Registro, vínculo por puerto reservado y máquina de estados.** *Deps:* T1.5. RF-06; ARQUITECTURA §6-7.
-  Reservas, vínculo contenedor/fuerte/medio/ninguno, `released`, `port_stolen`. *Pruebas:* U-10, I-04, I-05, I-13.
+  Reservas, vínculo contenedor/fuerte/medio/ninguno (la ascendencia ya existe: `process::ancestry`, T0.8), `released`, `port_stolen`. *Pruebas:* U-10, I-04, I-05, I-13.
   → `feat(core): add port reservation and instance binding rules`
 
 - [ ] **T1.7 — Política completa de `run`.** *Deps:* T1.6. RF-07, RF-17; CLI §3.

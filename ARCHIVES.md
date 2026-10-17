@@ -3,6 +3,13 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## T0.8 — Spike de `exec`: PID y ascendencia · 2026-10-17
+- Commits: `feat(core): add process ancestry helpers for launcher binding`, `test(core): verify exec keeps pid and ancestry`, `docs: record t0.8 results for exec and ancestry`.
+- Verificación local: fmt, clippy `-D warnings` y `cargo test --workspace` en verde; 11 pruebas unitarias nuevas de `process::ancestry` con fuente falsa y 4 con procesos reales, sin procesos huérfanos al terminar.
+- **V9 favorable** (detalle en ARQUITECTURA §7): `exec` conserva el pid; un servidor que bifurca es descendiente del lanzador; un servidor desprendido queda con `ppid = 1` y pierde la ascendencia (cubierto por el vínculo medio); un servidor lanzado desde una shell no interactiva hereda el grupo del lanzador, así que parar un grupo mataría al lanzador (confirma la regla de ARQUITECTURA §8).
+- Hallazgo: la prueba con fuente falsa de un ciclo `10 -> 20 -> 10` encontró un fallo real: la cadena de `10` incluía al propio `10`. Corregido (la caminata ahora también se detiene al volver al proceso de partida).
+- Pendiente: el `exec` en sí lo hará el CLI en T1.7 (`CommandExt::exec`); aquí se verificó el comportamiento del sistema con `sh -c 'exec …'`, que es lo que el CLI ejecutará.
+
 ## T0.7 — Spike de supervisión y autoarranque · 2026-10-17
 - Commits: `build(app): bundle the app as a menu-bar agent without a dock icon`, `test(tools): add launchd supervision script for the app`, `docs: record t0.7 launchd and open results`.
 - **V7 favorable, con launchd real** (`tools/spike-launchd.sh target/release/devports-app`; trabajo temporal con etiqueta propia, cargado desde un `.plist` en una carpeta temporal y retirado al terminar; no toca `~/Library/LaunchAgents`): (1) `RunAtLoad` arranca la app; (2) tras `kill -9` launchd la levanta de nuevo en **unos 4 s** con `ThrottleInterval` 5 (con el valor por defecto de 10 s tardaría más); (3) la app termina con `exit(0)`, que es la llamada que usa «Salir», y **no** se reinicia (launchd informa `last exit code = 0`; sin tercera instancia a los 11 s); (4) `bootout` detiene la app y launchd olvida el trabajo. Todas las comprobaciones en verde.
