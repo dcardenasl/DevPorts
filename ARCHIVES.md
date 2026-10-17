@@ -13,6 +13,15 @@
 - **Pendiente externo:** Tauri/VoiceOver y cierre nativo por foco, asignados a UXR-0/UXR-7.2. No se aprobaron G1/G2.
 - **Entrega siguiente:** UXR-1.2 reutiliza Modal; conservar estado tipado en shell, nunca el elemento DOM del invocador tras recrear webview ni una autorización pendiente. Más tarde UXR-2.1 unificará qué paradas pasan por confirmación; esta tarea no amplió esa política.
 
+## UXR-1.2 — Conservar navegación y borradores fuera del webview · 2026-10-17
+- **Commits de implementación:** `d8af7f3` (`feat(app): preserve panel state across webview recreations`), `36f00b1` (`fix(ui): defer project expansion updates until effects`) y `e5ec97d` (`fix(ui): stabilize project expansion callback`).
+- **Resultado:** la shell retiene en memoria pestaña, proyecto expandido/plegado, filtro de Actividad y borrador tipado de adopción mientras el proceso siga vivo. Se hidrata con la instantánea antes de presentar la UI. Referencias inexistentes se descartan y explican; nunca disparan una acción. Confirmaciones de parada e invocadores DOM no se guardan.
+- **Archivos/contrato:** `crates/devports-app/src/panel_state.rs` y comandos Tauri `get_panel_state`/`set_panel_state`; espejo en `ui/src/types.ts` y `Backend` en `ui/src/api.ts`. `PanelDraft` usa `kind` y versión 1; ubicación, ciclo de vida, validación y extensión para UXR-3.2/4.2/6.1: [informe UXR-1.2](docs/audits/2026-10-17-uxr-1-2.md). Sin cambios al núcleo, socket o bindings generados.
+- **Verificaciones:** `tools/check.sh full` verde (fmt, matriz 37, clippy, workspace y cargo-deny); UI 28/28, typecheck, lint y format:check verdes con Node 22. Tres pruebas Rust de estado y tres pruebas UI UXR-1.2 añadidas. `cargo deny` conserva avisos de crates duplicadas ya existentes; políticas de advisory, bans, licencias y fuentes pasan.
+- **Evidencia simulada/nativa:** cierre y recreación simulados mediante desmontaje/remontaje de App con estado compartido del backend de prueba. No equivale a Tauri/WebKit; ciclo nativo, VoiceOver y la app instalada siguen pendientes para UXR-7.2/UXR-0.
+- **Recursos y pendientes:** no se iniciaron procesos desechables ni se cambiaron servicios, manifiestos o instalación. El `.devports.yml` no versionado quedó sin tocar. No hay pendientes funcionales de esta ficha; la evidencia nativa está diferida explícitamente.
+- **Entrega siguiente:** UXR-1.3 conserva sus operaciones confirmadas fuera del webview como contrato separado. Los formularios futuros añaden variantes tipadas al borrador, revalidan referencias y no guardan autorización de parada.
+
 ## Fases 1 y 2 · 2026-10-17 · evidencia por tarea
 Verificación general: `tools/check.sh full` (fmt, matriz de pruebas, clippy `-D warnings`, 270+ pruebas de Rust con `devports-core/bindings`, `cargo deny`) y en `ui/` `tsc`, eslint, prettier y 16 pruebas de Vitest. `python3 tools/check_matrix.py`: las 37 pruebas de PRUEBAS.md y todos los RF/NF automatizables tienen una prueba que los declara (`// covers:`).
 

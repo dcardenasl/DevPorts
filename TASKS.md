@@ -91,7 +91,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-1-2"></a>
 
-- [ ] **UXR-1.2 — Conservar navegación y borradores fuera del webview.**
+- [x] **UXR-1.2 — Conservar navegación y borradores fuera del webview.**
+
+  **Entrega:** `d8af7f3`, `36f00b1`, `e5ec97d`; [contrato, evidencia y límites nativos](docs/audits/2026-10-17-uxr-1-2.md). Estado tipado en memoria de la shell, 28/28 UI, shell Rust y controles completos verdes. Tauri/WebKit nativo asignado a UXR-7.2.
 
   **Dependencias:** UXR-1.1. **Plan:** [grupo UXR-1](docs/audits/2026-10-17-ui-ux-plan.md#uxr-1). **Contexto:** UX-11 y parte de UX-08; D2, D11; ADR-028.
 
