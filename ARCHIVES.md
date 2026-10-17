@@ -3,6 +3,14 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-2.1 — Confirmar toda parada manual y detener sin adoptar · 2026-10-17
+- **Commit de implementación:** `0970bd8` (`feat(ui): confirm and revalidate every manual stop`).
+- **Resultado:** todas las rutas manuales de detener confirman identidad, puerto y origen; muestran consumidores compartidos y efecto de los contenedores de datos. El núcleo revalida la expectativa exacta al ejecutar; la huella completa del proceso/contenedor previene actuar sobre un destino reemplazado. Detener huérfanos no adopta ni escribe manifiestos. Las reglas automáticas y permisos del CLI siguen iguales.
+- **Verificación:** `tools/check.sh full` verde (fmt, matriz 37, clippy, workspace, bindings y cargo-deny); UI con Node 22: lint, typecheck, format:check, 32/32 Vitest y build. Prueba del motor rechaza puerto cambiado e identidad reemplazada. Servidores host desechables creados por las pruebas finalizaron y limpiaron sus puertos.
+- **Límites:** pruebas Docker ignoradas porque requieren daemon; no se detuvieron servicios del usuario ni se cambiaron manifiestos. No equivale a validación manual Tauri/WebKit o VoiceOver (UXR-0/UXR-7.2). La vista serializada incorpora `target_identity` de solo lectura; no se añadieron operaciones al socket CLI.
+- **Informe:** [entrega UXR-2.1](docs/audits/2026-10-17-uxr-2-1.md). `.devports.yml` local no versionado quedó intacto.
+- **Entrega siguiente:** UXR-2.2 reutiliza el contrato de expectativa/operación para acciones puntuales de proyecto, sin cascada a compartidos.
+
 ## UXR-1.3 — Seguir operaciones confirmadas aunque se cierre el panel · 2026-10-17
 - **Commit de implementación:** `b1b1bae` (`feat(app): track confirmed operations beyond the panel`).
 - **Resultado:** stop confirmado, extend, keep y adoption corren desde la shell Tauri; ID idempotente, consulta, eventos, resultados por objetivo, historial acotado en memoria y reintento solo explícito. Se quitaron los comandos Tauri directos que permitían saltar el registro. Adopción muestra el destino real devuelto por el núcleo.

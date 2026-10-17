@@ -127,7 +127,7 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-2-1"></a>
 
-- [ ] **UXR-2.1 — Confirmar toda parada manual y detener sin adoptar.**
+- [x] **UXR-2.1 — Confirmar toda parada manual y detener sin adoptar.**
 
   **Dependencias:** UXR-1.3. **Plan:** [grupo UXR-2](docs/audits/2026-10-17-ui-ux-plan.md#uxr-2). **Contexto:** UX-01; D3, D4; ADR-029.
 
@@ -139,7 +139,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
   **Verificación:** UI de cada ruta y cancelación; pruebas existentes de terminación/identidad más casos de stale target; integración de parada real solo sobre servidor propio de prueba.
 
-  **Entrega a la próxima sesión:** Registrar punto único de confirmación, contrato de objetivo y casos reales para reutilizar en UXR-2.2; mantener las prohibiciones de seguridad existentes.
+  **Entrega a la próxima sesión:** UXR-2.2 reutiliza `stopExpectation` por objetivo y la operación `stop`, conservando resultados separados y sin detener compartidos al parar un proyecto.
+
+  **Entrega:** [`docs/audits/2026-10-17-uxr-2-1.md`](docs/audits/2026-10-17-uxr-2-1.md); commits de implementación y registro en `ARCHIVES.md`.
 
 <a id="uxr-2-2"></a>
 
