@@ -13,7 +13,7 @@ export function Dot({
 
 export function dotFor(state: InstanceState): "green" | "coral" | "down" {
   if (state === "unhealthy") return "coral";
-  if (state === "down" || state === "forgotten") return "down";
+  if (state === "down" || state === "forgotten" || state === "unknown") return "down";
   return "green";
 }
 
@@ -27,6 +27,8 @@ export function stateLabel(state: InstanceState): string {
       return text.projects.starting;
     case "forgotten":
       return text.projects.forgotten;
+    case "unknown":
+      return text.projects.unknown;
     case "stopping":
       return "Deteniendo";
     case "healthy":

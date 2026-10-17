@@ -45,6 +45,7 @@ export const text = {
     hung: "Colgada · no responde",
     starting: "Iniciando",
     forgotten: "Olvidada",
+    unknown: "Desconocida (Docker no responde)",
     open: "Abrir en el navegador",
     copy: "Copiar comando de inicio",
     copied: "Comando copiado",

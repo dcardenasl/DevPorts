@@ -177,6 +177,7 @@ mod tests {
         assert!(is_self_or_descendant(&tree(), 10, id(10, 100)));
     }
 
+    // covers: PT-03, U-10
     #[test]
     fn a_recycled_pid_is_not_the_launcher() {
         // Pid 10 exists, but it started at 150, not at 100: it is not the process

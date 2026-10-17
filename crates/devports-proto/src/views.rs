@@ -33,6 +33,8 @@ pub enum InstanceState {
     Stopping,
     /// Its lease ended but it would not die ("Olvidados").
     Forgotten,
+    /// Its container service cannot be checked because Docker does not answer.
+    Unknown,
 }
 
 /// One process in the chain that started an instance, nearest first.

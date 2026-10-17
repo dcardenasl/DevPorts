@@ -130,6 +130,7 @@ fn exec_keeps_the_pid_so_the_listener_is_the_launcher() {
     assert!(is_self_or_descendant(&source, launcher, launcher_id));
 }
 
+// covers: I-07
 #[test]
 fn a_server_inherits_the_process_group_of_whoever_started_it() {
     let source = MacProcessSource::new().expect("source");

@@ -175,17 +175,16 @@ fn a_process_that_only_connects_is_not_a_listener() {
     let client = spawn_python(&dir, &["-c", &script]);
     let (_accepted, _) = listener.accept().expect("the client connects");
 
+    // The test process itself is the listener (the scan may need a moment under load).
+    let own = std::process::id();
+    wait_for(source, |process| {
+        process.info.id.pid == own && process.ports.contains(&port)
+    });
     let snapshot = source.snapshot().expect("snapshot");
     assert!(
         snapshot
             .iter()
             .all(|process| process.info.id.pid != client.0.id())
-    );
-    assert!(
-        snapshot
-            .iter()
-            .any(|process| process.info.id.pid == std::process::id()
-                && process.ports.contains(&port))
     );
     std::fs::remove_dir_all(&dir).expect("clean scratch dir");
 }

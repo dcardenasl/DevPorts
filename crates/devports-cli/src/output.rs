@@ -20,6 +20,7 @@ fn state_word(state: InstanceState) -> &'static str {
         InstanceState::Starting => "iniciando",
         InstanceState::Stopping => "deteniendo",
         InstanceState::Forgotten => "olvidada",
+        InstanceState::Unknown => "desconocida",
     }
 }
 

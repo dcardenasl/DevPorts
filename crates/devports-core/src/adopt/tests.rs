@@ -44,6 +44,7 @@ fn container(name: &str, port: u16, image: &str, cwd: &str) -> InstanceView {
     }
 }
 
+// covers: I-15
 #[test]
 fn a_running_server_becomes_a_service_with_its_fingerprint() {
     let views = [process(
@@ -146,6 +147,7 @@ fn two_services_with_the_same_name_get_their_port_appended() {
     assert_eq!(names, ["api-8080", "api-8081"]);
 }
 
+// covers: I-15
 #[test]
 fn the_proposed_yaml_is_a_valid_manifest() {
     let views = [

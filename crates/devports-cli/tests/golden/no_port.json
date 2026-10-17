@@ -1,0 +1,1 @@
+{"alternatives":[],"code":19,"error":"no_port","existing":null,"message":"devports: no hay un puerto libre en el rango de pruebas","ok":false,"project":"tienda-demo","service":"api"}

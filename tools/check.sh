@@ -13,6 +13,7 @@ cd "$(dirname "$0")/.."
 mode="${1:-}"
 
 echo "== fmt";    cargo fmt --all --check
+echo "== matrix"; python3 tools/check_matrix.py
 echo "== clippy"; cargo clippy --workspace --all-targets -- -D warnings
 if [ "$mode" != "quick" ]; then
   echo "== test"; cargo test --workspace

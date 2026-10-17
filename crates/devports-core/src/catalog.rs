@@ -371,6 +371,7 @@ mod tests {
         }
     }
 
+    // covers: U-02
     #[test]
     fn a_process_in_a_service_directory_with_its_command_matches() {
         let catalog = Catalog::new(vec![shop()]);
@@ -400,6 +401,7 @@ mod tests {
         assert_eq!(name_of(&found), Some("admin"));
     }
 
+    // covers: U-02
     #[test]
     fn the_wrong_command_in_the_right_directory_is_unregistered() {
         let catalog = Catalog::new(vec![shop()]);
@@ -471,6 +473,7 @@ mod tests {
         }
     }
 
+    // covers: U-02
     #[test]
     fn the_longest_fingerprint_breaks_a_tie_between_services() {
         let project = project(
@@ -488,6 +491,7 @@ mod tests {
         assert_eq!(name_of(&found), Some("vite"));
     }
 
+    // covers: U-02
     #[test]
     fn the_listening_port_breaks_a_remaining_tie() {
         let project = project(
@@ -501,6 +505,7 @@ mod tests {
         assert_eq!(name_of(&found), Some("two"));
     }
 
+    // covers: U-02
     #[test]
     fn an_unresolved_tie_is_ambiguous_and_never_random() {
         let project = project(
@@ -655,6 +660,7 @@ mod tests {
 
     proptest! {
         /// PT-02: the identity of a service does not change when only the port does.
+        // covers: PT-02
         #[test]
         fn identity_survives_a_port_change(first in 1024_u16..=65_535, second in 1024_u16..=65_535) {
             let catalog = Catalog::new(vec![shop()]);

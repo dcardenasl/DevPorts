@@ -67,6 +67,7 @@ fn identity(source: MacProcessSource, pid: u32) -> ProcessId {
     source.process_info(pid).expect("alive").id
 }
 
+// covers: I-06, I-07
 #[tokio::test]
 async fn a_launcher_and_all_its_children_die_and_the_caller_survives() {
     let source = MacProcessSource::new().expect("source");
@@ -123,6 +124,7 @@ async fn a_process_that_ignores_sigterm_is_killed_after_the_grace_period() {
     assert!(!exists(source, guard.0.id()));
 }
 
+// covers: U-09
 #[tokio::test]
 async fn the_devports_process_itself_is_never_a_target() {
     let source = MacProcessSource::new().expect("source");
@@ -144,6 +146,7 @@ async fn the_devports_process_itself_is_never_a_target() {
     assert!(exists(source, own));
 }
 
+// covers: PT-03
 #[tokio::test]
 async fn a_recycled_pid_is_left_alone() {
     let source = MacProcessSource::new().expect("source");

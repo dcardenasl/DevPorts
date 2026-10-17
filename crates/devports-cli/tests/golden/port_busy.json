@@ -1,0 +1,1 @@
+{"alternatives":[],"code":18,"error":"port_busy","existing":null,"message":"devports: el puerto 8080 lo ocupa node (pid 77), que no es api","ok":false,"project":"tienda-demo","service":"api"}

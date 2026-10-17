@@ -417,4 +417,6 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
 pub(crate) const HUNG_AFTER: u8 = 3;
 
 #[cfg(test)]
+mod scenarios;
+#[cfg(test)]
 mod tests;

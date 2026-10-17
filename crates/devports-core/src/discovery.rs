@@ -253,6 +253,7 @@ mod tests {
     }
 
     /// I-14: depth limit, ignored folders and nesting.
+    // covers: I-14
     #[test]
     fn finds_manifests_down_to_the_depth_limit_and_no_further() {
         let root = TempDir::new().unwrap();
@@ -268,6 +269,7 @@ mod tests {
         assert!(discovery.issues.is_empty());
     }
 
+    // covers: I-14
     #[test]
     fn skips_dependency_build_and_hidden_folders() {
         let root = TempDir::new().unwrap();
@@ -281,6 +283,7 @@ mod tests {
         assert_eq!(names(&found(&root, 3)), ["real"]);
     }
 
+    // covers: I-14
     #[test]
     fn nested_manifests_are_independent_projects() {
         let root = TempDir::new().unwrap();

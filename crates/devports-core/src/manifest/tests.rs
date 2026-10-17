@@ -113,6 +113,7 @@ fn a_missing_version_is_an_error() {
     );
 }
 
+// covers: U-03
 #[test]
 fn another_version_is_an_error_on_its_line() {
     assert_error(
@@ -158,6 +159,7 @@ fn service_names_follow_the_pattern() {
     );
 }
 
+// covers: U-03
 #[test]
 fn a_service_needs_exactly_one_of_cwd_or_docker() {
     assert_error(&service("    port: 8080\n"), 4, "necesita «cwd»");
@@ -237,6 +239,7 @@ fn a_value_of_the_wrong_type_is_an_error_not_a_crash() {
     assert!(!errors(&service("    cwd: .\n    port: abc\n")).is_empty());
 }
 
+// covers: U-03
 #[test]
 fn every_error_is_reported_at_once() {
     let text = "version: 1\nproject: BAD\nservices:\n  Api:\n    port: 0\n";
@@ -255,6 +258,7 @@ fn load_file(path: &str) -> ManifestError {
 
 // --- warnings ---
 
+// covers: U-03
 #[test]
 fn unknown_keys_are_warned_about_with_their_line() {
     assert_warning(
@@ -269,6 +273,7 @@ fn unknown_keys_are_warned_about_with_their_line() {
     );
 }
 
+// covers: U-03
 #[test]
 fn the_test_key_has_its_own_message() {
     assert_warning(

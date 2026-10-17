@@ -58,6 +58,7 @@ fn project() -> (TempDir, PathBuf) {
     (dir, root)
 }
 
+// covers: I-15
 #[test]
 fn adding_a_service_keeps_every_comment_and_the_layout() {
     let (_dir, root) = project();

@@ -1,0 +1,2 @@
+devports: conflicto en api (proyecto tienda-demo)
+Ya corre la instancia Principal de "api".

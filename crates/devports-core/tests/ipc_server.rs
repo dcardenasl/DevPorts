@@ -134,6 +134,7 @@ async fn answers_a_ping_and_echoes_the_id() {
     server.stop().await;
 }
 
+// covers: I-11
 #[tokio::test]
 async fn the_socket_is_private_to_its_owner() {
     let server = start(fast_limits()).await;
@@ -166,6 +167,7 @@ async fn a_loosely_permissioned_existing_folder_is_tightened() {
 }
 
 /// I-11: a second core must not start while one answers.
+// covers: I-11
 #[tokio::test]
 async fn a_second_core_cannot_take_over_a_live_socket() {
     let first = start(fast_limits()).await;
@@ -182,6 +184,7 @@ async fn a_second_core_cannot_take_over_a_live_socket() {
 }
 
 /// I-11: a socket left behind by a crash is cleaned up.
+// covers: I-11
 #[tokio::test]
 async fn a_socket_left_by_a_crash_is_replaced() {
     let dir = TempDir::new().expect("tempdir");

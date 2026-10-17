@@ -96,6 +96,7 @@ mod tests {
         Busy(ports.iter().copied().collect())
     }
 
+    // covers: U-07
     #[test]
     fn the_first_free_port_from_the_starting_point_is_chosen() {
         let probe = busy(&[]);
@@ -114,6 +115,7 @@ mod tests {
         );
     }
 
+    // covers: U-07
     #[test]
     fn busy_and_reserved_ports_are_skipped_wrapping_around() {
         let probe = busy(&[5008]);

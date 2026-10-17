@@ -1,0 +1,2 @@
+devports: api (proyecto tienda-demo) como TEMPORAL en http://localhost:51234, vence 14:50 (30 m)
+DEVPORTS_STOP_TOKEN=9f1c0000000000000000000000000000   (guárdalo: permite detener o extender esta prueba)

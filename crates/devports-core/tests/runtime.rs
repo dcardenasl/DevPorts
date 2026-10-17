@@ -70,6 +70,11 @@ async fn wait_for(handle: &CoreHandle, what: &str, done: impl Fn(&CoreHandle) ->
 
 #[tokio::test]
 async fn a_run_is_accepted_bound_listed_and_refused_when_repeated() {
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .expect("bind")
+        .local_addr()
+        .expect("addr")
+        .port();
     let home = TempDir::new().expect("tempdir");
     let work = home.path().join("work");
     let project = work.join("shop");
@@ -82,7 +87,9 @@ async fn a_run_is_accepted_bound_listed_and_refused_when_repeated() {
     );
     write(
         &project.join(".devports.yml"),
-        "version: 1\nproject: shop\nservices:\n  api:\n    cwd: .\n    port: 8080\n    start: serve --port ${PORT}\n",
+        &format!(
+            "version: 1\nproject: shop\nservices:\n  api:\n    cwd: .\n    port: {port}\n    start: serve --port ${{PORT}}\n"
+        ),
     );
     let project = std::fs::canonicalize(&project).expect("canonical");
 
@@ -106,7 +113,7 @@ async fn a_run_is_accepted_bound_listed_and_refused_when_repeated() {
     let RunOutcome::Accepted(accepted) = first else {
         panic!("expected an accepted run, got {first:?}");
     };
-    assert_eq!(accepted.port, 8080);
+    assert_eq!(accepted.port, port);
 
     // The server shows up as a child of the launcher on the reserved port.
     let started = jiff::Timestamp::now().as_second() + 1;
@@ -119,10 +126,10 @@ async fn a_run_is_accepted_bound_listed_and_refused_when_repeated() {
             ppid: 1,
             pgid: 4243,
             uid: 4_000_000, // never the real user: a stop in a test must be refused, not delivered
-            argv: vec!["serve".to_owned(), "--port".to_owned(), "8080".to_owned()],
+            argv: vec!["serve".to_owned(), "--port".to_owned(), port.to_string()],
             cwd: Some(project.clone()),
         },
-        ports: vec![8080],
+        ports: vec![port],
     }]);
     wait_for(&handle, "the binding", |handle| {
         handle.snapshot().instances.iter().any(|view| {

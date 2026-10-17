@@ -22,11 +22,11 @@ use crate::manifest;
 use crate::process::fake::FakeProcessSource;
 use crate::process::{ProcessInfo, ProcessStart};
 
-const START: &str = "2026-10-17T12:00:00Z";
+pub(super) const START: &str = "2026-10-17T12:00:00Z";
 
 /// A port probe where only the listed ports are busy.
 #[derive(Default)]
-struct FakePorts(Mutex<BTreeSet<u16>>);
+pub(super) struct FakePorts(Mutex<BTreeSet<u16>>);
 
 impl FakePorts {
     fn occupy(&self, port: u16) {
@@ -47,13 +47,13 @@ impl PortProbe for FakePorts {
     }
 }
 
-type TestEngine = Engine<Arc<ManualClock>, Arc<FakeProcessSource>, Arc<FakePorts>>;
+pub(super) type TestEngine = Engine<Arc<ManualClock>, Arc<FakeProcessSource>, Arc<FakePorts>>;
 
-struct World {
-    engine: TestEngine,
-    clock: Arc<ManualClock>,
-    source: Arc<FakeProcessSource>,
-    ports: Arc<FakePorts>,
+pub(super) struct World {
+    pub(super) engine: TestEngine,
+    pub(super) clock: Arc<ManualClock>,
+    pub(super) source: Arc<FakeProcessSource>,
+    pub(super) ports: Arc<FakePorts>,
 }
 
 const SHOP: &str = "\
@@ -86,7 +86,7 @@ services:
     start: docker start mysql
 ";
 
-fn world_with(store: Store, clock: Arc<ManualClock>) -> World {
+pub(super) fn world_with(store: Store, clock: Arc<ManualClock>) -> World {
     let manifest = manifest::parse(SHOP, Path::new("m.yml")).unwrap();
     let catalog = Catalog::new(vec![Project::from_manifest(
         Path::new("/work/shop"),
@@ -122,14 +122,14 @@ fn world_with(store: Store, clock: Arc<ManualClock>) -> World {
     }
 }
 
-fn world() -> World {
+pub(super) fn world() -> World {
     world_with(
         Store::open_in_memory().unwrap(),
         Arc::new(ManualClock::new(START.parse::<Timestamp>().unwrap())),
     )
 }
 
-fn launcher(pid: u32) -> LauncherInfo {
+pub(super) fn launcher(pid: u32) -> LauncherInfo {
     LauncherInfo {
         pid,
         chain: vec![
@@ -147,7 +147,7 @@ fn launcher(pid: u32) -> LauncherInfo {
     }
 }
 
-fn request(service: &str, role: RunRole) -> RunRegister {
+pub(super) fn request(service: &str, role: RunRole) -> RunRegister {
     RunRegister {
         project: None,
         service: service.to_owned(),
@@ -161,21 +161,21 @@ fn request(service: &str, role: RunRole) -> RunRegister {
     }
 }
 
-fn accepted(outcome: &RunOutcome) -> &devports_proto::run::Accepted {
+pub(super) fn accepted(outcome: &RunOutcome) -> &devports_proto::run::Accepted {
     match outcome {
         RunOutcome::Accepted(accepted) => accepted,
         other => panic!("expected an accepted run, got {other:?}"),
     }
 }
 
-fn rejected(outcome: &RunOutcome) -> &devports_proto::run::Rejected {
+pub(super) fn rejected(outcome: &RunOutcome) -> &devports_proto::run::Rejected {
     match outcome {
         RunOutcome::Rejected(rejected) => rejected,
         other => panic!("expected a refusal, got {other:?}"),
     }
 }
 
-fn proc(
+pub(super) fn proc(
     pid: u32,
     ppid: u32,
     start_secs: i64,
@@ -199,24 +199,24 @@ fn proc(
     }
 }
 
-fn epoch(world: &World) -> i64 {
+pub(super) fn epoch(world: &World) -> i64 {
     world.clock.wall().as_second()
 }
 
 impl World {
     /// Publishes a process table as both the fake source and the engine's scan.
-    fn scan(&mut self, table: Vec<ListeningProcess>) -> Vec<Effect> {
+    pub(super) fn scan(&mut self, table: Vec<ListeningProcess>) -> Vec<Effect> {
         self.source.set(table.clone());
         let listening: Vec<ListeningProcess> =
             table.into_iter().filter(|p| !p.ports.is_empty()).collect();
         self.engine.observe_host(listening)
     }
 
-    fn run(&mut self, request: &RunRegister) -> RunOutcome {
+    pub(super) fn run(&mut self, request: &RunRegister) -> RunOutcome {
         self.engine.run_register(request).0
     }
 
-    fn instance(
+    pub(super) fn instance(
         &self,
         project: Option<&str>,
         service: &str,
@@ -234,7 +234,7 @@ impl World {
             .collect()
     }
 
-    fn events(&self) -> Vec<String> {
+    pub(super) fn events(&self) -> Vec<String> {
         self.engine
             .log(&LogArgs {
                 since_seconds: Some(86_400),
@@ -292,6 +292,7 @@ fn the_project_is_resolved_from_the_folder_or_named_explicitly() {
     assert_eq!(rejected(&world.run(&ghost)).error, RejectKind::NotFound);
 }
 
+// covers: U-04
 #[test]
 fn an_unknown_service_is_refused_with_code_14() {
     let mut world = world();
@@ -300,6 +301,7 @@ fn an_unknown_service_is_refused_with_code_14() {
     assert_eq!(rejected(&outcome).error.exit_code(), 14);
 }
 
+// covers: U-04
 #[test]
 fn without_a_command_the_run_is_refused_with_code_13() {
     let mut world = world();
@@ -352,6 +354,7 @@ fn a_shared_service_can_be_started_from_a_project_that_uses_it() {
 
 // -------------------------------------------------------------- run: conflicts
 
+// covers: U-04, I-01
 #[test]
 fn a_second_run_is_refused_while_the_first_is_starting_i_01() {
     let mut world = world();
@@ -397,6 +400,7 @@ fn the_refusal_names_what_exists_and_the_ways_out() {
     assert!(refusal.alternatives.iter().any(|alt| alt.needs_human));
 }
 
+// covers: U-04
 #[test]
 fn reuse_starts_nothing_and_reports_the_existing_instance() {
     let mut world = world();
@@ -416,6 +420,7 @@ fn reuse_starts_nothing_and_reports_the_existing_instance() {
     assert!(world.events().contains(&"reuse".to_owned()));
 }
 
+// covers: U-04
 #[test]
 fn a_hung_principal_is_refused_with_code_11_even_with_reuse() {
     let mut world = world();
@@ -446,6 +451,7 @@ fn a_hung_principal_is_refused_with_code_11_even_with_reuse() {
     assert!(matches!(world.run(&again), RunOutcome::Reused(_)));
 }
 
+// covers: U-04
 #[test]
 fn a_preferred_port_held_by_another_program_is_refused_with_code_18() {
     let mut world = world();
@@ -471,6 +477,7 @@ fn a_preferred_port_held_by_another_program_is_refused_with_code_18() {
 
 // ------------------------------------------------------------------- temporals
 
+// covers: U-04
 #[test]
 fn a_test_run_needs_a_reason() {
     let mut world = world();
@@ -481,6 +488,7 @@ fn a_test_run_needs_a_reason() {
     assert_eq!(rejected(&world.run(&no_reason)).error.exit_code(), 16);
 }
 
+// covers: U-04
 #[test]
 fn a_temporal_gets_a_free_port_a_token_and_a_lease() {
     let mut world = world();
@@ -515,6 +523,7 @@ fn a_temporal_gets_a_free_port_a_token_and_a_lease() {
     );
 }
 
+// covers: U-08, I-08
 #[test]
 fn the_token_is_never_stored_or_shown() {
     let mut world = world();
@@ -538,6 +547,7 @@ fn the_token_is_never_stored_or_shown() {
     assert!(!log.contains(&token));
 }
 
+// covers: U-04
 #[test]
 fn at_most_two_temporals_per_service() {
     let mut world = world();
@@ -558,6 +568,7 @@ fn at_most_two_temporals_per_service() {
     assert!(matches!(world.run(&other), RunOutcome::Accepted(_)));
 }
 
+// covers: U-04
 #[test]
 fn a_ttl_above_the_maximum_is_refused() {
     let mut world = world();
@@ -570,6 +581,7 @@ fn a_ttl_above_the_maximum_is_refused() {
     assert!(matches!(world.run(&long), RunOutcome::Accepted(_)));
 }
 
+// covers: U-07
 #[test]
 fn temporals_never_get_the_same_port() {
     let mut world = world();
@@ -588,6 +600,7 @@ fn principal_world() -> (World, String) {
     (world, reference)
 }
 
+// covers: U-10
 #[test]
 fn the_launcher_itself_is_bound_after_exec() {
     let (world, reference) = principal_world();
@@ -638,6 +651,7 @@ fn world_with_launcher(pid: u32, start_secs: i64) -> World {
     world
 }
 
+// covers: U-10
 #[test]
 fn a_child_of_the_launcher_is_bound() {
     let mut world = world_with_launcher(500, epoch_of_start());
@@ -667,6 +681,7 @@ fn epoch_of_start() -> i64 {
     START.parse::<Timestamp>().unwrap().as_second() - 5
 }
 
+// covers: U-10
 #[test]
 fn a_detached_server_inside_the_project_is_bound_by_directory() {
     let (mut world, reference) = principal_world();
@@ -686,6 +701,7 @@ fn a_detached_server_inside_the_project_is_bound_by_directory() {
     assert_eq!(view.pid, Some(610));
 }
 
+// covers: I-05
 #[test]
 fn a_stranger_on_the_reserved_port_is_not_bound_i_05() {
     let (mut world, reference) = principal_world();
@@ -723,6 +739,7 @@ fn a_stranger_on_the_reserved_port_is_not_bound_i_05() {
     );
 }
 
+// covers: I-05
 #[test]
 fn a_process_that_started_before_the_reservation_is_not_bound() {
     let (mut world, _) = principal_world();
@@ -738,6 +755,7 @@ fn a_process_that_started_before_the_reservation_is_not_bound() {
     assert!(world.events().contains(&"port_stolen".to_owned()));
 }
 
+// covers: U-07
 #[test]
 fn an_unused_reservation_is_released_after_the_grace_period() {
     let (mut world, _) = principal_world();
@@ -788,6 +806,7 @@ fn when_the_process_disappears_the_instance_ends_and_the_service_shows_as_down()
 
 // ------------------------------------------------------- observed: u-05, i-02
 
+// covers: U-05
 #[test]
 fn a_server_started_by_hand_is_the_principal_de_hecho() {
     let mut world = world();
@@ -817,6 +836,7 @@ fn a_server_started_by_hand_is_the_principal_de_hecho() {
     assert!(refusal.message.contains("http://localhost:8080"));
 }
 
+// covers: I-02
 #[test]
 fn seven_servers_for_one_service_give_one_principal_and_six_duplicates_i_02() {
     let mut world = world();
@@ -867,6 +887,7 @@ fn seven_servers_for_one_service_give_one_principal_and_six_duplicates_i_02() {
     );
 }
 
+// covers: U-05
 #[test]
 fn without_the_preferred_port_the_oldest_is_the_principal() {
     let mut world = world();
@@ -903,6 +924,7 @@ fn without_the_preferred_port_the_oldest_is_the_principal() {
     );
 }
 
+// covers: U-05
 #[test]
 fn a_registered_principal_wins_over_observed_servers() {
     let (mut world, reference) = principal_world();
@@ -1016,7 +1038,9 @@ fn processes_outside_any_project_are_listed_only_with_all() {
 
 #[test]
 fn declared_services_with_nothing_running_appear_as_down() {
-    let world = world();
+    let mut world = world();
+    // Docker has answered: an empty list means nothing runs.
+    world.engine.observe_containers(Some(Vec::new()));
     let views = world.engine.views();
     for service in ["api", "admin", "cache"] {
         let view = views
@@ -1033,9 +1057,25 @@ fn declared_services_with_nothing_running_appear_as_down() {
         && view.state == InstanceState::Down));
 }
 
+#[test]
+fn container_services_are_unknown_until_docker_has_answered() {
+    let world = world();
+    let views = world.engine.views();
+    let state_of = |service: &str| {
+        views
+            .iter()
+            .find(|view| view.service.as_deref() == Some(service))
+            .unwrap()
+            .state
+    };
+    assert_eq!(state_of("cache"), InstanceState::Unknown);
+    // Host services do not depend on Docker.
+    assert_eq!(state_of("api"), InstanceState::Down);
+}
+
 // --------------------------------------------------------------------- docker
 
-fn container(
+pub(super) fn container(
     id: &str,
     name: &str,
     image: &str,
@@ -1206,6 +1246,7 @@ fn bound_temporal() -> (World, String, String, u16) {
     )
 }
 
+// covers: U-06
 #[test]
 fn the_warning_comes_once_a_minute_before_the_end_u_06() {
     let (mut world, reference, _, port) = bound_temporal();
@@ -1234,6 +1275,7 @@ fn the_warning_comes_once_a_minute_before_the_end_u_06() {
     assert!(world.events().contains(&"lease_warned".to_owned()));
 }
 
+// covers: U-06, I-03
 #[test]
 fn at_the_end_of_the_lease_the_instance_is_stopped_exactly_once() {
     let (mut world, reference, _, _) = bound_temporal();
@@ -1310,6 +1352,7 @@ fn what_survives_is_forgotten_and_never_retried() {
     );
 }
 
+// covers: U-06
 #[test]
 fn extending_adds_time_up_to_the_maximum_and_rearms_the_warning() {
     let (mut world, _, token, _) = bound_temporal();
@@ -1336,6 +1379,7 @@ fn extending_adds_time_up_to_the_maximum_and_rearms_the_warning() {
     assert_eq!(error.code, ErrorCode::LeaseLimit);
 }
 
+// covers: U-08
 #[test]
 fn a_token_that_matches_nothing_is_refused() {
     let (mut world, _, _, _) = bound_temporal();
@@ -1349,6 +1393,7 @@ fn a_token_that_matches_nothing_is_refused() {
     );
 }
 
+// covers: U-08, I-08
 #[test]
 fn a_token_holder_stops_only_its_own_temporal() {
     let (mut world, reference, token, _) = bound_temporal();
@@ -1398,6 +1443,7 @@ fn a_temporal_that_never_bound_is_released_on_stop_without_effects() {
     assert!(world.engine.tracked.is_empty());
 }
 
+// covers: I-10
 #[test]
 fn a_lease_that_expired_while_the_core_was_down_is_stopped_at_once_i_10() {
     let dir = tempfile::TempDir::new().unwrap();

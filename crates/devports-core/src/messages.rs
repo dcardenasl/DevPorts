@@ -80,6 +80,7 @@ fn health_word(state: InstanceState) -> &'static str {
         InstanceState::Starting => "arrancando",
         InstanceState::Stopping => "deteniéndose",
         InstanceState::Forgotten => "olvidada",
+        InstanceState::Unknown => "desconocida",
     }
 }
 

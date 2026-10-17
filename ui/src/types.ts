@@ -3,7 +3,7 @@
 
 export type InstanceRole = "principal" | "temporal" | "unregistered";
 export type InstanceState =
-  "healthy" | "unhealthy" | "down" | "starting" | "stopping" | "forgotten";
+  "healthy" | "unhealthy" | "down" | "starting" | "stopping" | "forgotten" | "unknown";
 
 export interface ChainLink {
   pid: number;

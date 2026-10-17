@@ -600,7 +600,12 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 project: project.map(str::to_owned),
                 service: Some(name.to_owned()),
                 role: InstanceRole::Principal,
-                state: InstanceState::Down,
+                // Docker unreachable: a container service is unknown, not down.
+                state: if container.is_some() && self.containers.is_none() {
+                    InstanceState::Unknown
+                } else {
+                    InstanceState::Down
+                },
                 kind: kind.as_str().to_owned(),
                 port,
                 url: port.map(url),

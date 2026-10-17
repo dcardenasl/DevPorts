@@ -126,6 +126,7 @@ fn protected(pids: &[u32]) -> BTreeSet<u32> {
     pids.iter().copied().chain([1]).collect()
 }
 
+// covers: U-09
 #[test]
 fn the_set_is_the_target_plus_its_descendants_and_nothing_else() {
     //  10 -> 20 -> 30        40 (unrelated)       50 -> 60 (sibling tree)
@@ -142,6 +143,7 @@ fn the_set_is_the_target_plus_its_descendants_and_nothing_else() {
     assert_eq!(pids, [10, 20, 30].into_iter().collect());
 }
 
+// covers: PT-03
 #[test]
 fn a_recycled_pid_is_not_the_target() {
     let table = [brief(10, 1, 999, ME)];
@@ -162,6 +164,7 @@ fn cycles_in_the_table_terminate() {
     assert_eq!(termination_set(&table, id(10, 100)).unwrap().len(), 2);
 }
 
+// covers: U-09
 #[test]
 fn the_prohibited_pids_are_refused_even_deep_in_the_tree() {
     let set = [
@@ -185,6 +188,7 @@ fn the_prohibited_pids_are_refused_even_deep_in_the_tree() {
     assert!(check_set(&set, &protected(&[7]), ME).is_ok());
 }
 
+// covers: U-09
 #[test]
 fn another_users_process_is_refused() {
     let set = [brief(10, 1, 100, ME), brief(20, 10, 200, 0)];
@@ -194,6 +198,7 @@ fn another_users_process_is_refused() {
     );
 }
 
+// covers: U-09
 #[test]
 fn protected_pids_include_the_ancestors_of_this_process() {
     let table = [
@@ -308,6 +313,7 @@ async fn what_survives_sigkill_is_reported_and_not_retried() {
 proptest! {
     /// PT-04: whatever the tree, the signals go to the target and its descendants
     /// only, and never to a protected pid.
+    // covers: PT-04
     #[test]
     fn signals_never_leave_the_target_subtree(
         parents in prop::collection::vec(0_usize..40, 1..40),

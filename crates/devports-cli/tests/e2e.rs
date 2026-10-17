@@ -21,6 +21,7 @@ use tempfile::TempDir;
 struct Fixture {
     _home: TempDir,
     socket: PathBuf,
+    api_port: u16,
     project: PathBuf,
     source: Arc<FakeProcessSource>,
     core: Option<Core>,
@@ -31,7 +32,17 @@ fn write(path: &Path, text: &str) {
     std::fs::write(path, text).expect("write");
 }
 
+/// A port nobody listens on right now; the tests must not depend on a fixed one.
+fn free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .expect("bind")
+        .local_addr()
+        .expect("addr")
+        .port()
+}
+
 async fn fixture() -> Fixture {
+    let api_port = free_port();
     let home = TempDir::new().expect("tempdir");
     let work = home.path().join("work");
     let project = work.join("shop");
@@ -41,7 +52,9 @@ async fn fixture() -> Fixture {
     );
     write(
         &project.join(".devports.yml"),
-        "version: 1\nproject: shop\nservices:\n  api:\n    cwd: .\n    port: 8080\n    start: echo serving on ${PORT}\n  web:\n    cwd: .\n",
+        &format!(
+            "version: 1\nproject: shop\nservices:\n  api:\n    cwd: .\n    port: {api_port}\n    start: echo serving on ${{PORT}}\n  web:\n    cwd: .\n"
+        ),
     );
     let socket = home.path().join("s").join("d.sock");
     let source = Arc::new(FakeProcessSource::default());
@@ -71,6 +84,7 @@ async fn fixture() -> Fixture {
     Fixture {
         _home: home,
         socket,
+        api_port,
         project,
         source,
         core: Some(core),
@@ -148,8 +162,14 @@ async fn run_starts_the_command_and_a_second_run_is_refused_with_code_10() {
 
     let first = fixture.devports(&["run", "api"]).await;
     assert_eq!(first.status.code(), Some(0), "{}", err(&first));
-    assert_eq!(out(&first).trim(), "serving on 8080");
-    assert!(err(&first).contains("api (proyecto shop) como PRINCIPAL en http://localhost:8080"));
+    assert_eq!(
+        out(&first).trim(),
+        format!("serving on {}", fixture.api_port)
+    );
+    assert!(err(&first).contains(&format!(
+        "api (proyecto shop) como PRINCIPAL en http://localhost:{}",
+        fixture.api_port
+    )));
 
     let second = fixture.devports(&["run", "api"]).await;
     assert_eq!(second.status.code(), Some(10));
@@ -240,6 +260,81 @@ async fn a_temporal_is_listed_extended_logged_and_stopped_with_its_token() {
     fixture.finish().await;
 }
 
+// covers: I-15
+// covers: I-08, RF-11
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_cli_has_no_way_to_stop_or_extend_a_principal() {
+    let fixture = fixture().await;
+    let principal = fixture.devports(&["run", "api"]).await;
+    assert_eq!(principal.status.code(), Some(0), "{}", err(&principal));
+    let ls = fixture.devports(&["ls", "--json"]).await;
+    let views: Vec<serde_json::Value> = serde_json::from_str(out(&ls).trim()).expect("json");
+    let reference = views
+        .iter()
+        .find(|view| view["role"] == "principal" && view["ref"] != "-")
+        .and_then(|view| view["ref"].as_str())
+        .expect("the principal is listed")
+        .to_owned();
+
+    // Its public reference is not a capability: only a Temporal's token is.
+    assert_eq!(
+        fixture.devports(&["stop", &reference]).await.status.code(),
+        Some(30)
+    );
+    assert_eq!(
+        fixture
+            .devports(&["extend", &reference])
+            .await
+            .status
+            .code(),
+        Some(30)
+    );
+    // And there is no command that takes a reference.
+    assert_eq!(
+        fixture
+            .devports(&["stop", "--ref", &reference])
+            .await
+            .status
+            .code(),
+        Some(16)
+    );
+    // Nothing happened to it.
+    let after = fixture.devports(&["ls"]).await;
+    assert!(out(&after).contains("principal"));
+    fixture.finish().await;
+}
+
+// covers: I-13, RF-07
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_shell_empties_dollar_port_but_the_cli_substitutes_the_braced_token() {
+    let fixture = fixture().await;
+    let socket = fixture.socket.clone();
+    let project = fixture.project.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        // The caller's shell expands `$PORT` (unset there) before devports runs.
+        Command::new("sh")
+            .args([
+                "-c",
+                &format!(
+                    "{} run web -- echo \"[$PORT]\" \"[{{PORT}}]\"",
+                    env!("CARGO_BIN_EXE_devports")
+                ),
+            ])
+            .current_dir(project)
+            .env("DEVPORTS_SOCKET", socket)
+            .env("DEVPORTS_NO_AUTOSTART", "1")
+            .env_remove("PORT")
+            .output()
+            .expect("sh runs")
+    })
+    .await
+    .expect("join");
+    let text = out(&output);
+    assert!(text.starts_with("[] ["), "{text}");
+    assert!(!text.contains("[{PORT}]"), "{text}");
+    fixture.finish().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn adopt_prints_a_proposal_and_writes_nothing() {
     let fixture = fixture().await;
@@ -254,6 +349,7 @@ async fn adopt_prints_a_proposal_and_writes_nothing() {
     fixture.finish().await;
 }
 
+// covers: I-09
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn without_a_core_commands_say_so_and_run_fails_open() {
     let dir = TempDir::new().expect("tempdir");

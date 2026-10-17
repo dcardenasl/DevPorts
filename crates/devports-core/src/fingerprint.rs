@@ -169,6 +169,7 @@ mod tests {
     }
 
     /// U-01: every row of the table in MANIFIESTO section 3.
+    // covers: U-01
     #[test]
     fn the_documented_examples_normalize_as_documented() {
         let cases = [
@@ -191,12 +192,14 @@ mod tests {
         }
     }
 
+    // covers: U-01
     #[test]
     fn the_program_is_reduced_to_its_base_name_even_when_relative() {
         assert_eq!(normalized("./node_modules/.bin/vite dev"), "vite dev");
         assert_eq!(normalized("~/bin/serve"), "serve");
     }
 
+    // covers: U-01
     #[test]
     fn only_ports_in_the_replaceable_range_change() {
         assert_eq!(normalized("srv 80 443 1023"), "srv 80 443 1023");
@@ -206,6 +209,7 @@ mod tests {
         assert_eq!(normalized("srv [::1]:3000"), "srv [::1]:N");
     }
 
+    // covers: U-01
     #[test]
     fn a_port_inside_a_larger_value_is_found_after_the_last_separator() {
         assert_eq!(
@@ -214,6 +218,7 @@ mod tests {
         );
     }
 
+    // covers: U-01
     #[test]
     fn tokens_that_only_look_like_numbers_are_left_alone() {
         assert_eq!(
@@ -241,6 +246,7 @@ mod tests {
         )));
     }
 
+    // covers: U-01
     #[test]
     fn the_program_is_compared_by_family() {
         // Homebrew's framework Python re-executes itself as `Python`.
@@ -309,6 +315,7 @@ mod tests {
 
     proptest! {
         /// PT-01: normalising twice gives the same tokens as normalising once.
+        // covers: PT-01
         #[test]
         fn normalization_is_idempotent(argv in prop::collection::vec("\\PC{0,14}", 0..8)) {
             let once = Fingerprint::from_argv(&argv);
@@ -317,6 +324,7 @@ mod tests {
         }
 
         /// The text form is stable too, for tokens that survive a whitespace split.
+        // covers: PT-01
         #[test]
         fn rendered_text_is_a_fixed_point(argv in prop::collection::vec("\\S{1,14}", 0..8)) {
             let once = Fingerprint::from_argv(&argv).render();
@@ -324,6 +332,7 @@ mod tests {
         }
 
         /// Folding a program name twice changes nothing.
+        // covers: PT-01
         #[test]
         fn program_family_is_idempotent(name in "\\PC{0,14}") {
             let once = program_family(&name);
@@ -331,6 +340,7 @@ mod tests {
         }
 
         /// Any in-range port is erased, whichever way it is written.
+        // covers: PT-02
         #[test]
         fn a_port_never_changes_the_fingerprint(a in 1024_u32..=65_535, b in 1024_u32..=65_535) {
             for template in ["srv --port {}", "srv --port={}", "srv localhost:{}", "srv {}"] {

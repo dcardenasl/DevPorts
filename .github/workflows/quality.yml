@@ -50,6 +50,9 @@ jobs:
       # compile it, so only the macOS leg builds, lints and tests it.
       - run: cargo fmt --all --check
 
+      - name: Every test of PRUEBAS.md exists
+        run: python3 tools/check_matrix.py
+
       - name: Lint and test (Linux, without the macOS shell)
         if: matrix.os == 'ubuntu-latest'
         run: |
