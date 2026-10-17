@@ -25,7 +25,8 @@ use libproc::processes::{ProcFilter, pids_by_type};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 use crate::process::{
-    ListeningProcess, ProcessId, ProcessInfo, ProcessSource, ProcessSourceError, ProcessStart,
+    ListeningProcess, ProcessBrief, ProcessId, ProcessInfo, ProcessSource, ProcessSourceError,
+    ProcessStart,
 };
 
 /// Observes the current user's processes through `libproc`.
@@ -74,6 +75,25 @@ impl ProcessSource for MacProcessSource {
             .collect())
     }
 
+    fn all_processes(&self) -> Result<Vec<ProcessBrief>, ProcessSourceError> {
+        let pids = pids_by_type(ProcFilter::ByUID { uid: self.uid })
+            .map_err(|error| ProcessSourceError::Enumerate(error.to_string()))?;
+        Ok(pids
+            .into_iter()
+            .filter_map(|pid| {
+                let bsd = bsd_info(pid)?;
+                Some(ProcessBrief {
+                    id: ProcessId {
+                        pid,
+                        start: start_of(&bsd),
+                    },
+                    ppid: bsd.pbi_ppid,
+                    uid: bsd.pbi_uid,
+                })
+            })
+            .collect())
+    }
+
     fn process_info(&self, pid: u32) -> Option<ProcessInfo> {
         let bsd = bsd_info(pid)?;
         if bsd.pbi_uid != self.uid {
@@ -102,11 +122,7 @@ fn build_info(pid: u32, bsd: &BSDInfo, details: Details) -> ProcessInfo {
     ProcessInfo {
         id: ProcessId {
             pid,
-            start: ProcessStart(
-                bsd.pbi_start_tvsec
-                    .saturating_mul(1_000_000)
-                    .saturating_add(bsd.pbi_start_tvusec),
-            ),
+            start: start_of(bsd),
         },
         ppid: bsd.pbi_ppid,
         pgid: bsd.pbi_pgid,
@@ -114,6 +130,14 @@ fn build_info(pid: u32, bsd: &BSDInfo, details: Details) -> ProcessInfo {
         argv: details.argv,
         cwd: details.cwd,
     }
+}
+
+fn start_of(bsd: &BSDInfo) -> ProcessStart {
+    ProcessStart(
+        bsd.pbi_start_tvsec
+            .saturating_mul(1_000_000)
+            .saturating_add(bsd.pbi_start_tvusec),
+    )
 }
 
 /// TCP ports the process listens on, sorted and without repeats.

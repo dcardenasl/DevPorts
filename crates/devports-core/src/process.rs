@@ -6,6 +6,7 @@
 
 pub mod ancestry;
 pub mod fake;
+pub mod terminate;
 
 use std::path::PathBuf;
 
@@ -43,6 +44,17 @@ pub struct ProcessInfo {
     pub cwd: Option<PathBuf>,
 }
 
+/// The few facts needed to walk the process tree, for every process of the user.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessBrief {
+    /// Identity of the process.
+    pub id: ProcessId,
+    /// Parent process id.
+    pub ppid: u32,
+    /// Owning user id.
+    pub uid: u32,
+}
+
 /// A process that has at least one TCP socket in the `LISTEN` state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListeningProcess {
@@ -74,6 +86,13 @@ pub trait ProcessSource: Send + Sync {
     ///
     /// Fails only when the whole listing is unavailable.
     fn snapshot(&self) -> Result<Vec<ListeningProcess>, ProcessSourceError>;
+
+    /// Every process of the current user, with the parent links of the tree.
+    ///
+    /// # Errors
+    ///
+    /// Fails only when the whole listing is unavailable.
+    fn all_processes(&self) -> Result<Vec<ProcessBrief>, ProcessSourceError>;
 
     /// What is known about one process of the current user, or `None` if it is
     /// gone or not readable.

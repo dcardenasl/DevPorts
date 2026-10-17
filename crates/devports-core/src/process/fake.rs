@@ -2,7 +2,7 @@
 
 use std::sync::{Mutex, PoisonError};
 
-use super::{ListeningProcess, ProcessInfo, ProcessSource, ProcessSourceError};
+use super::{ListeningProcess, ProcessBrief, ProcessInfo, ProcessSource, ProcessSourceError};
 
 /// A [`ProcessSource`] whose contents the test controls.
 #[derive(Debug, Default)]
@@ -35,6 +35,20 @@ impl ProcessSource for FakeProcessSource {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone())
+    }
+
+    fn all_processes(&self) -> Result<Vec<ProcessBrief>, ProcessSourceError> {
+        Ok(self
+            .processes
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .map(|process| ProcessBrief {
+                id: process.info.id,
+                ppid: process.info.ppid,
+                uid: process.info.uid,
+            })
+            .collect())
     }
 
     fn process_info(&self, pid: u32) -> Option<ProcessInfo> {
