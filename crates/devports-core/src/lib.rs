@@ -18,6 +18,7 @@ pub mod manifest;
 pub mod platform;
 pub mod probe;
 pub mod process;
+pub mod store;
 pub mod yaml_keys;
 
 /// Protocol version the core's IPC server speaks.
