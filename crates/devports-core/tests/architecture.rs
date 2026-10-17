@@ -5,6 +5,8 @@
 //! transitive edges included, so a forbidden crate cannot sneak in through an
 //! innocent-looking dependency.
 //!
+//! Dev-dependencies are ignored: they never reach a shipped binary.
+//!
 //! The test spawns `cargo metadata`, which the workspace lint forbids elsewhere
 //! (`clippy.toml`); the lint is relaxed here, in a test, on purpose.
 
@@ -61,9 +63,18 @@ impl Graph {
             let id = node["id"].as_str().expect("node id");
             let from = (*names.get(id).expect("node refers to a package")).to_owned();
             let targets = edges.entry(from).or_default();
-            for dep in node["dependencies"].as_array().expect("dependencies") {
-                let dep_id = dep.as_str().expect("dependency id");
-                targets.insert((*names.get(dep_id).expect("known package")).to_owned());
+            // Only what ships counts: a dev-dependency never reaches the binary, so
+            // the CLI may drive the real core from its own tests.
+            for dep in node["deps"].as_array().expect("deps") {
+                let ships = dep["dep_kinds"]
+                    .as_array()
+                    .expect("dep_kinds")
+                    .iter()
+                    .any(|kind| kind["kind"].as_str() != Some("dev"));
+                if ships {
+                    let dep_id = dep["pkg"].as_str().expect("dependency id");
+                    targets.insert((*names.get(dep_id).expect("known package")).to_owned());
+                }
             }
         }
         Self { edges }
