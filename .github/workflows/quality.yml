@@ -1,0 +1,85 @@
+name: quality
+
+# The gate is the pull request into main, and nowhere else.
+#
+# `dev` is where work lands quickly, so nothing heavy runs on a push there. The
+# integration suite launches real processes and talks to the real libproc, so it
+# has to run on macOS; Linux runs the same suite against the fake sources and is
+# the fast sanity check. Docker is out of reach of GitHub's macOS runners, so
+# that gap is covered by the simulated container source plus
+# `tools/docker-checks.sh`, run by hand on the maintainer's Mac before a release
+# (docs/PRUEBAS.md, section 3).
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only token: nothing here writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install the Rust toolchain
+        run: python scripts/install-rust-toolchain.py
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: ${{ matrix.os }}
+
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace
+
+  dependency-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install the Rust toolchain
+        run: python scripts/install-rust-toolchain.py
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/bin/cargo-deny
+            ~/.cargo/bin/cargo-audit
+          key: rust-security-tools-${{ runner.os }}-deny-0.20.2-audit-0.22.2
+
+      - name: Install Rust dependency audit tools
+        run: |
+          if ! cargo deny --version | grep -Fq 'cargo-deny 0.20.2'; then
+            cargo install --locked --force cargo-deny --version 0.20.2
+          fi
+          if ! cargo audit --version | grep -Fq 'cargo-audit-audit 0.22.2'; then
+            cargo install --locked --force cargo-audit --version 0.22.2
+          fi
+
+      - name: Check Rust dependency policies
+        run: cargo deny check
+
+      - name: Audit Rust dependencies for known vulnerabilities
+        run: cargo audit

@@ -1,0 +1,43 @@
+name: dev-check
+
+# Fast feedback on `dev`, and nothing more.
+#
+# `dev` is where work lands quickly, so this job only runs what finishes in
+# about a minute, on one operating system, against fake process and container
+# sources. Everything expensive (the two-OS matrix with real processes, the
+# interface checks and the release build) lives in quality.yml and runs once,
+# when a pull request into `main` is proposed.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+# Read-only token: nothing here writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install the Rust toolchain
+        run: python scripts/install-rust-toolchain.py
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
