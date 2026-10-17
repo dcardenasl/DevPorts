@@ -16,6 +16,12 @@ pub trait PortProbe: Send + Sync {
     fn is_free(&self, port: u16) -> bool;
 }
 
+impl<T: PortProbe + ?Sized> PortProbe for std::sync::Arc<T> {
+    fn is_free(&self, port: u16) -> bool {
+        (**self).is_free(port)
+    }
+}
+
 /// Probes by trying to bind the port on every local address.
 ///
 /// One address is not enough: a dev server bound to `127.0.0.1` does not stop a

@@ -90,6 +90,19 @@ pub struct InstanceView {
     pub duplicate_of: Option<String>,
     /// A warning that it may be running old code ("arrancó antes del último commit").
     pub stale: Option<String>,
+    /// Whether it is a shared service (`shared.yml`) rather than one of a project.
+    #[serde(default)]
+    pub shared: bool,
+    /// The `docker compose` project it belongs to, for a compose container that
+    /// no DevPorts project claims.
+    #[serde(default)]
+    pub compose: Option<String>,
+    /// The command line of a host process, `argv[0]` first.
+    #[serde(default)]
+    pub argv: Vec<String>,
+    /// The image of a container.
+    #[serde(default)]
+    pub image: Option<String>,
 }
 
 /// One line of the activity log.
@@ -137,6 +150,10 @@ mod tests {
             }],
             duplicate_of: None,
             stale: None,
+            shared: false,
+            compose: None,
+            argv: Vec::new(),
+            image: None,
         }
     }
 

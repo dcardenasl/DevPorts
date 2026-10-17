@@ -98,3 +98,17 @@ pub trait ProcessSource: Send + Sync {
     /// gone or not readable.
     fn process_info(&self, pid: u32) -> Option<ProcessInfo>;
 }
+
+impl<T: ProcessSource + ?Sized> ProcessSource for std::sync::Arc<T> {
+    fn snapshot(&self) -> Result<Vec<ListeningProcess>, ProcessSourceError> {
+        (**self).snapshot()
+    }
+
+    fn all_processes(&self) -> Result<Vec<ProcessBrief>, ProcessSourceError> {
+        (**self).all_processes()
+    }
+
+    fn process_info(&self, pid: u32) -> Option<ProcessInfo> {
+        (**self).process_info(pid)
+    }
+}

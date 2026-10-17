@@ -71,6 +71,7 @@ fn an_instance_round_trips_with_every_column() {
     record.branch = Some("feature/x".to_owned());
     record.worktree = Some("/work/wt".to_owned());
     record.launcher_pid = Some(5500);
+    record.launcher_start = Some(1_699_999_999_000_000);
     record.launcher_chain = r#"[{"pid":1,"name":"zsh"}]"#.to_owned();
     record.reserved_at = Some(1_700_000_050);
     record.started_at = Some(1_700_000_060);

@@ -8,7 +8,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::docker::Container;
 use crate::fingerprint::Fingerprint;
-use crate::manifest::{Manifest, ServiceKind};
+use crate::manifest::{Health, Manifest, ServiceKind};
 use crate::process::ListeningProcess;
 
 /// A service of a project, with its paths resolved.
@@ -26,6 +26,10 @@ pub struct Service {
     pub port: Option<u16>,
     /// Fingerprint declared by `match`, if any.
     pub fingerprint: Option<Fingerprint>,
+    /// The command that starts it; may contain `${PORT}`.
+    pub start: Option<String>,
+    /// How its health is checked.
+    pub health: Health,
 }
 
 /// A project: the folder that holds a `.devports.yml` (ADR-001).
@@ -37,6 +41,8 @@ pub struct Project {
     pub root: PathBuf,
     /// Services declared by the manifest, ordered by name.
     pub services: Vec<Service>,
+    /// Shared services (`shared.yml`) this project depends on.
+    pub uses: Vec<String>,
 }
 
 impl Project {
@@ -55,12 +61,15 @@ impl Project {
                 docker: spec.docker.clone(),
                 port: spec.port,
                 fingerprint: spec.match_text.as_deref().map(Fingerprint::from_match_text),
+                start: spec.start.clone(),
+                health: spec.health.clone(),
             })
             .collect();
         Self {
             name: manifest.project.clone(),
             root,
             services,
+            uses: manifest.uses.clone(),
         }
     }
 }
@@ -132,6 +141,21 @@ pub struct Catalog {
 }
 
 impl Catalog {
+    /// The deepest project whose folder contains `path`.
+    #[must_use]
+    pub fn project_containing(&self, path: &Path) -> Option<&Project> {
+        self.projects
+            .iter()
+            .filter(|project| path.starts_with(&project.root))
+            .max_by_key(|project| project.root.components().count())
+    }
+
+    /// The project called `name`.
+    #[must_use]
+    pub fn project_named(&self, name: &str) -> Option<&Project> {
+        self.projects.iter().find(|project| project.name == name)
+    }
+
     /// Builds a catalog from projects, in any order.
     #[must_use]
     pub fn new(mut projects: Vec<Project>) -> Self {

@@ -29,7 +29,7 @@ const MIGRATIONS: [&str; 1] = ["
       pid INTEGER, pid_start INTEGER,
       container_id TEXT,
       cwd TEXT, branch TEXT, worktree TEXT,
-      launcher_pid INTEGER, launcher_chain TEXT NOT NULL DEFAULT '[]',
+      launcher_pid INTEGER, launcher_start INTEGER, launcher_chain TEXT NOT NULL DEFAULT '[]',
       reason TEXT,
       token_hash TEXT,
       reserved_at INTEGER, started_at INTEGER, expires_at INTEGER,
@@ -201,6 +201,8 @@ pub struct InstanceRecord {
     pub worktree: Option<String>,
     /// Pid of the `devports run` that launched it.
     pub launcher_pid: Option<u32>,
+    /// Start time of that launcher, microseconds since the epoch.
+    pub launcher_start: Option<u64>,
     /// The launcher's ancestors, as JSON.
     pub launcher_chain: String,
     /// Why a Temporal was started.
@@ -245,6 +247,7 @@ impl InstanceRecord {
             branch: None,
             worktree: None,
             launcher_pid: None,
+            launcher_start: None,
             launcher_chain: "[]".to_owned(),
             reason: None,
             token_hash: None,
@@ -282,7 +285,7 @@ pub struct EventRecord {
 const INSTANCE_COLUMNS: &str = "id, ref, project, service, role, registered, state, port, pid, \
     pid_start, container_id, cwd, branch, worktree, launcher_pid, launcher_chain, reason, \
     token_hash, reserved_at, started_at, expires_at, leased_total_s, warned, healthy, ended_at, \
-    end_reason";
+    end_reason, launcher_start";
 
 /// The database.
 #[derive(Debug)]
@@ -367,8 +370,8 @@ impl Store {
             "INSERT INTO instances (ref, project, service, role, registered, state, port, pid, \
              pid_start, container_id, cwd, branch, worktree, launcher_pid, launcher_chain, reason, \
              token_hash, reserved_at, started_at, expires_at, leased_total_s, warned, healthy, \
-             ended_at, end_reason) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,\
-             ?17,?18,?19,?20,?21,?22,?23,?24,?25)",
+             ended_at, end_reason, launcher_start) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,\
+             ?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
             params![
                 record.reference,
                 record.project,
@@ -395,6 +398,7 @@ impl Store {
                 record.healthy,
                 record.ended_at,
                 record.end_reason,
+                record.launcher_start.map(u64_to_i64),
             ],
         )?;
         let mut stored = record.clone();
@@ -413,7 +417,7 @@ impl Store {
              state=?7, port=?8, pid=?9, pid_start=?10, container_id=?11, cwd=?12, branch=?13, \
              worktree=?14, launcher_pid=?15, launcher_chain=?16, reason=?17, token_hash=?18, \
              reserved_at=?19, started_at=?20, expires_at=?21, leased_total_s=?22, warned=?23, \
-             healthy=?24, ended_at=?25, end_reason=?26 WHERE id=?1",
+             healthy=?24, ended_at=?25, end_reason=?26, launcher_start=?27 WHERE id=?1",
             params![
                 record.id,
                 record.reference,
@@ -441,6 +445,7 @@ impl Store {
                 record.healthy,
                 record.ended_at,
                 record.end_reason,
+                record.launcher_start.map(u64_to_i64),
             ],
         )?;
         Ok(())
@@ -549,6 +554,7 @@ fn read_instance(row: &Row<'_>) -> Result<InstanceRecord, StoreError> {
     let state: String = row.get(6)?;
     let pid_start: Option<i64> = row.get(9)?;
     let leased: i64 = row.get(21)?;
+    let launcher_start: Option<i64> = row.get(26)?;
     Ok(InstanceRecord {
         id: row.get(0)?,
         reference: row.get(1)?,
@@ -576,6 +582,7 @@ fn read_instance(row: &Row<'_>) -> Result<InstanceRecord, StoreError> {
         healthy: row.get(23)?,
         ended_at: row.get(24)?,
         end_reason: row.get(25)?,
+        launcher_start: launcher_start.and_then(|value| u64::try_from(value).ok()),
     })
 }
 
