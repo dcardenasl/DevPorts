@@ -4,6 +4,7 @@
 //! ```text
 //! devports-probe ls      list the TCP listeners of the current user
 //! devports-probe opens   show how many times `ls` was run per day
+//! devports-probe projects   list the projects found under the search roots
 //! ```
 
 // A command-line tool talks to the terminal; the workspace denies printing
@@ -18,8 +19,9 @@ fn main() -> ExitCode {
     match std::env::args().nth(1).as_deref() {
         Some("ls") => list(),
         Some("opens") => opens(),
+        Some("projects") => projects(),
         _ => {
-            eprintln!("uso: devports-probe ls | opens");
+            eprintln!("uso: devports-probe ls | opens | projects");
             ExitCode::from(16)
         }
     }
@@ -30,10 +32,15 @@ fn list() -> ExitCode {
     use devports_core::platform::macos::MacProcessSource;
     use devports_core::process::ProcessSource;
 
+    let catalog = devports_core::discovery::discover(
+        &probe::search_roots(),
+        devports_core::discovery::DEFAULT_MAX_DEPTH,
+    )
+    .catalog;
     let processes = MacProcessSource::new().and_then(|source| source.snapshot());
     match processes {
         Ok(processes) => {
-            print!("{}", probe::render_table(&processes));
+            print!("{}", probe::render_table(&processes, &catalog));
             // The open is recorded after a successful scan; a failed write must not
             // hide the result, so it only warns.
             if let Some(dir) = probe::baseline_dir()
@@ -63,5 +70,15 @@ fn opens() -> ExitCode {
     };
     let log = std::fs::read_to_string(dir.join("opens.log")).unwrap_or_default();
     print!("{}", probe::render_opens(&probe::opens_per_day(&log)));
+    ExitCode::SUCCESS
+}
+
+fn projects() -> ExitCode {
+    let started = std::time::Instant::now();
+    let discovery = devports_core::discovery::discover(
+        &probe::search_roots(),
+        devports_core::discovery::DEFAULT_MAX_DEPTH,
+    );
+    print!("{}", probe::render_projects(&discovery, started.elapsed()));
     ExitCode::SUCCESS
 }

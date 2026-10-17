@@ -16,6 +16,9 @@ use std::path::{Path, PathBuf};
 
 use jiff::Zoned;
 
+use crate::catalog::{Catalog, Classification};
+use crate::discovery::{self, Discovery, DiscoveryIssue};
+use crate::fingerprint::Fingerprint;
 use crate::process::ListeningProcess;
 
 /// Longest command line shown in the table, in characters.
@@ -83,16 +86,43 @@ pub fn render_opens(days: &BTreeMap<String, usize>) -> String {
     out
 }
 
-/// Renders the listening processes as a table, one row per process.
+/// Folders searched for projects: `DEVPORTS_ROOTS` (separated like `PATH`), or
+/// `~/developer` (ADR-024).
 #[must_use]
-pub fn render_table(processes: &[ListeningProcess]) -> String {
+pub fn search_roots() -> Vec<PathBuf> {
+    if let Some(value) = std::env::var_os("DEVPORTS_ROOTS") {
+        return std::env::split_paths(&value).collect();
+    }
+    std::env::var_os("HOME")
+        .map(|home| discovery::default_roots(Path::new(&home)))
+        .unwrap_or_default()
+}
+
+/// What the catalog says about a process, in one short phrase.
+fn describe(classification: &Classification<'_>) -> String {
+    match classification {
+        Classification::Service { project, service } => {
+            format!("{}/{}", project.name, service.name)
+        }
+        Classification::UnregisteredInProject { project } => {
+            format!("{} (sin registrar)", project.name)
+        }
+        Classification::Ambiguous { project, .. } => format!("{} (ambiguo)", project.name),
+        Classification::NoProject => "sin proyecto".to_owned(),
+    }
+}
+
+/// Renders the listening processes as a table, three lines per process: ports,
+/// pid and owning project on the first, working directory and command below.
+#[must_use]
+pub fn render_table(processes: &[ListeningProcess], catalog: &Catalog) -> String {
     if processes.is_empty() {
         return "No hay procesos escuchando en TCP.\n".to_owned();
     }
     let mut sorted: Vec<&ListeningProcess> = processes.iter().collect();
     sorted.sort_by_key(|process| (process.ports.first().copied(), process.info.id.pid));
 
-    let mut out = String::from("PUERTOS        PID    PPID  CARPETA / COMANDO\n");
+    let mut out = String::from("PUERTOS        PID    PPID  PROYECTO / SERVICIO\n");
     for process in sorted {
         let ports = process
             .ports
@@ -105,20 +135,69 @@ pub fn render_table(processes: &[ListeningProcess]) -> String {
             .cwd
             .as_deref()
             .map_or_else(|| "-".to_owned(), |path| path.display().to_string());
-        let command: String = process
-            .info
-            .argv
-            .join(" ")
+        // The normalised command line is what a manifest's `match` is compared with.
+        let command: String = Fingerprint::from_argv(&process.info.argv)
+            .render()
             .chars()
             .take(COMMAND_WIDTH)
             .collect();
         let _ = writeln!(
             out,
-            "{ports:<14} {:<6} {:<5} {cwd}\n{:<28}{command}",
-            process.info.id.pid, process.info.ppid, ""
+            "{ports:<14} {:<6} {:<5} {}\n{:<28}{cwd}\n{:<28}{command}",
+            process.info.id.pid,
+            process.info.ppid,
+            describe(&catalog.classify(process)),
+            "",
+            ""
         );
     }
     out
+}
+
+/// Renders the discovered projects, their services and any issues.
+#[must_use]
+pub fn render_projects(discovery: &Discovery, elapsed: std::time::Duration) -> String {
+    let mut out = format!(
+        "{} proyecto(s) encontrados en {} ms\n",
+        discovery.catalog.projects().len(),
+        elapsed.as_millis()
+    );
+    for project in discovery.catalog.projects() {
+        let _ = writeln!(out, "\n{}  {}", project.name, project.root.display());
+        for service in &project.services {
+            let place = service.cwd.as_deref().map_or_else(
+                || format!("docker {}", service.docker.as_deref().unwrap_or("?")),
+                |cwd| cwd.display().to_string(),
+            );
+            let _ = writeln!(out, "  {:<16} {place}", service.name);
+        }
+    }
+    for issue in &discovery.issues {
+        let _ = writeln!(out, "\naviso: {}", describe_issue(issue));
+    }
+    out
+}
+
+fn describe_issue(issue: &DiscoveryIssue) -> String {
+    match issue {
+        DiscoveryIssue::RootMissing(path) => {
+            format!("la carpeta raíz {} no existe", path.display())
+        }
+        DiscoveryIssue::Unreadable { path, reason } => {
+            format!("no se pudo leer {}: {reason}", path.display())
+        }
+        DiscoveryIssue::Manifest(error) => format!("manifiesto no cargado: {error}"),
+        DiscoveryIssue::DuplicateProjectName { name, roots } => {
+            let places: Vec<String> = roots
+                .iter()
+                .map(|root| root.display().to_string())
+                .collect();
+            format!(
+                "el nombre de proyecto «{name}» se repite en: {}",
+                places.join(", ")
+            )
+        }
+    }
 }
 
 #[cfg(test)]
@@ -163,10 +242,13 @@ mod tests {
 
     #[test]
     fn the_table_is_ordered_by_first_port_then_pid() {
-        let table = render_table(&[
-            listening(30, &[8081], &["php", "spark", "serve"]),
-            listening(20, &[3000, 3001], &["node", "server.js"]),
-        ]);
+        let table = render_table(
+            &[
+                listening(30, &[8081], &["php", "spark", "serve"]),
+                listening(20, &[3000, 3001], &["node", "server.js"]),
+            ],
+            &Catalog::default(),
+        );
         let node = table.find("node server.js").unwrap();
         let php = table.find("php spark serve").unwrap();
         assert!(node < php, "port 3000 sorts before 8081:\n{table}");
@@ -177,7 +259,10 @@ mod tests {
     #[test]
     fn a_long_command_is_cut_without_splitting_a_character() {
         let long = "é".repeat(200);
-        let table = render_table(&[listening(1, &[80], &[long.as_str()])]);
+        let table = render_table(
+            &[listening(1, &[80], &[long.as_str()])],
+            &Catalog::default(),
+        );
         assert!(table.contains(&"é".repeat(COMMAND_WIDTH)));
         assert!(!table.contains(&"é".repeat(COMMAND_WIDTH + 1)));
     }
