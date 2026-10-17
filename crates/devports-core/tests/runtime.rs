@@ -118,7 +118,7 @@ async fn a_run_is_accepted_bound_listed_and_refused_when_repeated() {
             },
             ppid: 1,
             pgid: 4243,
-            uid: 501,
+            uid: 4_000_000, // never the real user: a stop in a test must be refused, not delivered
             argv: vec!["serve".to_owned(), "--port".to_owned(), "8080".to_owned()],
             cwd: Some(project.clone()),
         },
