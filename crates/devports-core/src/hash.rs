@@ -4,16 +4,23 @@ use std::fmt::Write as _;
 
 use sha2::{Digest, Sha256};
 
-/// The SHA-256 digest of `data`, as 64 lowercase hexadecimal characters.
+/// `bytes` as lowercase hexadecimal.
 #[must_use]
-pub fn sha256_hex(data: &[u8]) -> String {
-    Sha256::digest(data)
-        .iter()
-        .fold(String::with_capacity(64), |mut out, byte| {
+pub fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().fold(
+        String::with_capacity(bytes.len().saturating_mul(2)),
+        |mut out, byte| {
             // Writing to a `String` cannot fail.
             let _ = write!(out, "{byte:02x}");
             out
-        })
+        },
+    )
+}
+
+/// The SHA-256 digest of `data`, as 64 lowercase hexadecimal characters.
+#[must_use]
+pub fn sha256_hex(data: &[u8]) -> String {
+    to_hex(&Sha256::digest(data))
 }
 
 #[cfg(test)]
