@@ -15,7 +15,6 @@ use crate::catalog::{Classification, ContainerClassification};
 use crate::clock::Clock;
 use crate::docker::Container;
 use crate::fingerprint::Fingerprint;
-use crate::gitinfo;
 use crate::ids::{container_reference, observed_reference};
 use crate::manifest::{Health, ServiceKind};
 use crate::messages;
@@ -33,17 +32,6 @@ struct Candidate {
     view: InstanceView,
 }
 
-/// Programs that ship with macOS or live in an application bundle are not
-/// development servers (Control Center on :5000, `rapportd`, `GitKraken`, `Adobe`
-/// helpers): listing them would bury the few processes the person cares about.
-const SYSTEM_PREFIXES: [&str; 5] = [
-    "/System/",
-    "/usr/libexec/",
-    "/usr/sbin/",
-    "/Library/",
-    "/Applications/",
-];
-
 /// Workers that inherit their parent's listening socket (the pools of
 /// `php-fpm`, the workers of a cluster) are one server, not several: only the
 /// process that owns the socket is listed, and stopping it takes the workers too.
@@ -56,11 +44,9 @@ fn shares_socket_with_parent(process: &ListeningProcess, all: &[ListeningProcess
 }
 
 fn is_system_process(info: &ProcessInfo) -> bool {
-    info.argv.first().is_some_and(|program| {
-        SYSTEM_PREFIXES
-            .iter()
-            .any(|prefix| program.starts_with(prefix))
-    })
+    info.argv
+        .first()
+        .is_some_and(|program| crate::process::is_system_program(program))
 }
 
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
@@ -188,7 +174,10 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 && super::ignore_key(view).is_some_and(|key| self.ignored.contains(&key));
         }
         views.sort_by(sort_key);
-        self.views = views;
+        if views != self.views {
+            self.views = views;
+            self.views_revision = self.views_revision.wrapping_add(1);
+        }
         self.targets = targets;
     }
 
@@ -208,6 +197,13 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 .and_then(|service| service.port),
             None => self.shared.services.get(service).and_then(|spec| spec.port),
         }
+    }
+
+    /// "Arrancó antes del último commit o checkout" when the repository changed
+    /// after the process started.
+    fn stale_note(&self, cwd: &str, started: i64) -> Option<String> {
+        let git = self.git_info(std::path::Path::new(cwd))?;
+        stale_from(git.last_change?, started)
     }
 
     /// What the health prober must check now: running instances with a port.
@@ -353,7 +349,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .cwd
             .as_deref()
             .zip(record.started_at)
-            .and_then(|(cwd, started)| stale_note(cwd, started));
+            .and_then(|(cwd, started)| self.stale_note(cwd, started));
         let view = InstanceView {
             instance_ref: record.reference.clone(),
             project: record.project.clone(),
@@ -395,7 +391,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let started =
             i64::try_from(info.id.start.0.checked_div(1_000_000).unwrap_or(0)).unwrap_or(0);
         let cwd = info.cwd.as_ref().map(|path| path.display().to_string());
-        let git = info.cwd.as_deref().and_then(gitinfo::read);
+        let git = info.cwd.as_deref().and_then(|cwd| self.git_info(cwd));
         let port = process.ports.first().copied();
 
         let mut view = InstanceView {
@@ -705,13 +701,6 @@ fn program_name(info: &ProcessInfo) -> String {
 
 fn url(port: u16) -> String {
     format!("http://localhost:{port}")
-}
-
-/// "Arrancó antes del último commit o checkout" when the repository changed after
-/// the process started.
-fn stale_note(cwd: &str, started: i64) -> Option<String> {
-    let git = gitinfo::read(std::path::Path::new(cwd))?;
-    stale_from(git.last_change?, started)
 }
 
 fn stale_from(last_change: i64, started: i64) -> Option<String> {

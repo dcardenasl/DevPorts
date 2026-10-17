@@ -55,6 +55,27 @@ pub struct ProcessBrief {
     pub uid: u32,
 }
 
+/// Programs that ship with macOS or live in an application bundle are not
+/// development servers (Control Center on :5000, `rapportd`, `GitKraken`, `Adobe`
+/// helpers, hundreds of browser helpers): they are left out of the listing, and
+/// the real source does not even read their sockets, which is most of the cost
+/// of a scan.
+pub const SYSTEM_PREFIXES: [&str; 5] = [
+    "/System/",
+    "/usr/libexec/",
+    "/usr/sbin/",
+    "/Library/",
+    "/Applications/",
+];
+
+/// Whether `program` (an executable path) is one of the [`SYSTEM_PREFIXES`].
+#[must_use]
+pub fn is_system_program(program: &str) -> bool {
+    SYSTEM_PREFIXES
+        .iter()
+        .any(|prefix| program.starts_with(prefix))
+}
+
 /// A process that has at least one TCP socket in the `LISTEN` state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListeningProcess {

@@ -359,3 +359,89 @@ proptest! {
         prop_assert_eq!(verdict.is_err(), allowed.contains(&protected_pid));
     }
 }
+
+/// A process source that can lose its process table, or hand a pid to a
+/// different process once the target has been listed.
+struct Unreliable<'a> {
+    inner: &'a FakeProcessSource,
+    /// Listings fail once this many calls to `all_processes` have been made.
+    fail_after: usize,
+    calls: Mutex<usize>,
+    /// What `process_info` reports for this pid instead of the truth.
+    replaced: Option<(u32, ProcessId)>,
+}
+
+impl ProcessSource for Unreliable<'_> {
+    fn snapshot(&self) -> Result<Vec<ListeningProcess>, crate::process::ProcessSourceError> {
+        self.inner.snapshot()
+    }
+
+    fn all_processes(&self) -> Result<Vec<ProcessBrief>, crate::process::ProcessSourceError> {
+        let mut calls = self.calls.lock().unwrap_or_else(PoisonError::into_inner);
+        *calls += 1;
+        if *calls > self.fail_after {
+            return Err(crate::process::ProcessSourceError::Enumerate(
+                "table unavailable".to_owned(),
+            ));
+        }
+        self.inner.all_processes()
+    }
+
+    fn process_info(&self, pid: u32) -> Option<ProcessInfo> {
+        let mut info = self.inner.process_info(pid)?;
+        if let Some((replaced, other)) = self.replaced
+            && replaced == pid
+        {
+            info.id = other;
+        }
+        Some(info)
+    }
+}
+
+// covers: U-09, NF-06
+#[tokio::test]
+async fn an_unreadable_process_table_is_never_reported_as_stopped() {
+    let table = [brief(10, 1, 100, ME)];
+    let inner = source(&table);
+    let recorder = Recorder::default();
+
+    // Unreadable from the start: nothing is signalled.
+    let none = Unreliable {
+        inner: &inner,
+        fail_after: 0,
+        calls: Mutex::new(0),
+        replaced: None,
+    };
+    let outcome = terminate(&none, &recorder, id(10, 100), &protected(&[]), ME, fast()).await;
+    assert_eq!(outcome, Outcome::Unreadable);
+    assert!(recorder.sent().is_empty());
+
+    // Readable once, then lost while waiting: the stop cannot be confirmed.
+    let lost = Unreliable {
+        inner: &inner,
+        fail_after: 1,
+        calls: Mutex::new(0),
+        replaced: None,
+    };
+    let outcome = terminate(&lost, &recorder, id(10, 100), &protected(&[]), ME, fast()).await;
+    assert_eq!(outcome, Outcome::Unreadable);
+}
+
+// covers: U-09, PT-03, NF-06
+#[tokio::test]
+async fn a_pid_handed_to_another_process_after_listing_is_not_signalled() {
+    let table = [brief(10, 1, 100, ME)];
+    let inner = source(&table);
+    let recorder = Recorder::default();
+    // By the time of the signal, pid 10 belongs to a process that started later.
+    let racing = Unreliable {
+        inner: &inner,
+        fail_after: usize::MAX,
+        calls: Mutex::new(0),
+        replaced: Some((10, id(10, 999))),
+    };
+    let outcome = terminate(&racing, &recorder, id(10, 100), &protected(&[]), ME, fast()).await;
+    assert!(recorder.sent().is_empty(), "{:?}", recorder.sent());
+    // Nothing was done to it, and it is still listed under its recorded identity.
+    assert!(matches!(outcome, Outcome::StillAlive(_) | Outcome::Stopped));
+}

@@ -171,13 +171,20 @@ fn a_new_project_is_created_once_and_never_overwritten() {
     let root = std::fs::canonicalize(dir.path()).unwrap();
     let view = process(&root, 3000, &["npm", "run", "dev"]);
 
-    let applied = create_project(&root, Some("Mi Tienda"), &view, None).unwrap();
+    let applied = create_project(
+        &root,
+        Path::new("/home/nobody"),
+        Some("Mi Tienda"),
+        &view,
+        None,
+    )
+    .unwrap();
     assert_eq!(applied.project, "mi-tienda");
     let loaded = manifest::load(&root.join(MANIFEST_FILE), None).unwrap();
     assert_eq!(loaded.manifest.project, "mi-tienda");
     assert_eq!(loaded.manifest.services.len(), 1);
 
-    let again = create_project(&root, None, &view, None).unwrap_err();
+    let again = create_project(&root, Path::new("/home/nobody"), None, &view, None).unwrap_err();
     assert!(matches!(again, ApplyError::Exists(_)));
 }
 
@@ -246,8 +253,28 @@ fn a_document_root_is_named_after_its_project() {
         8192,
         &["php", "-S", "127.0.0.1:8192", "-t", "public"],
     );
-    let applied = create_project(&root, None, &view, None).unwrap();
+    let applied = create_project(&root, Path::new("/home/nobody"), None, &view, None).unwrap();
     let folder = root.file_name().unwrap().to_string_lossy().to_lowercase();
     assert_eq!(applied.service, super::slug(&folder));
     assert_ne!(applied.service, "public");
+}
+
+#[test]
+fn a_folder_that_is_the_whole_home_or_the_volume_root_is_not_a_project() {
+    let dir = TempDir::new().unwrap();
+    let home = std::fs::canonicalize(dir.path()).unwrap();
+    let view = process(&home, 3000, &["npm", "run", "dev"]);
+    assert!(matches!(
+        create_project(&home, &home, None, &view, None),
+        Err(ApplyError::Unsuitable(_))
+    ));
+    assert!(matches!(
+        create_project(Path::new("/"), &home, None, &view, None),
+        Err(ApplyError::Unsuitable(_))
+    ));
+    assert!(matches!(
+        create_project(Path::new("/Users"), &home, None, &view, None),
+        Err(ApplyError::Unsuitable(_))
+    ));
+    assert!(!home.join(MANIFEST_FILE).exists());
 }

@@ -14,13 +14,15 @@
 
 #![allow(unsafe_code)]
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
+use std::sync::{Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
 use libproc::libproc::bsd_info::BSDInfo;
 use libproc::libproc::file_info::{ListFDs, ProcFDType, pidfdinfo};
 use libproc::libproc::net_info::{SocketFDInfo, SocketInfoKind, TcpSIState};
-use libproc::libproc::proc_pid::{listpidinfo, pidinfo};
+use libproc::libproc::proc_pid::{listpidinfo, pidinfo, pidpath};
 use libproc::processes::{ProcFilter, pids_by_type};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
@@ -33,6 +35,8 @@ use crate::process::{
 #[derive(Debug, Clone, Copy)]
 pub struct MacProcessSource {
     uid: u32,
+    /// Skip the sockets of programs under [`crate::process::SYSTEM_PREFIXES`].
+    skip_system: bool,
 }
 
 impl MacProcessSource {
@@ -45,7 +49,96 @@ impl MacProcessSource {
         let own_pid = i32::try_from(std::process::id())
             .map_err(|error| ProcessSourceError::CurrentUser(error.to_string()))?;
         let own = pidinfo::<BSDInfo>(own_pid, 0).map_err(ProcessSourceError::CurrentUser)?;
-        Ok(Self { uid: own.pbi_uid })
+        Ok(Self {
+            uid: own.pbi_uid,
+            skip_system: false,
+        })
+    }
+
+    /// The same source, but programs that ship with macOS or live in an
+    /// application bundle are not looked into: the scan costs a fraction.
+    #[must_use]
+    pub fn skipping_system_programs(mut self) -> Self {
+        self.skip_system = true;
+        self
+    }
+
+    /// Details of the listeners, from the cache when recent; the rest are read in
+    /// one pass. Entries of processes that are no longer listening are dropped.
+    fn details_of(listening: &[(u32, BSDInfo, Vec<u16>)]) -> HashMap<u32, Details> {
+        let now = Instant::now();
+        let mut cache = DETAILS.lock().unwrap_or_else(PoisonError::into_inner);
+        let identities: HashMap<ProcessId, u32> = listening
+            .iter()
+            .map(|(pid, bsd, _)| {
+                (
+                    ProcessId {
+                        pid: *pid,
+                        start: start_of(bsd),
+                    },
+                    *pid,
+                )
+            })
+            .collect();
+        cache.retain(|id, _| identities.contains_key(id));
+        let stale: Vec<u32> = identities
+            .iter()
+            .filter(|(id, _)| {
+                cache.get(id).is_none_or(|(read_at, _)| {
+                    now.saturating_duration_since(*read_at) >= DETAILS_TTL
+                })
+            })
+            .map(|(_, pid)| *pid)
+            .collect();
+        if !stale.is_empty() {
+            let mut fresh = read_details(stale.into_iter());
+            for (id, pid) in &identities {
+                if let Some(details) = fresh.remove(pid) {
+                    cache.insert(*id, (now, details));
+                }
+            }
+        }
+        identities
+            .into_iter()
+            .filter_map(|(id, pid)| cache.get(&id).map(|(_, details)| (pid, details.clone())))
+            .collect()
+    }
+
+    /// Whether the program of `pid` is a system one. Asking the kernel for a
+    /// path is the most expensive call of a scan, so the answer is remembered per
+    /// `(pid, start)` for [`DETAILS_TTL`].
+    fn is_skipped(self, pid: u32, bsd: &BSDInfo) -> bool {
+        if !self.skip_system {
+            return false;
+        }
+        let id = ProcessId {
+            pid,
+            start: start_of(bsd),
+        };
+        let now = Instant::now();
+        let mut cache = SKIPPED.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some((read_at, skipped)) = cache.get(&id)
+            && now.saturating_duration_since(*read_at) < DETAILS_TTL
+        {
+            return *skipped;
+        }
+        let skipped = i32::try_from(pid)
+            .ok()
+            .and_then(|raw| pidpath(raw).ok())
+            .is_some_and(|path| crate::process::is_system_program(&path));
+        cache.insert(id, (now, skipped));
+        skipped
+    }
+
+    /// Forgets answers about processes that have not been asked about lately.
+    fn forget_old_answers() {
+        let now = Instant::now();
+        SKIPPED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|_, (read_at, _)| {
+                now.saturating_duration_since(*read_at) < DETAILS_TTL.saturating_mul(2)
+            });
     }
 }
 
@@ -60,12 +153,16 @@ impl ProcessSource for MacProcessSource {
             .into_iter()
             .filter_map(|pid| {
                 let bsd = bsd_info(pid)?;
+                if self.is_skipped(pid, &bsd) {
+                    return None;
+                }
                 let ports = listening_ports(pid, &bsd);
                 (!ports.is_empty()).then_some((pid, bsd, ports))
             })
             .collect();
 
-        let mut details = read_details(listening.iter().map(|(pid, _, _)| *pid));
+        Self::forget_old_answers();
+        let mut details = Self::details_of(&listening);
         Ok(listening
             .into_iter()
             .map(|(pid, bsd, ports)| ListeningProcess {
@@ -111,8 +208,19 @@ fn bsd_info(pid: u32) -> Option<BSDInfo> {
     pidinfo::<BSDInfo>(pid, 0).ok()
 }
 
+/// Command line and folder of the listeners seen, re-read after [`DETAILS_TTL`]:
+/// reading them costs a system call per process and they rarely change. Keyed by
+/// `(pid, start)`, so a recycled pid never inherits another process's entry.
+static DETAILS: Mutex<BTreeMap<ProcessId, (Instant, Details)>> = Mutex::new(BTreeMap::new());
+
+/// Whether each program was found to be a system one (see `is_skipped`).
+static SKIPPED: Mutex<BTreeMap<ProcessId, (Instant, bool)>> = Mutex::new(BTreeMap::new());
+
+/// How long a listener's command line and folder are trusted.
+const DETAILS_TTL: Duration = Duration::from_secs(30);
+
 /// What `sysinfo` could read about one process; empty when it could not.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct Details {
     argv: Vec<String>,
     cwd: Option<PathBuf>,

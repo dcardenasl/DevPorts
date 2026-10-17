@@ -357,6 +357,30 @@ mod tests {
         }
     }
 
+    // covers: I-08, ADR-009
+    #[test]
+    fn nothing_that_changes_files_or_stops_a_principal_exists_on_the_socket() {
+        for forbidden in [
+            "stop.instance",
+            "stop.principal",
+            "terminate",
+            "keep",
+            "ignore",
+            "legitimize",
+            "adopt.apply",
+            "adopt.write",
+            "adopt",
+            "extend.instance",
+            "shutdown",
+        ] {
+            let line = format!(r#"{{"v":1,"id":"1","op":"{forbidden}","args":{{}}}}"#);
+            assert!(
+                serde_json::from_str::<Request>(&line).is_err(),
+                "{forbidden} must not be an operation of the socket"
+            );
+        }
+    }
+
     #[test]
     fn an_unknown_operation_does_not_parse() {
         assert!(

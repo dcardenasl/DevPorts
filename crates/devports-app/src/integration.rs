@@ -127,6 +127,7 @@ pub fn agent_plist(executable: &Path) -> String {
   <key>ProgramArguments</key><array><string>{exe}</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>5</integer>
   <key>ProcessType</key><string>Interactive</string>
 </dict>
 </plist>
@@ -215,6 +216,7 @@ mod tests {
         ));
         assert!(plist.contains("<key>SuccessfulExit</key><false/>"));
         assert!(plist.contains("<key>RunAtLoad</key><true/>"));
+        assert!(plist.contains("<key>ThrottleInterval</key><integer>5</integer>"));
         assert!(plist.contains("/Applications/DevPorts.app/Contents/MacOS/DevPorts"));
         assert!(plist.contains(AGENT_LABEL));
     }

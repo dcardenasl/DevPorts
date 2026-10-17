@@ -91,7 +91,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 let git = record
                     .cwd
                     .as_deref()
-                    .and_then(|cwd| crate::gitinfo::read(std::path::Path::new(cwd)));
+                    .and_then(|cwd| self.git_info(std::path::Path::new(cwd)));
                 record.branch = git.as_ref().and_then(|git| git.branch.clone());
                 record.worktree = git.as_ref().map(|git| git.worktree.display().to_string());
                 self.log_bound(record);

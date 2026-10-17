@@ -148,6 +148,8 @@ pub struct Snapshot {
 
 /// A Temporal with at most this long left asks for attention.
 const EXPIRING_WITHIN: Duration = Duration::from_mins(5);
+/// Most engine failures kept for the interface.
+const MAX_ENGINE_PROBLEMS: usize = 10;
 /// How often the repositories' branches are read again.
 const SUMMARY_EVERY_SECONDS: i64 = 10;
 
@@ -375,7 +377,13 @@ impl CoreHandle {
                     .ok_or_else(|| {
                         ApplyError::Unsuitable("el proceso no tiene carpeta conocida".to_owned())
                     })?;
-                apply::create_project(&root, name.as_deref(), &view, Some(&shared))
+                apply::create_project(
+                    &root,
+                    &home_for_write,
+                    name.as_deref(),
+                    &view,
+                    Some(&shared),
+                )
             }
         })
         .await
@@ -466,7 +474,8 @@ impl Core {
     #[cfg(target_os = "macos")]
     pub async fn start_system(options: CoreOptions) -> Result<Self, RuntimeError> {
         let source = crate::platform::macos::MacProcessSource::new()
-            .map_err(|error| RuntimeError::Source(error.to_string()))?;
+            .map_err(|error| RuntimeError::Source(error.to_string()))?
+            .skipping_system_programs();
         Self::start(options, source).await
     }
 
@@ -537,6 +546,9 @@ impl Core {
                 shutdown: shutdown_rx.clone(),
                 projects: Vec::new(),
                 projects_at: 0,
+                published_views: u64::MAX,
+                dirty: true,
+                engine_problems: Vec::new(),
             }
             .run(),
         )];
@@ -627,6 +639,12 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     shutdown: watch::Receiver<bool>,
     projects: Vec<ProjectSummary>,
     projects_at: i64,
+    /// The engine's views revision of the last snapshot sent.
+    published_views: u64,
+    /// Something other than the views changed since the last snapshot.
+    dirty: bool,
+    /// What the engine could not do, kept for the interface.
+    engine_problems: Vec<String>,
 }
 
 impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Actor<C, S, P> {
@@ -801,6 +819,9 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                         Outcome::AlreadyGone => Terminated::AlreadyGone,
                         Outcome::StillAlive(_) => Terminated::StillAlive,
                         Outcome::Refused(refusal) => Terminated::Refused(refusal.to_string()),
+                        Outcome::Unreadable => {
+                            Terminated::Failed("no se pudo leer la tabla de procesos".to_owned())
+                        }
                     }
                 }
                 Target::Container(id) => match docker {
@@ -818,29 +839,45 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
     }
 
     fn publish(&mut self) {
-        let mut problems = self.catalog_problems.clone();
-        problems.extend(self.engine.take_problems());
-        let instances = self.engine.views().to_vec();
         let now = self.engine.now();
         if now.saturating_sub(self.projects_at) >= SUMMARY_EVERY_SECONDS {
-            self.projects = self.engine.project_summaries();
+            let projects = self.engine.project_summaries();
+            if projects != self.projects {
+                self.projects = projects;
+                self.dirty = true;
+            }
             self.projects_at = now;
         }
-        let attention = attention_items(&instances, now);
+        // What waits for a decision depends on the clock as well as on the views.
+        let attention = attention_items(self.engine.views(), now);
+        // Failures the engine reports stay visible until the core restarts: a
+        // write that failed once is something the person should know about.
+        for problem in self.engine.take_problems() {
+            if !self.engine_problems.contains(&problem) {
+                self.engine_problems.push(problem);
+                self.engine_problems.truncate(MAX_ENGINE_PROBLEMS);
+            }
+        }
+        let mut problems = self.catalog_problems.clone();
+        problems.extend(self.engine_problems.iter().cloned());
+        let revision = self.engine.views_revision();
+
         let current = self.snapshot.borrow().clone();
-        if current.projects == self.projects
+        let unchanged = !self.dirty
+            && self.published_views == revision
             && current.attention == attention
-            && current.instances == instances
             && current.docker_reachable == self.docker_state.reachable
             && current.docker_error == self.docker_state.error
-            && current.problems == problems
-        {
+            && current.problems == problems;
+        if unchanged {
             return;
         }
+        self.dirty = false;
+        self.published_views = revision;
         self.revision = self.revision.wrapping_add(1);
         let _ = self.snapshot.send(Arc::new(Snapshot {
             revision: self.revision,
-            instances,
+            instances: self.engine.views().to_vec(),
             docker_reachable: self.docker_state.reachable,
             docker_error: self.docker_state.error.clone(),
             problems,

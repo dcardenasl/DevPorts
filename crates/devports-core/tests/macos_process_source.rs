@@ -275,3 +275,35 @@ mod identity {
         std::fs::remove_dir_all(&root).expect("clean scratch dir");
     }
 }
+
+#[test]
+fn skipping_system_programs_keeps_development_servers_and_drops_the_rest() {
+    let source = MacProcessSource::new()
+        .expect("source")
+        .skipping_system_programs();
+    let dir = scratch_dir("skipping");
+    let port = free_port();
+    let server = spawn_python(
+        &dir,
+        &[
+            "-m",
+            "http.server",
+            &port.to_string(),
+            "--bind",
+            "127.0.0.1",
+        ],
+    );
+    let found = wait_for(source, |process| process.ports.contains(&port));
+    assert_eq!(found.info.id.pid, server.0.id());
+    // Whatever else the machine runs, nothing that ships with macOS or lives in an
+    // application bundle comes back.
+    for process in source.snapshot().expect("snapshot") {
+        if let Some(program) = process.info.argv.first() {
+            assert!(
+                !devports_core::process::is_system_program(program),
+                "{program} should have been skipped"
+            );
+        }
+    }
+    std::fs::remove_dir_all(&dir).expect("clean scratch dir");
+}

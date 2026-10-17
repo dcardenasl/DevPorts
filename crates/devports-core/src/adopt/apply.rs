@@ -145,10 +145,20 @@ fn container_service_for(view: &InstanceView) -> Result<ProposedService, ApplyEr
 /// See [`ApplyError`].
 pub fn create_project(
     root: &Path,
+    home: &Path,
     name: Option<&str>,
     view: &InstanceView,
     known_shared: Option<&BTreeSet<String>>,
 ) -> Result<Applied, ApplyError> {
+    // A project is a folder of the person's own work, not their whole home, the
+    // system or the volume root (a server started from `/` or `~` says nothing
+    // about where its project is).
+    if root == home || root.components().count() <= 2 {
+        return Err(ApplyError::Unsuitable(
+            "esa carpeta es demasiado amplia para ser un proyecto; adopta el proceso desde la carpeta de su repositorio"
+                .to_owned(),
+        ));
+    }
     let path = root.join(MANIFEST_FILE);
     if path.exists() {
         return Err(ApplyError::Exists(path));

@@ -57,9 +57,34 @@ pub fn start(app: &AppHandle) -> Result<CoreHandle, HostError> {
     // The core's own tasks live on Tauri's runtime until the process ends.
     tauri::async_runtime::spawn(core.wait());
 
+    spawn_termination_bridge(app.clone(), handle.clone());
     spawn_snapshot_bridge(app.clone(), handle.clone());
     spawn_notice_bridge(app, &handle);
     Ok(handle)
+}
+
+/// `SIGTERM` (what `launchctl bootout` and a system shutdown send) and `SIGINT`
+/// quit exactly like the menu's "Salir": the core closes its socket and the
+/// process exits with code 0, so the launch agent does not bring it back.
+fn spawn_termination_bridge(app: AppHandle, handle: CoreHandle) {
+    use tokio::signal::unix::{SignalKind, signal};
+    tauri::async_runtime::spawn(async move {
+        let (Ok(mut term), Ok(mut interrupt)) = (
+            signal(SignalKind::terminate()),
+            signal(SignalKind::interrupt()),
+        ) else {
+            crate::diagnostics::report(&"cannot listen for termination signals");
+            return;
+        };
+        tokio::select! {
+            _ = term.recv() => {}
+            _ = interrupt.recv() => {}
+        }
+        handle.shutdown();
+        // Let the socket be removed before the process goes.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        app.exit(0);
+    });
 }
 
 /// Pushes every snapshot to the panel and keeps the tray counter right.

@@ -43,6 +43,9 @@ use crate::store::{InstanceRecord, Store, StoreError};
 
 pub use actions::ActionError;
 
+/// How long repository facts (branch, last change) are trusted.
+const GIT_TTL_SECONDS: i64 = 10;
+
 /// The stable identity of something the person may choose to keep: the same
 /// command in the same folder, or the same container, survives restarts and
 /// changes of pid and port.
@@ -203,9 +206,15 @@ pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
     pub(crate) containers: Option<Vec<Container>>,
     /// Consecutive failed health checks, by instance reference.
     pub(crate) health: BTreeMap<String, u8>,
+    /// Repository facts by folder, re-read at most every [`GIT_TTL_SECONDS`]: the
+    /// views are rebuilt every second and must not touch the disk each time.
+    pub(crate) git_cache:
+        std::cell::RefCell<BTreeMap<std::path::PathBuf, (i64, Option<crate::gitinfo::GitInfo>)>>,
     /// What the person chose to keep, by [`ignore_key`].
     pub(crate) ignored: BTreeSet<String>,
     pub(crate) views: Vec<InstanceView>,
+    /// Changes whenever [`Engine::views`] changes, so a caller can tell cheaply.
+    pub(crate) views_revision: u64,
     /// What each listed instance's stop would act on, by reference.
     pub(crate) targets: BTreeMap<String, Target>,
     pub(crate) seen_duplicates: BTreeSet<String>,
@@ -241,7 +250,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             containers: None,
             health: BTreeMap::new(),
             ignored: ignored_keys.into_iter().collect(),
+            git_cache: std::cell::RefCell::new(BTreeMap::new()),
             views: Vec::new(),
+            views_revision: 0,
             targets: BTreeMap::new(),
             seen_duplicates: BTreeSet::new(),
             chain_cache: BTreeMap::new(),
@@ -259,6 +270,24 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         );
         engine.rebuild_views();
         Ok(engine)
+    }
+
+    /// Repository facts for `cwd`, from the cache when they are recent.
+    pub(crate) fn git_info(&self, cwd: &std::path::Path) -> Option<crate::gitinfo::GitInfo> {
+        let now = self.now();
+        let mut cache = self.git_cache.borrow_mut();
+        if let Some((read_at, info)) = cache.get(cwd)
+            && now.saturating_sub(*read_at) < GIT_TTL_SECONDS
+        {
+            return info.clone();
+        }
+        let info = crate::gitinfo::read(cwd);
+        cache.insert(cwd.to_path_buf(), (now, info.clone()));
+        // Folders of processes that are gone must not pile up.
+        if cache.len() > 512 {
+            cache.retain(|_, (read_at, _)| now.saturating_sub(*read_at) < GIT_TTL_SECONDS);
+        }
+        info
     }
 
     /// The current time in seconds since the epoch.
@@ -377,6 +406,12 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 }
             })
             .collect()
+    }
+
+    /// Changes every time [`Self::views`] changes, and only then.
+    #[must_use]
+    pub fn views_revision(&self) -> u64 {
+        self.views_revision
     }
 
     /// The names `shared.yml` defines.

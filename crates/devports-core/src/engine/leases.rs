@@ -33,11 +33,13 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .filter(|record| record.role == Role::Temporal && record.state == State::Running)
             .cloned()
             .collect();
+        let mut changed = false;
         for mut record in candidates {
             let Some(end) = record.expires_at else {
                 continue;
             };
             if now >= end {
+                changed = true;
                 record.state = State::Stopping;
                 self.persist(&record);
                 self.update_tracked(&record);
@@ -49,6 +51,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                     }));
                 }
             } else if !record.warned && now >= end.saturating_sub(warn_before) {
+                changed = true;
                 record.warned = true;
                 self.persist(&record);
                 self.update_tracked(&record);
@@ -69,7 +72,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 }));
             }
         }
-        self.rebuild_views();
+        if changed {
+            self.rebuild_views();
+        }
 
         if now.saturating_sub(self.last_prune) >= PRUNE_EVERY {
             self.last_prune = now;

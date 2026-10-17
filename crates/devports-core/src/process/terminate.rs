@@ -108,6 +108,9 @@ pub enum Outcome {
     StillAlive(Vec<ProcessId>),
     /// The rules forbid touching it.
     Refused(Refusal),
+    /// The process table could not be read, so nothing was signalled or the
+    /// result cannot be confirmed. Never reported as "stopped".
+    Unreadable,
 }
 
 /// The pids that must never be signalled: this process, its ancestors and 1.
@@ -175,7 +178,7 @@ pub async fn terminate<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
     timings: Timings,
 ) -> Outcome {
     let Ok(table) = source.all_processes() else {
-        return Outcome::AlreadyGone;
+        return Outcome::Unreadable;
     };
     let Some(set) = termination_set(&table, root) else {
         return Outcome::AlreadyGone;
@@ -185,8 +188,8 @@ pub async fn terminate<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
     }
 
     let mut known: BTreeSet<ProcessId> = set.iter().map(|brief| brief.id).collect();
-    signal_all(signaler, &known, Signal::Term);
-    let mut alive = wait_until_gone(
+    signal_all(source, signaler, &known, Signal::Term);
+    let Some(alive) = wait_until_gone(
         source,
         root,
         &mut known,
@@ -194,12 +197,20 @@ pub async fn terminate<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
         timings.grace,
         timings.poll,
     )
-    .await;
+    .await
+    else {
+        return Outcome::Unreadable;
+    };
     if alive.is_empty() {
         return Outcome::Stopped;
     }
-    signal_all(signaler, &alive.iter().copied().collect(), Signal::Kill);
-    alive = wait_until_gone(
+    signal_all(
+        source,
+        signaler,
+        &alive.iter().copied().collect(),
+        Signal::Kill,
+    );
+    let alive = wait_until_gone(
         source,
         root,
         &mut known,
@@ -208,22 +219,37 @@ pub async fn terminate<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
         timings.poll,
     )
     .await;
-    if alive.is_empty() {
-        Outcome::Stopped
-    } else {
-        Outcome::StillAlive(alive)
+    match alive {
+        Some(alive) if alive.is_empty() => Outcome::Stopped,
+        Some(alive) => Outcome::StillAlive(alive),
+        None => Outcome::Unreadable,
     }
 }
 
-fn signal_all<G: Signaler + ?Sized>(signaler: &G, targets: &BTreeSet<ProcessId>, signal: Signal) {
+/// Signals each target, but only after checking once more that the pid still
+/// belongs to the process that was listed: the window between listing and
+/// signalling is where a pid could be handed to someone else.
+fn signal_all<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
+    source: &S,
+    signaler: &G,
+    targets: &BTreeSet<ProcessId>,
+    signal: Signal,
+) {
     for target in targets {
-        // A process that exits between listing and signalling is the goal, not an error.
+        let unchanged = source
+            .process_info(target.pid)
+            .is_some_and(|info| info.id == *target);
+        if !unchanged {
+            // Gone (the goal) or replaced by another process (not ours to touch).
+            continue;
+        }
         let _ = signaler.signal(target.pid, signal);
     }
 }
 
-/// Polls until everything known is gone or `limit` passes; returns what is left.
-/// Descendants that appear meanwhile are added and asked to stop too.
+/// Polls until everything known is gone or `limit` passes; returns what is left,
+/// or `None` if the process table could not be read at the end (so nothing can
+/// be confirmed). Descendants that appear meanwhile are added and asked to stop too.
 async fn wait_until_gone<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
     source: &S,
     root: ProcessId,
@@ -231,10 +257,18 @@ async fn wait_until_gone<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
     signaler: &G,
     limit: Duration,
     poll: Duration,
-) -> Vec<ProcessId> {
+) -> Option<Vec<ProcessId>> {
     let mut waited = Duration::ZERO;
     loop {
-        let table = source.all_processes().unwrap_or_default();
+        let Ok(table) = source.all_processes() else {
+            // Cannot see the table: keep trying until the limit, never assume success.
+            if waited >= limit {
+                return None;
+            }
+            tokio::time::sleep(poll).await;
+            waited = waited.saturating_add(poll);
+            continue;
+        };
         if let Some(current) = termination_set(&table, root) {
             let newcomers: BTreeSet<ProcessId> = current
                 .iter()
@@ -242,7 +276,7 @@ async fn wait_until_gone<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
                 .filter(|id| !known.contains(id))
                 .collect();
             if !newcomers.is_empty() {
-                signal_all(signaler, &newcomers, Signal::Term);
+                signal_all(source, signaler, &newcomers, Signal::Term);
                 known.extend(newcomers);
             }
         }
@@ -253,7 +287,7 @@ async fn wait_until_gone<S: ProcessSource + ?Sized, G: Signaler + ?Sized>(
             .filter(|id| existing.contains(id))
             .collect();
         if alive.is_empty() || waited >= limit {
-            return alive;
+            return Some(alive);
         }
         tokio::time::sleep(poll).await;
         waited = waited.saturating_add(poll);
