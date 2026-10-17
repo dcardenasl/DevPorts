@@ -4,7 +4,7 @@
 > Evidencia de lo completado: [`ARCHIVES.md`](ARCHIVES.md). Especificación: [`docs/`](docs/) (orden en `docs/LEEME.md`).
 > Ante cualquier contradicción manda [`docs/DECISIONES.md`](docs/DECISIONES.md).
 
-**Estado:** v0.0 — especificado, sin código. Repositorio git creado (`main` + `dev`).
+**Estado:** v0.0 — especificado, sin código. Fase B (cimientos) completa: repositorio, docs saneados, contexto y hooks.
 **Rama de trabajo:** `dev` (nunca `main`). Sin remoto hasta que David lo ordene.
 
 ## Cómo retomar en frío (cualquier modelo o sesión)
@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**B-4** (hooks de git). Después, **T0.1**. En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.1** (workspace de Cargo, lints y CI mínimo). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -44,7 +44,7 @@
   *Hecho cuando:* una sesión nueva puede arrancar leyendo solo `CLAUDE.md` + `TASKS.md`.
   → `docs: add agent context, task queue and changelog`
 
-- [ ] **B-4 — Hooks de git versionados.** *Deps:* B-1, B-3 (para validar los textos). *Referencia:* `~/Developer/Tauri/GitCanvas/{pre-commit,commit-msg,pre-push,scripts/install-git-hooks.sh}`.
+- [x] **B-4 — Hooks de git versionados.** *Deps:* B-1, B-3 (para validar los textos). *Referencia:* `~/Developer/Tauri/GitCanvas/{pre-commit,commit-msg,pre-push,scripts/install-git-hooks.sh}`.
   Adaptar: `commit-msg` (formato Conventional Commits, tipos permitidos, una línea, sin trailers ni menciones a Claude/AI/Anthropic); `pre-commit` (`cargo fmt --check` si existe workspace; eslint/prettier solo sobre staged cuando exista `ui/`); `pre-push` ligero; `scripts/install-git-hooks.sh`.
   *Hecho cuando:* un mensaje con `Co-Authored-By` o mayúscula tras los dos puntos es rechazado; uno válido pasa.
   → `chore(hooks): add commit-msg and pre-commit hooks with installer`
@@ -216,4 +216,5 @@
 ## Decisiones y hallazgos vivos
 - ADR-023: `--replace` fuera de v1 (código 15, U-12 e I-12 retirados, no se reutilizan). ADR-024: Principal de hecho y raíz `~/developer` confirmadas. ADR-025 (T0.1) y ADR-026 (T2.0): pendientes.
 - Abiertos: runtime de Docker/compose (T0.4); nombre y licencia (Fase 4).
+- Hooks: tras clonar, ejecutar `bash scripts/install-git-hooks.sh` (copia `pre-commit`, `pre-push` y `commit-msg` a `.git/hooks`).
 - `brag-output/` no se versiona; el marcado exacto de las vistas vive ahí hasta T2.0.
