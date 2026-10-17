@@ -63,7 +63,12 @@ export function mockBackend(): Backend {
     },
     adopt: (ref, target: AdoptTarget) => {
       find(ref);
-      const project = "project" in target ? target.project : (target.new ?? "proyecto-nuevo");
+      const project =
+        target === "shared"
+          ? "compartidos"
+          : "project" in target
+            ? target.project
+            : (target.new ?? "proyecto-nuevo");
       publish(without(ref));
       return Promise.resolve({ project, service: "servicio" });
     },

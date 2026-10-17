@@ -76,6 +76,8 @@ export const text = {
     anotherBody: "Elegir entre los proyectos conocidos",
     newProject: "Crear un proyecto nuevo",
     newProjectBody: (folder: string) => `Con ${folder} como raíz`,
+    shared: "Como servicio compartido",
+    sharedBody: "Lo usarán varios proyectos (shared.yml)",
     ignore: "Ignorar este proceso",
     ignoreBody: "No volver a avisar",
     projectName: "Nombre del proyecto",

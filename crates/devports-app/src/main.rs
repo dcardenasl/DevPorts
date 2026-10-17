@@ -8,6 +8,7 @@
 mod commands;
 mod diagnostics;
 mod host;
+mod integration;
 mod notifications;
 mod panel;
 mod tray;

@@ -201,8 +201,10 @@ pub fn attention_items(instances: &[InstanceView], now: i64) -> Vec<AttentionIte
 pub enum AdoptTarget {
     /// Add it to this existing project.
     Project(String),
-    /// Create a project in the process's folder, named `name` or after the folder.
+    /// Create a project in the process's repository, named `name` or after it.
     New(Option<String>),
+    /// Declare a container as a shared service in `shared.yml`.
+    Shared,
 }
 
 /// A message to the actor.
@@ -347,6 +349,7 @@ impl CoreHandle {
             projects,
             shared,
         } = description;
+        let home_for_write = self.home.as_ref().clone();
         let applied = tokio::task::spawn_blocking(move || match target {
             AdoptTarget::Project(name) => {
                 let root = projects
@@ -358,10 +361,20 @@ impl CoreHandle {
                     })?;
                 apply::add_service(&root, &view, Some(&shared))
             }
+            AdoptTarget::Shared => {
+                let path = crate::config::config_dir(&home_for_write).join("shared.yml");
+                apply::add_shared(&path, &view)
+            }
             AdoptTarget::New(name) => {
-                let root = view.cwd.as_deref().map(PathBuf::from).ok_or_else(|| {
-                    ApplyError::Unsuitable("el proceso no tiene carpeta conocida".to_owned())
-                })?;
+                let root = view
+                    .cwd
+                    .as_deref()
+                    .map(PathBuf::from)
+                    // The project is the repository, not the folder being served.
+                    .map(|cwd| crate::gitinfo::read(&cwd).map_or(cwd, |git| git.worktree))
+                    .ok_or_else(|| {
+                        ApplyError::Unsuitable("el proceso no tiene carpeta conocida".to_owned())
+                    })?;
                 apply::create_project(&root, name.as_deref(), &view, Some(&shared))
             }
         })

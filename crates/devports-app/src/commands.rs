@@ -22,6 +22,8 @@ pub enum AdoptRequest {
     Project(String),
     /// Into a project created in the process's folder.
     New(Option<String>),
+    /// A container declared in `shared.yml`.
+    Shared,
 }
 
 /// What was written, for the panel to confirm.
@@ -69,6 +71,7 @@ pub async fn adopt_instance(
     let target = match target {
         AdoptRequest::Project(name) => AdoptTarget::Project(name),
         AdoptRequest::New(name) => AdoptTarget::New(name),
+        AdoptRequest::Shared => AdoptTarget::Shared,
     };
     core.0
         .adopt(&reference, target)

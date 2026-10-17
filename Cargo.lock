@@ -829,6 +829,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-positioner",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
 ]

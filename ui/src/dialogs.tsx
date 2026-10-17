@@ -57,7 +57,10 @@ export function ConfirmStop({
 }
 
 export type AdoptChoice =
-  { kind: "project"; project: string } | { kind: "new"; name: string | null } | { kind: "ignore" };
+  | { kind: "project"; project: string }
+  | { kind: "new"; name: string | null }
+  | { kind: "shared" }
+  | { kind: "ignore" };
 
 export function AdoptSheet({
   view,
@@ -111,20 +114,36 @@ export function AdoptSheet({
                 </span>
               </button>
             )}
-            <button
-              type="button"
-              className="option"
-              onClick={() => {
-                setMode("new");
-              }}
-            >
-              <span className="grow">
-                <div>{text.orphans.newProject}</div>
-                <div className="soft ellipsis">
-                  {text.orphans.newProjectBody(folder || "la carpeta")}
-                </div>
-              </span>
-            </button>
+            {view.container !== null && (
+              <button
+                type="button"
+                className="option"
+                onClick={() => {
+                  onChoose({ kind: "shared" });
+                }}
+              >
+                <span className="grow">
+                  <div>{text.orphans.shared}</div>
+                  <div className="soft">{text.orphans.sharedBody}</div>
+                </span>
+              </button>
+            )}
+            {view.container === null && (
+              <button
+                type="button"
+                className="option"
+                onClick={() => {
+                  setMode("new");
+                }}
+              >
+                <span className="grow">
+                  <div>{text.orphans.newProject}</div>
+                  <div className="soft ellipsis">
+                    {text.orphans.newProjectBody(folder || "la carpeta")}
+                  </div>
+                </span>
+              </button>
+            )}
             <button
               type="button"
               className="option"

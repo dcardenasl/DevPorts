@@ -86,4 +86,4 @@ export interface LogEntry {
   summary: string;
 }
 
-export type AdoptTarget = { project: string } | { new: string | null };
+export type AdoptTarget = { project: string } | { new: string | null } | "shared";

@@ -23,6 +23,10 @@ const DATA_IMAGES: [&str; 7] = [
     "memcached",
     "elasticsearch",
 ];
+/// Folder names that only say where files are served from.
+const GENERIC_FOLDERS: [&str; 9] = [
+    "public", "dist", "build", "www", "html", "web", "src", "out", "site",
+];
 /// Programs that start the real server as a child; their command line is not
 /// the one to run, so the proposal flags it for review.
 const LAUNCHERS: [&str; 6] = ["npm", "npx", "yarn", "pnpm", "composer", "bun"];
@@ -111,10 +115,14 @@ fn process_service(dir: &Path, cwd: &Path, view: &InstanceView) -> ProposedServi
         .strip_prefix(dir)
         .ok()
         .filter(|rel| !rel.as_os_str().is_empty());
+    // A document root says nothing about what the service is: use the project's.
+    let folder = cwd
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !GENERIC_FOLDERS.contains(&name.to_lowercase().as_str()));
     let name = slug(
-        cwd.file_name()
-            .or_else(|| dir.file_name())
-            .and_then(|name| name.to_str())
+        folder
+            .or_else(|| dir.file_name().and_then(|name| name.to_str()))
             .unwrap_or("servicio"),
     );
     let argv = view.argv.clone();

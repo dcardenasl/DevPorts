@@ -263,6 +263,9 @@ async function adoptWith(
     case "new":
       await api.adopt(view.ref, { new: choice.name });
       return;
+    case "shared":
+      await api.adopt(view.ref, "shared");
+      return;
     case "ignore":
       await api.keep(view.ref);
   }

@@ -191,3 +191,62 @@ fn no_temporary_file_is_left_behind() {
         .collect();
     assert!(!names.iter().any(|name| name.contains("tmp")), "{names:?}");
 }
+
+fn container(name: &str, port: u16, image: &str) -> InstanceView {
+    InstanceView {
+        container: Some(name.to_owned()),
+        image: Some(image.to_owned()),
+        cwd: None,
+        argv: Vec::new(),
+        ..process(Path::new("/"), port, &[])
+    }
+}
+
+#[test]
+fn a_container_becomes_a_shared_service_and_the_file_is_created_when_missing() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("config").join("shared.yml");
+
+    let applied = add_shared(&path, &container("mysql", 3306, "mysql:8.0")).unwrap();
+    assert_eq!(applied.service, "mysql");
+    let (shared, _) = crate::config::SharedServices::load(&path).unwrap();
+    let spec = &shared.services["mysql"];
+    assert_eq!(spec.docker.as_deref(), Some("mysql"));
+    assert_eq!(spec.port, Some(3306));
+    assert_eq!(spec.kind, crate::manifest::ServiceKind::Data);
+
+    // A second one is appended, and the same name gets a number.
+    add_shared(&path, &container("redis", 6379, "redis:7")).unwrap();
+    let again = add_shared(&path, &container("mysql", 3307, "mysql:8.4")).unwrap();
+    assert_eq!(again.service, "mysql-2");
+    let (shared, _) = crate::config::SharedServices::load(&path).unwrap();
+    assert_eq!(shared.services.len(), 3);
+}
+
+#[test]
+fn only_containers_can_be_shared() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("shared.yml");
+    let view = process(dir.path(), 8080, &["node", "x.js"]);
+    assert!(matches!(
+        add_shared(&path, &view),
+        Err(ApplyError::Unsuitable(_))
+    ));
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_document_root_is_named_after_its_project() {
+    let dir = TempDir::new().unwrap();
+    let root = std::fs::canonicalize(dir.path()).unwrap();
+    std::fs::create_dir_all(root.join("public")).unwrap();
+    let view = process(
+        &root.join("public"),
+        8192,
+        &["php", "-S", "127.0.0.1:8192", "-t", "public"],
+    );
+    let applied = create_project(&root, None, &view, None).unwrap();
+    let folder = root.file_name().unwrap().to_string_lossy().to_lowercase();
+    assert_eq!(applied.service, super::slug(&folder));
+    assert_ne!(applied.service, "public");
+}

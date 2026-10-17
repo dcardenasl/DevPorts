@@ -44,6 +44,17 @@ const SYSTEM_PREFIXES: [&str; 5] = [
     "/Applications/",
 ];
 
+/// Workers that inherit their parent's listening socket (the pools of
+/// `php-fpm`, the workers of a cluster) are one server, not several: only the
+/// process that owns the socket is listed, and stopping it takes the workers too.
+fn shares_socket_with_parent(process: &ListeningProcess, all: &[ListeningProcess]) -> bool {
+    all.iter().any(|parent| {
+        parent.info.id.pid == process.info.ppid
+            && parent.info.id != process.info.id
+            && parent.ports.iter().any(|port| process.ports.contains(port))
+    })
+}
+
 fn is_system_process(info: &ProcessInfo) -> bool {
     info.argv.first().is_some_and(|program| {
         SYSTEM_PREFIXES
@@ -84,7 +95,10 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let mut chains: BTreeMap<ProcessId, Vec<ChainLink>> = BTreeMap::new();
 
         for process in &self.host {
-            if claimed_processes.contains(&process.info.id) || is_system_process(&process.info) {
+            if claimed_processes.contains(&process.info.id)
+                || is_system_process(&process.info)
+                || shares_socket_with_parent(process, &self.host)
+            {
                 continue;
             }
             let chain = self

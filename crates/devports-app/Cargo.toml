@@ -32,3 +32,6 @@ block2 = "0.6"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSArray", "NSSet", "NSError", "NSObject", "NSBundle", "NSDictionary"] }
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["block2", "UNUserNotificationCenter", "UNNotification", "UNNotificationAction", "UNNotificationCategory", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationSettings", "UNNotificationSound", "UNNotificationTrigger", "UNError"] }
+
+[dev-dependencies]
+tempfile = "3"

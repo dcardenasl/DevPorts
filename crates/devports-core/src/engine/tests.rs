@@ -1690,3 +1690,45 @@ fn programs_that_ship_with_the_system_or_an_app_are_not_listed() {
         .collect();
     assert_eq!(pids, vec![Some(4)]);
 }
+
+#[test]
+fn workers_that_share_their_parents_socket_are_one_server() {
+    let mut world = world();
+    let now = epoch(&world) - 10;
+    world.scan(vec![
+        proc(
+            100,
+            1,
+            now,
+            "/opt/homebrew/var",
+            Some(9000),
+            &["php-fpm: master process"],
+        ),
+        proc(
+            101,
+            100,
+            now,
+            "/opt/homebrew/var",
+            Some(9000),
+            &["php-fpm: pool www"],
+        ),
+        proc(
+            102,
+            100,
+            now,
+            "/opt/homebrew/var",
+            Some(9000),
+            &["php-fpm: pool www"],
+        ),
+        proc(200, 1, now, "/tmp/a", Some(7000), &["node", "a.js"]),
+        proc(201, 1, now, "/tmp/b", Some(7000), &["node", "b.js"]),
+    ]);
+    let all = world.engine.ls(&LsArgs {
+        all: true,
+        ..LsArgs::default()
+    });
+    let mut pids: Vec<u32> = all.instances.iter().filter_map(|view| view.pid).collect();
+    pids.sort_unstable();
+    // Unrelated processes on the same port (two dev servers) stay separate.
+    assert_eq!(pids, vec![100, 200, 201]);
+}

@@ -88,6 +88,55 @@ pub fn add_service(
     })
 }
 
+/// Declares the container `view` as a shared service in `shared.yml` (created
+/// when missing).
+///
+/// # Errors
+///
+/// See [`ApplyError`].
+pub fn add_shared(path: &Path, view: &InstanceView) -> Result<Applied, ApplyError> {
+    if view.container.is_none() {
+        return Err(ApplyError::Unsuitable(
+            "solo un contenedor puede ser un servicio compartido".to_owned(),
+        ));
+    }
+    let service = container_service_for(view)?;
+    let existing = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            "version: 1\nservices: {}\n".to_owned()
+        }
+        Err(error) => return Err(ApplyError::Io(format!("{}: {error}", path.display()))),
+    };
+    let (before, _) = crate::config::SharedServices::parse(&existing, path)
+        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+    let name = unused_name(&service.name, &before.services);
+    let service = ProposedService { name, ..service };
+    let edited = insert_service(&existing, &service.yaml_lines())?;
+    let (after, _) = crate::config::SharedServices::parse(&edited, path)
+        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+    if !after.services.contains_key(&service.name) {
+        return Err(ApplyError::Invalid(
+            "el servicio no quedó en shared.yml".to_owned(),
+        ));
+    }
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)
+            .map_err(|error| ApplyError::Io(format!("{}: {error}", folder.display())))?;
+    }
+    write_atomic(path, &edited)?;
+    Ok(Applied {
+        manifest: path.to_path_buf(),
+        project: "compartidos".to_owned(),
+        service: service.name,
+    })
+}
+
+fn container_service_for(view: &InstanceView) -> Result<ProposedService, ApplyError> {
+    service_for(Path::new("/"), view)
+        .ok_or_else(|| ApplyError::Unsuitable("no se pudo describir ese contenedor".to_owned()))
+}
+
 /// Creates a manifest in `root` for the project `name` (the folder's name by
 /// default) with `view` as its first service.
 ///
