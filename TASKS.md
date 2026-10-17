@@ -4,7 +4,7 @@
 > Evidencia de lo completado: [`ARCHIVES.md`](ARCHIVES.md). Especificación: [`docs/`](docs/) (orden en `docs/LEEME.md`).
 > Ante cualquier contradicción manda [`docs/DECISIONES.md`](docs/DECISIONES.md).
 
-**Estado:** v0.0 — especificado, sin código. Fase B (cimientos) completa: repositorio, docs saneados, contexto y hooks.
+**Estado:** v0.0. Fase B completa y T0.1 hecha: workspace de 4 crates, lints, CI y reglas de dependencia verificadas. Sin lógica de dominio todavía.
 **Rama de trabajo:** `dev` (nunca `main`). Sin remoto hasta que David lo ordene.
 
 ## Cómo retomar en frío (cualquier modelo o sesión)
@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.1** (workspace de Cargo, lints y CI mínimo). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.2** (`ProcessSource` de macOS y `devports ls` de solo lectura). S0 sigue pendiente de David. En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -58,7 +58,7 @@
 
 ## Fase 0 — Sondeo en la Mac (puerta G0)
 
-- [ ] **T0.1 — Workspace de Cargo, lints, toolchain y CI mínimo.** *Deps:* B-4. *Lee:* ARQUITECTURA §2, §3; GitCanvas `Cargo.toml`, `clippy.toml`, `rust-toolchain.toml`, `.github/workflows/*`.
+- [x] **T0.1 — Workspace de Cargo, lints, toolchain y CI mínimo.** *Deps:* B-4. *Lee:* ARQUITECTURA §2, §3; GitCanvas `Cargo.toml`, `clippy.toml`, `rust-toolchain.toml`, `.github/workflows/*`.
   Crear `Cargo.toml` (workspace, `resolver = "2"`, `[workspace.lints]` igual que GitCanvas, `publish = false`, sin licencia hasta ADR-020), `rust-toolchain.toml` (1.98.1), `clippy.toml` (`disallowed-methods` con excepción documentada para `process_spawn`), `deny.toml`, los 4 crates mínimos (`proto`, `core`, `cli`, `app` placeholder compilable), `.github/workflows/{dev-check,quality}.yml` (ubuntu en push a `dev`; ubuntu+macOS en PR a `main`; **sin Windows**). Escribir **ADR-025**: concurrencia por actor, política de `unsafe`/`Command`, `rusqlite`, `bollard`, texto centralizado.
   *Reglas verificables:* `devports-core` no depende de `tauri`; `devports-cli` no depende de `core` ni `tauri` (test que inspecciona `cargo metadata`).
   *Hecho cuando:* `cargo build/clippy/test --workspace` verdes local y en CI; el test de dependencias falla si se rompe la regla.
@@ -214,7 +214,7 @@
 ---
 
 ## Decisiones y hallazgos vivos
-- ADR-023: `--replace` fuera de v1 (código 15, U-12 e I-12 retirados, no se reutilizan). ADR-024: Principal de hecho y raíz `~/developer` confirmadas. ADR-025 (T0.1) y ADR-026 (T2.0): pendientes.
+- ADR-023: `--replace` fuera de v1 (código 15, U-12 e I-12 retirados, no se reutilizan). ADR-024: Principal de hecho y raíz `~/developer` confirmadas. ADR-025 (T0.1) redactado; ADR-026 (T2.0) pendiente.
 - Abiertos: runtime de Docker/compose (T0.4); nombre y licencia (Fase 4).
 - Hooks: tras clonar, ejecutar `bash scripts/install-git-hooks.sh` (copia `pre-commit`, `pre-push` y `commit-msg` a `.git/hooks`).
 - `brag-output/` no se versiona; el marcado exacto de las vistas vive ahí hasta T2.0.

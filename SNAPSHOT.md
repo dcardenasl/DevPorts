@@ -1,14 +1,14 @@
 # DevPorts: Snapshot
-> Actualizado: 2026-10-16 · Detalle completo: [ASSET.md](ASSET.md)
+> Actualizado: 2026-10-17 · Detalle completo: [ASSET.md](ASSET.md)
 
 ## ⚡ Retomar en 30 segundos
 
 | Campo | Valor |
 |---|---|
 | **Etapa** | 📝 v0.0, especificado, sin código |
-| **Última sesión** | 2026-10-16 |
-| **¿Dónde quedé?** | Definición completa (24 decisiones; ADR-023 y 024 cerraron `--replace`, Principal de hecho y raíz) y plan de implementación en `TASKS.md`. Fase B completa: repositorio git (`main` + `dev`), docs saneados, `CLAUDE.md`, `TASKS.md` y hooks. Script de línea base listo, probado solo en Linux. |
-| **Próximo paso** | Seguir `TASKS.md`: siguiente tarea T0.1. David: `./tools/baseline.sh once` y luego `start` en la Mac (tarea S0). |
+| **Última sesión** | 2026-10-17 |
+| **¿Dónde quedé?** | Definición completa (24 decisiones; ADR-023 y 024 cerraron `--replace`, Principal de hecho y raíz) y plan de implementación en `TASKS.md`. Fase B completa y T0.1 hecha: repositorio git (`main` + `dev`), docs saneados, hooks, workspace de 4 crates con lints estrictos, CI y ADR-025. Script de línea base listo, probado solo en Linux. |
+| **Próximo paso** | Seguir `TASKS.md`: siguiente tarea T0.2. David: `./tools/baseline.sh once` y luego `start` en la Mac (tarea S0). |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Runtime de Docker y uso de compose (se mide en T0.4). Nombre y licencia en la Fase 4. |
 
