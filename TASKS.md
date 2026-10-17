@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** UXR-1 y UXR-2 completados; continuar UXR-3.1 (elegibilidad y edición validada de adopción), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-2.3 añade detalle reutilizable, puertos observados y estados coherentes; [entrega](docs/audits/2026-10-17-uxr-2-3.md). UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
+**Siguiente trabajo de corrección:** UXR-1, UXR-2 y UXR-3.1 completados; continuar UXR-3.2 (adopción revisada desde el panel), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -41,7 +41,7 @@ S0 (línea base) quedó sustituida por el uso real (ADR-026).
 La cola ejecutable vive en **TASKS.md**. El [plan UXR](docs/audits/2026-10-17-ui-ux-plan.md) conserva el diseño y sus ocho grupos; aquí se desglosan en **18 tareas de sesión**, sin cambiar las decisiones. Una tarea termina con su resultado y verificaciones, sin obligar a ejecutar la siguiente en el mismo chat.
 
 ### Contexto obligatorio de cada sesión
-1. Leer `CLAUDE.md`, este protocolo y la ficha de la tarea elegida. Leer el [plan completo](docs/audits/2026-10-17-ui-ux-plan.md) la primera vez; en sesiones siguientes, sus límites/propuesta técnica y el grupo enlazado. Consultar los hallazgos UX citados en la [auditoría](docs/audits/2026-10-17-ui-ux.md) y las decisiones D citadas en la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md); ADR-028–035 de [DECISIONES.md](docs/DECISIONES.md) son autoridad.
+1. Leer `CLAUDE.md`, este protocolo y la ficha de la tarea elegida. Leer el [plan completo](docs/audits/2026-10-17-ui-ux-plan.md) la primera vez; en sesiones siguientes, sus límites/propuesta técnica y el grupo enlazado. Consultar los hallazgos UX citados en la [auditoría](docs/audits/2026-10-17-ui-ux.md) y las decisiones D citadas en la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md); ADR-028–035 de [DECISIONES.md](docs/DECISIONES.md) son autoridad; ADR-036 documenta la implementación derivada de revisiones y archivos.
 2. Verificar `dev`, estado local y log. No incluir ni reescribir `.devports.yml` no versionado del usuario. No hay autorización de push, publicación o release por ejecutar estas tareas.
 3. Verificar en `ARCHIVES.md` las entregas reales de las dependencias: archivos, contrato y pruebas, no asumir implementación por existir el plan. Los archivos citados son puntos de entrada actuales; si otra tarea los movió, seguir su registro de entrega.
 4. Trabajar solo la tarea indicada y sus correcciones necesarias. Dependencias no completadas bloquean la tarea; UXR-0 solo bloquea el cierre nativo final, no el desarrollo de UXR-1.1. Si falla acceso nativo, dejar evidencia pendiente y tomar una tarea habilitada, sin afirmar que mock equivale a Tauri.
@@ -181,7 +181,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-3-1"></a>
 
-- [ ] **UXR-3.1 — Preparar adopción elegible y edición validada.**
+- [x] **UXR-3.1 — Preparar adopción elegible y edición validada.**
+
+  **Entrega:** `5e4425a`; [contratos, pruebas y límites](docs/audits/2026-10-17-uxr-3-1.md). Revisiones congeladas, destinos elegibles, campos editables, conflictos e idempotencia; FileSnapshot reutilizable y metadatos macOS verificados. `tools/check.sh full`, UI 41/41 y build verdes. Interfaz revisada pendiente de UXR-3.2; sin nuevos permisos CLI.
 
   **Dependencias:** UXR-1.3. **Plan:** [grupo UXR-3](docs/audits/2026-10-17-ui-ux-plan.md#uxr-3). **Contexto:** UX-03 y UX-04; D8; ADR-031.
 

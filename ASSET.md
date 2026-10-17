@@ -11,8 +11,8 @@
 | **Versión actual** | v0.0.0 local; v0.1 en pruebas, sin release |
 | **Estado** | Núcleo, CLI y app construidos; correcciones UXR en curso, G1/G2 pendientes |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | UXR-1 y UXR-2 implementados; detalles/estados reales y parada puntual por proyecto verificados. Estado y evidencia vigentes en [SNAPSHOT.md](SNAPSHOT.md) y [ARCHIVES.md](ARCHIVES.md). |
-| **Próximo paso concreto** | UXR-3.1 (adopción elegible y edición validada). UXR-0 sigue abierta por timeout de acceso nativo; cierre nativo pendiente en UXR-7.2. |
+| **¿Dónde quedé?** | UXR-1, UXR-2 y UXR-3.1 implementados; contratos de adopción revisada y edición optimista verificados. Estado y evidencia vigentes en [SNAPSHOT.md](SNAPSHOT.md) y [ARCHIVES.md](ARCHIVES.md). |
+| **Próximo paso concreto** | UXR-3.2 (adopción revisada desde el panel). UXR-0 sigue abierta por timeout de acceso nativo; cierre nativo pendiente en UXR-7.2. |
 | **Bloqueante activo** | Ninguno |
 
 ---
@@ -74,7 +74,7 @@ David trabaja con varios proyectos a la vez en una misma máquina. Los agentes d
 ## Roadmap
 
 ### Próximas mejoras (corto plazo)
-La cola vigente es [TASKS.md](TASKS.md): UXR-3.1 es la siguiente tarea de implementación. UXR-0/UXR-7.2 conservan la verificación nativa pendiente; G1/G2 requieren uso real y decisión humana. `--replace` permanece fuera de v1 (ADR-023).
+La cola vigente es [TASKS.md](TASKS.md): UXR-3.2 es la siguiente tarea de implementación. UXR-0/UXR-7.2 conservan la verificación nativa pendiente; G1/G2 requieren uso real y decisión humana. `--replace` permanece fuera de v1 (ADR-023).
 
 ### Ideas para el futuro (largo plazo)
 - Servidor MCP, adaptadores por agente, proxy de nombres estables `*.localhost`, Linux, equipos con manifiestos compartidos (todo fuera de la v1, ADR-015)
@@ -135,6 +135,8 @@ Orden de lectura para quien implemente: DECISIONES, PRD, ARQUITECTURA, MANIFIEST
 ---
 
 ## Log de avances
+
+- 2026-10-17: UXR-3.1 completa (`5e4425a`): destinos elegibles, revisión congelada, conflictos tipados y guardado idempotente; edición reutilizable que conserva comentarios y metadatos macOS. Comprobación completa Rust, UI 41/41 y build verdes. Integración visual en UXR-3.2; [entrega](docs/audits/2026-10-17-uxr-3-1.md).
 
 - 2026-10-17: UXR-2.3 completa (`423321c`): detalle compartido, puertos observados y estados reales; UI 41/41, comprobación completa Rust y teclado de navegador a 380×520 verdes. Validación nativa pendiente.
 
