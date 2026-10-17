@@ -8,8 +8,11 @@
 //! in task T2.1.
 
 mod attention;
+mod diagnostics;
 mod panel;
 mod tray;
+#[cfg(target_os = "macos")]
+mod window_style;
 
 #[cfg(feature = "spike-autopilot")]
 mod autopilot;
@@ -25,10 +28,12 @@ fn main() {
     let built = builder
         .manage(attention::Attention::default())
         .manage(panel::PanelState::default())
+        .manage(panel::Revealed::default())
         .invoke_handler(tauri::generate_handler![
             attention::get_counter,
             attention::bump_counter,
             attention::reset_counter,
+            panel::panel_ready,
         ])
         .setup(|app| {
             // Menu-bar utility: no Dock icon and no application menu.

@@ -26,7 +26,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             OPEN_ID => {
                 if let Err(error) = crate::panel::open(app) {
-                    report(&error);
+                    crate::diagnostics::report(&error);
                 }
             }
             QUIT_ID => app.exit(0),
@@ -43,7 +43,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             } = event
                 && let Err(error) = crate::panel::toggle(app)
             {
-                report(&error);
+                crate::diagnostics::report(&error);
             }
         })
         .build(app)?;
@@ -55,13 +55,7 @@ pub fn show_count(app: &AppHandle, count: u32) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let title = (count > 0).then(|| count.to_string());
         if let Err(error) = tray.set_title(title) {
-            report(&error);
+            crate::diagnostics::report(&error);
         }
     }
-}
-
-/// Nothing can be shown to the user yet; the spike reports on stderr.
-#[allow(clippy::print_stderr)]
-fn report(error: &tauri::Error) {
-    eprintln!("devports: {error}");
 }

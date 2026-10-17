@@ -3,6 +3,7 @@
 //! Keeping no webview alive while the panel is closed is what keeps the
 //! application light in the menu bar (ADR-017, rule 3).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -13,10 +14,19 @@ use tauri_plugin_positioner::{Position, WindowExt};
 const PANEL_LABEL: &str = "panel";
 const PANEL_WIDTH: f64 = 380.0;
 const PANEL_HEIGHT: f64 = 520.0;
+/// How long the panel waits for the page to say it has painted before showing
+/// itself anyway, so a page that fails to load never leaves an invisible panel.
+const REVEAL_FALLBACK: Duration = Duration::from_millis(1500);
+/// Corner radius of the panel, in points (`UI-REFERENCIA.md`).
+const PANEL_CORNER_RADIUS: f64 = 14.0;
 /// A click on the icon that closes the panel first makes the panel lose focus,
 /// which destroys it; the click's own handler then runs. Within this window a
 /// "closed" panel means "the click that closed it", not "open it again".
 const REOPEN_GUARD: Duration = Duration::from_millis(300);
+
+/// Whether the current panel has been made visible to the user yet.
+#[derive(Debug, Default)]
+pub struct Revealed(AtomicBool);
 
 /// Remembers that the panel has just closed because it lost focus, so the click
 /// that caused it is not mistaken for a request to open it again.
@@ -107,21 +117,66 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         .always_on_top(true)
         .skip_taskbar(true)
         .visible(false)
+        .focused(false)
         .build()?;
 
+    // On screen but fully transparent and deaf to the mouse until the page has
+    // painted; see `window_style::style`.
+    app.state::<Revealed>().0.store(false, Ordering::Release);
+    #[cfg(target_os = "macos")]
+    crate::window_style::style(&window, PANEL_CORNER_RADIUS, 0.0)?;
+    window.set_ignore_cursor_events(true)?;
     anchor(&window)?;
     window.show()?;
+
+    // The window stays hidden until the page reports that it has painted
+    // (`panel_ready`), so the user never sees an empty rectangle.
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(REVEAL_FALLBACK).await;
+        // The page may have revealed it already, or the panel may be gone: `reveal`
+        // then does nothing and returns `Ok`.
+        if let Err(error) = reveal(&app) {
+            crate::diagnostics::report(&error);
+        }
+    });
+    Ok(())
+}
+
+/// Makes the panel visible, focuses it and starts closing it when it loses
+/// focus. Does nothing if there is no panel or it was already revealed.
+pub fn reveal(app: &AppHandle) -> tauri::Result<()> {
+    let Some(window) = app.get_webview_window(PANEL_LABEL) else {
+        return Ok(());
+    };
+    if app.state::<Revealed>().0.swap(true, Ordering::AcqRel) {
+        return Ok(());
+    }
+    #[cfg(target_os = "macos")]
+    crate::window_style::set_opacity(&window, 1.0)?;
+    window.set_ignore_cursor_events(false)?;
     window.set_focus()?;
 
     let handle = app.clone();
     window.on_window_event(move |event| {
         if let WindowEvent::Focused(false) = event {
             handle.state::<PanelState>().mark_closed();
-            // Failing to close an already closing window is not worth reporting.
-            let _ = close(&handle);
+            if let Err(error) = close(&handle) {
+                crate::diagnostics::report(&error);
+            }
         }
     });
     Ok(())
+}
+
+/// Called by the page once it has painted its first frame.
+#[tauri::command]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command arguments by value; the signature is fixed"
+)]
+pub fn panel_ready(app: AppHandle) -> Result<(), String> {
+    reveal(&app).map_err(|error| error.to_string())
 }
 
 /// Destroys the panel and its webview.
