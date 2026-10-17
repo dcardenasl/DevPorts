@@ -6,6 +6,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
+use crate::docker::Container;
 use crate::fingerprint::Fingerprint;
 use crate::manifest::{Manifest, ServiceKind};
 use crate::process::ListeningProcess;
@@ -91,6 +92,39 @@ pub enum Classification<'a> {
     NoProject,
 }
 
+/// Where a container belongs (ADR-012).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContainerClassification<'a> {
+    /// A manifest declares this container as a service (`docker: <name>`).
+    Service {
+        /// The owning project.
+        project: &'a Project,
+        /// The service that names the container.
+        service: &'a Service,
+    },
+    /// Several projects declare a service with this container name.
+    Ambiguous {
+        /// The projects that claim it, ordered by folder.
+        projects: Vec<&'a Project>,
+    },
+    /// A compose container whose compose folder lies inside a known project.
+    InProject {
+        /// The project that contains the compose folder.
+        project: &'a Project,
+    },
+    /// A compose container outside every known project, grouped by its compose
+    /// project name.
+    Compose {
+        /// `com.docker.compose.project`.
+        name: &'a str,
+        /// `com.docker.compose.project.working_dir`, when present.
+        working_dir: Option<&'a Path>,
+    },
+    /// A loose container that no manifest declares: "no project" until someone
+    /// assigns it with one click.
+    NoProject,
+}
+
 /// Every project the core knows about.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Catalog {
@@ -109,6 +143,58 @@ impl Catalog {
     #[must_use]
     pub fn projects(&self) -> &[Project] {
         &self.projects
+    }
+
+    /// Decides which project a container belongs to (ADR-012).
+    ///
+    /// 1. A service with `docker: <name>` equal to the container name claims it.
+    /// 2. Otherwise a compose container belongs to the deepest known project
+    ///    that contains its compose folder.
+    /// 3. Otherwise it is grouped under its compose project name.
+    /// 4. Otherwise it is loose.
+    #[must_use]
+    pub fn classify_container<'a>(
+        &'a self,
+        container: &'a Container,
+    ) -> ContainerClassification<'a> {
+        let claims: Vec<(&Project, &Service)> = self
+            .projects
+            .iter()
+            .flat_map(|project| {
+                project
+                    .services
+                    .iter()
+                    .filter(|service| service.docker.as_deref() == Some(container.name.as_str()))
+                    .map(move |service| (project, service))
+            })
+            .collect();
+        match claims.as_slice() {
+            [] => {}
+            [(project, service)] => return ContainerClassification::Service { project, service },
+            _ => {
+                return ContainerClassification::Ambiguous {
+                    projects: claims.iter().map(|(project, _)| *project).collect(),
+                };
+            }
+        }
+
+        let Some(compose) = &container.compose else {
+            return ContainerClassification::NoProject;
+        };
+        let inside = compose.working_dir.as_deref().and_then(|dir| {
+            let dir = resolve(dir);
+            self.projects
+                .iter()
+                .filter(|project| dir.starts_with(&project.root))
+                .max_by_key(|project| project.root.components().count())
+        });
+        match inside {
+            Some(project) => ContainerClassification::InProject { project },
+            None => ContainerClassification::Compose {
+                name: &compose.project,
+                working_dir: compose.working_dir.as_deref(),
+            },
+        }
     }
 
     /// Decides which project and service `process` belongs to.
@@ -217,6 +303,7 @@ fn lexically_normalized(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::docker::{ComposeLabels, ContainerState};
     use crate::manifest::{self, Manifest};
     use crate::process::{ProcessId, ProcessInfo, ProcessStart};
     use proptest::prelude::*;
@@ -427,6 +514,116 @@ mod tests {
             project.services[0].cwd.as_deref(),
             Some(Path::new("/work/shop/api"))
         );
+    }
+
+    fn container(name: &str, compose: Option<(&str, Option<&str>)>) -> Container {
+        Container {
+            id: format!("id-{name}"),
+            name: name.to_owned(),
+            image: "mysql:8".to_owned(),
+            state: ContainerState::Running,
+            ports: Vec::new(),
+            compose: compose.map(|(project, dir)| ComposeLabels {
+                project: project.to_owned(),
+                working_dir: dir.map(PathBuf::from),
+            }),
+            created: 1,
+        }
+    }
+
+    /// D-01: compose containers are assigned by their labels.
+    #[test]
+    fn a_container_named_by_a_manifest_is_that_service() {
+        let catalog = Catalog::new(vec![shop()]);
+        let cache = container("redis", None);
+        assert!(matches!(
+            catalog.classify_container(&cache),
+            ContainerClassification::Service { project, service }
+                if project.name == "shop" && service.name == "cache"
+        ));
+    }
+
+    #[test]
+    fn a_compose_container_in_a_known_project_folder_belongs_to_it() {
+        let catalog = Catalog::new(vec![shop()]);
+        let web = container("shop-web-1", Some(("shop", Some("/work/shop/web"))));
+        assert!(matches!(
+            catalog.classify_container(&web),
+            ContainerClassification::InProject { project } if project.name == "shop"
+        ));
+    }
+
+    #[test]
+    fn the_deepest_project_wins_for_a_compose_folder_too() {
+        let outer = project("/work/shop", "version: 1\nproject: outer\n");
+        let inner = project("/work/shop/api", "version: 1\nproject: inner\n");
+        let catalog = Catalog::new(vec![outer, inner]);
+        let web = container("x", Some(("p", Some("/work/shop/api/compose"))));
+        assert!(matches!(
+            catalog.classify_container(&web),
+            ContainerClassification::InProject { project } if project.name == "inner"
+        ));
+    }
+
+    #[test]
+    fn a_compose_container_elsewhere_is_grouped_by_its_compose_project() {
+        let catalog = Catalog::new(vec![shop()]);
+        let mysql = container(
+            "mysql",
+            Some(("docker-services", Some("/Users/me/docker-services"))),
+        );
+        assert_eq!(
+            catalog.classify_container(&mysql),
+            ContainerClassification::Compose {
+                name: "docker-services",
+                working_dir: Some(Path::new("/Users/me/docker-services")),
+            }
+        );
+    }
+
+    #[test]
+    fn a_compose_container_without_a_folder_is_still_grouped() {
+        let catalog = Catalog::new(vec![shop()]);
+        let lone = container("db", Some(("stack", None)));
+        assert!(matches!(
+            catalog.classify_container(&lone),
+            ContainerClassification::Compose {
+                name: "stack",
+                working_dir: None
+            }
+        ));
+    }
+
+    #[test]
+    fn a_loose_container_has_no_project() {
+        let catalog = Catalog::new(vec![shop()]);
+        assert_eq!(
+            catalog.classify_container(&container("suite-mariadb", None)),
+            ContainerClassification::NoProject
+        );
+    }
+
+    #[test]
+    fn two_projects_claiming_one_container_are_ambiguous() {
+        let first = project(
+            "/work/a",
+            "version: 1\nproject: a\nservices:\n  db:\n    docker: shared-db\n",
+        );
+        let second = project(
+            "/work/b",
+            "version: 1\nproject: b\nservices:\n  db:\n    docker: shared-db\n",
+        );
+        let catalog = Catalog::new(vec![first, second]);
+        let shared = container("shared-db", None);
+        let found = catalog.classify_container(&shared);
+        let ContainerClassification::Ambiguous { projects } = found else {
+            panic!("expected an ambiguous result, got {found:?}");
+        };
+        let names: Vec<&str> = projects
+            .iter()
+            .map(|project| project.name.as_str())
+            .collect();
+        assert_eq!(names, ["a", "b"]);
     }
 
     proptest! {
