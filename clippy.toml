@@ -1,0 +1,29 @@
+# Product and technology names that are not code and must not be wrapped in
+# backticks. `".."` keeps clippy's own default list and extends it.
+doc-valid-idents = [
+    "..",
+    "DevPorts",
+    "SQLite",
+    "macOS",
+    "libproc",
+    "launchd",
+    "OrbStack",
+    "Colima",
+    "GitHub",
+    "TypeScript",
+]
+
+# Tests may panic, unwrap and print: a failing assertion IS the point there.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-print-in-tests = true
+
+# Spawning and sleeping are the two calls that make a core hard to test and easy
+# to leak processes from. The only code allowed to spawn is the `process_spawn`
+# module of the core (ADR-025), which opts out with a justified `#[allow]`.
+disallowed-methods = [
+    { path = "std::process::Command::new", reason = "Spawn processes only from the core's `process_spawn` module." },
+    { path = "std::thread::sleep", reason = "Use the injected Clock or condition-based waiting instead of blocking a thread." },
+]

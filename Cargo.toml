@@ -1,0 +1,72 @@
+# Workspace root.
+#
+# The split is the point, and it is enforced by the dependency graph rather
+# than by remembering to respect a folder convention:
+#
+#   devports-proto  wire types shared by the CLI and the core
+#   devports-core   every piece of domain logic; does NOT depend on `tauri`
+#   devports-cli    the `devports` binary; depends on `devports-proto` only, so
+#                   it stays small and starts fast
+#   devports-app    the menu-bar shell that hosts the core
+#
+# `crates/devports-core/tests/architecture.rs` fails the build if an edge
+# appears that these rules forbid.
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/devports-proto",
+    "crates/devports-core",
+    "crates/devports-cli",
+    "crates/devports-app",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.98"
+authors = ["David Cardenas Lorca"]
+# No license until ADR-020 decides it (end of Phase 1).
+publish = false
+
+# Lints, defined once and inherited by every member through `[lints] workspace = true`.
+#
+# `unwrap_used`, `expect_used`, `panic` and `indexing_slicing` are DENY, not
+# warn: a panic inside the core takes the menu-bar app and the socket down with
+# it, which is not acceptable in a tool whose job is to be dependable. Every
+# failure is modelled as a typed error and propagated as a `Result`.
+#
+# `unsafe_code` is forbidden. The one planned exception is the macOS process
+# adapter (`platform::macos`), which will relax it locally, in that module only,
+# if the `libproc` crate turns out not to cover what ADR-025 needs.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+string_slice = "deny"
+arithmetic_side_effects = "deny"
+disallowed_methods = "deny"
+
+[workspace.dependencies]
+devports-proto = { path = "crates/devports-proto" }
+devports-core = { path = "crates/devports-core" }
+
+# Profiles live at the workspace root; cargo ignores them in member manifests.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
