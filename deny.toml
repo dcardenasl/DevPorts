@@ -1,6 +1,7 @@
 [graph]
+# macOS is the only supported platform (ADR-016). Tauri pulls GTK and friends into
+# Cargo.lock for Linux; none of it is built here, so none of it is audited here.
 targets = [
-    "x86_64-unknown-linux-gnu",
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
 ]
@@ -23,12 +24,10 @@ confidence-threshold = 0.93
 allow = [
     "0BSD",
     "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
     "BSL-1.0",
     "CC0-1.0",
-    "CDLA-Permissive-2.0",
     "ISC",
     "MIT",
     "MPL-2.0",

@@ -76,22 +76,18 @@ jobs:
 
       - uses: actions/cache@v6
         with:
-          path: |
-            ~/.cargo/bin/cargo-deny
-            ~/.cargo/bin/cargo-audit
-          key: rust-security-tools-${{ runner.os }}-deny-0.20.2-audit-0.22.2
+          path: ~/.cargo/bin/cargo-deny
+          key: rust-security-tools-${{ runner.os }}-deny-0.20.2
 
-      - name: Install Rust dependency audit tools
+      - name: Install cargo-deny
         run: |
           if ! cargo deny --version | grep -Fq 'cargo-deny 0.20.2'; then
             cargo install --locked --force cargo-deny --version 0.20.2
           fi
-          if ! cargo audit --version | grep -Fq 'cargo-audit-audit 0.22.2'; then
-            cargo install --locked --force cargo-audit --version 0.22.2
-          fi
 
-      - name: Check Rust dependency policies
+      # Licenses, bans, sources and RustSec advisories, evaluated for the macOS
+      # dependency graph only (deny.toml). `cargo audit` is not run on top of it:
+      # it reads the whole Cargo.lock, including the Linux-only GTK crates that
+      # Tauri adds and that this project never builds, and would report them.
+      - name: Check dependency policy and advisories
         run: cargo deny check
-
-      - name: Audit Rust dependencies for known vulnerabilities
-        run: cargo audit
