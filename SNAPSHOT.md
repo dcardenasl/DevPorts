@@ -8,7 +8,7 @@
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
 | **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. Faltan solo las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Usar la app unos días (`tools/install.sh`) y anotar lo que falle o incomode; confirmar las decisiones de interfaz de ADR-027; reiniciar el Mac una vez; después `/release`. Detalle en TASKS.md. |
+| **Próximo paso** | Retomar [auditoría de UI/UX](docs/audits/2026-10-17-ui-ux.md): 14 hallazgos, primero parada sin adoptar y consumidores de recursos compartidos; reproducción nativa pendiente por limitación de Computer Use. Usar la app unos días (`tools/install.sh`) y anotar lo que falle o incomode; confirmar las decisiones de interfaz de ADR-027; reiniciar el Mac una vez; después `/release`. Detalle en TASKS.md. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 

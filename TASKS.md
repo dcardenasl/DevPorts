@@ -4,7 +4,7 @@
 > Evidencia de lo completado: [`ARCHIVES.md`](ARCHIVES.md). Especificación: [`docs/`](docs/) (orden en `docs/LEEME.md`).
 > Ante cualquier contradicción manda [`docs/DECISIONES.md`](docs/DECISIONES.md).
 
-**Estado:** v0.0. Fase B completa y T0.1 hecha: workspace de 4 crates, lints, CI y reglas de dependencia verificadas. Sin lógica de dominio todavía.
+**Estado:** núcleo, CLI y panel construidos (fases 1 y 2); pendientes G1/G2 y los flujos identificados en la auditoría de UI/UX del 2026-10-17.
 **Rama de trabajo:** `dev` (nunca `main`). Sin remoto hasta que David lo ordene.
 
 ## Cómo retomar en frío (cualquier modelo o sesión)
@@ -23,6 +23,8 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
+**Auditoría de UI/UX:** [bitácora del 2026-10-17](docs/audits/2026-10-17-ui-ux.md), con 14 hallazgos y evidencia. Antes de cerrar G2, reproducir en Tauri y resolver/priorizar UX-01 (detener sin adoptar), UX-02 (consumidores compartidos) y UX-03 a UX-05 (adopción y diálogos). Las propuestas no sustituyen decisiones confirmadas.
+
 **Fases 1 y 2 construidas; esperan las puertas humanas.** Lo que sigue es de David:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
 2. **T2.0 pendiente de confirmación:** las decisiones de interfaz de ADR-027 se tomaron con valores por defecto; confirmarlas o cambiarlas con el uso.
