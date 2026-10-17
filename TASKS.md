@@ -109,7 +109,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-1-3"></a>
 
-- [ ] **UXR-1.3 — Seguir operaciones confirmadas aunque se cierre el panel.**
+- [x] **UXR-1.3 — Seguir operaciones confirmadas aunque se cierre el panel.**
+
+  **Entrega:** `b1b1bae`; [contrato, verificación y límites nativos](docs/audits/2026-10-17-uxr-1-3.md). Operaciones de shell consultables e idempotentes, historial acotado, resultados por objetivo y reintento explícito. `tools/check.sh full` y UI 30/30 verdes. Recreación nativa WebKit diferida a UXR-7.2.
 
   **Dependencias:** UXR-1.2. **Plan:** [grupo UXR-1](docs/audits/2026-10-17-ui-ux-plan.md#uxr-1). **Contexto:** UX-08; D7, D12; ADR-030 y ADR-034.
 

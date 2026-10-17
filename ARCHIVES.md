@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-1.3 — Seguir operaciones confirmadas aunque se cierre el panel · 2026-10-17
+- **Commit de implementación:** `b1b1bae` (`feat(app): track confirmed operations beyond the panel`).
+- **Resultado:** stop confirmado, extend, keep y adoption corren desde la shell Tauri; ID idempotente, consulta, eventos, resultados por objetivo, historial acotado en memoria y reintento solo explícito. Se quitaron los comandos Tauri directos que permitían saltar el registro. Adopción muestra el destino real devuelto por el núcleo.
+- **Archivos/contrato:** `crates/devports-app/src/operations.rs`, comandos registrados en `main.rs`/`commands.rs`; `Backend` y `useOperations` en `ui/src/api.ts`/`hooks.ts`, tipos en `ui/src/types.ts`. Capacidad 48 operaciones y 64 objetivos; no persiste tras salir ni almacena argv/tokens. [Informe UXR-1.3](docs/audits/2026-10-17-uxr-1-3.md).
+- **Verificaciones:** `tools/check.sh full` verde (matriz 37, fmt, clippy, workspace y cargo-deny); UI typecheck/lint/formato/build verdes y 30/30 Vitest. Cinco pruebas Rust para idempotencia, conflicto, validación, reintento parcial y cota; UI/API cubren historial recuperado y respuesta perdida tras aceptación.
+- **Evidencia simulada/nativa:** recuperación y respuesta perdida se verificaron con backends de prueba. No se ejecutó una recreación manual en WebKit ni se tocaron servicios reales; prueba Tauri/VoiceOver queda para UXR-7.2.
+- **Recursos y límites:** no se iniciaron ni detuvieron procesos reales, ni se cambió ningún manifiesto o instalación. `.devports.yml` local sigue sin versionar. Al salir del proceso se pierde el historial; las operaciones no sobreviven al cierre completo de la app.
+- **Entrega siguiente:** UXR-2/3/4/5/6 usan `startOperation`, `operations`, `operation`, `subscribeOperations` y `retryOperation`; añadir nuevas clases en `OperationKind` y `perform`, con validación y resultados explícitos.
+
 ## UXR-1.1 — Diálogos accesibles dentro del panel · 2026-10-17
 - **Commit de implementación:** `cb58060` (`fix(ui): contain dialog focus and preserve adoption steps`).
 - **Resultado:** primitiva compartida Modal en portal del mismo webview, fondo inerte/oculto a accesibilidad, foco inicial seguro, ciclo Tab/Shift+Tab, Escape (sin cancelar composición IME) y retorno al invocador. AdoptSheet añade Volver con preservación de nombre/foco. App mantiene un solo diálogo activo.
