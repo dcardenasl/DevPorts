@@ -29,6 +29,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::preview_project_stop,
+            commands::adoption_options,
+            commands::preview_adoption,
+            commands::validate_adoption,
             commands::get_panel_state,
             commands::set_panel_state,
             commands::get_operations,

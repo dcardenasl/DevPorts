@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Adoption reviews** — the core now exposes eligible destinations, frozen previews, editable-field validation and idempotent saves with typed conflicts for the panel review workflow.
+
 - **Instance diagnostics** — all instance views now expose expandable origin, identity, observed ports, working folder, launcher chain and explained Git age hints, with compact titles and masked command argument values.
 
 - **Project stop** — preview and confirm an exact list of project applications and Temporals while preserving data services, shared resources and later arrivals; each target is revalidated independently.
@@ -18,6 +20,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Safe stopping** — only registered test instances with a lease are stopped automatically, by `(pid, start)` identity, never by process group, never `docker rm`.
 
 ### Fixed
+
+- **Manifest editing** — optimistic file versions, unique temporary files and no-clobber creation protect detectable external edits, preserve existing permission modes and keep comments and line endings intact.
 
 - **Instance state** — the panel and CLI distinguish stopped, unhealthy and unknown instances; registered containers become unknown when Docker observation is lost while retaining their identity and duplicate-Principal protection.
 

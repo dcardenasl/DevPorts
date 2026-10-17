@@ -106,7 +106,7 @@ Los Temporales registrados nunca son duplicados.
     ├──(nadie abre el puerto en 60 s, o el comando termina sin abrirlo)──► released
     └──(otro proceso toma el puerto)──► released + evento "puerto ajeno"
 
- running ──(el proceso desaparece)──► down      (la Principal queda "caída"; sigue en el manifiesto)
+ running ──(el proceso desaparece)──► down      (la Principal queda "detenida"; sigue en el manifiesto)
  running ⇄ salud: healthy | unhealthy  (campo aparte, no cambia el estado)
 ```
 Temporales: 60 s antes de `expires_at` se emite el aviso una sola vez (`warned`).
@@ -198,6 +198,12 @@ Retención de eventos: `events_retention_days` (30) **[P]**.
 - **Operaciones expuestas en el socket (solo lo que el CLI puede hacer, ADR-009):** `ping`, `run.register`, `ls`, `stop` (con token), `extend` (con token), `log`, `adopt.propose`.
 - **Operaciones que NO existen en el socket** (solo accesibles desde la interfaz, que corre en el mismo proceso): detener una Principal o cualquier instancia no registrada, escribir un manifiesto, marcar como legítimo. Así el permiso se aplica por construcción y no por una bandera del CLI. **Límite honesto:** un agente con acceso al shell del usuario puede ejecutar `kill`; devports no puede impedirlo, solo no ofrece esa capacidad por su API **[D]**.
 - **Token:** 128 bits aleatorios; el núcleo guarda solo su hash SHA-256. El token se entrega una vez al registrar el Temporal y no aparece en `ls` ni en `log` **[D]**.
+
+### Revisiones y archivos de configuración (ADR-036)
+
+`adopt::review` separa opciones elegibles, material congelado y validación de los campos editables. `runtime::adoption` aloja su registro en el actor y ejecuta la E/S en trabajadores, independientemente del consumidor de respuesta. Las solicitudes idénticas se reúnen; los recibos exitosos no vuelven a aplicar una propuesta ni generan sufijos nuevos. Los comandos Tauri de consulta solo traducen los contratos; el guardado revisado se conecta al corredor de operaciones de la shell en UXR-3.2.
+
+`document::FileSnapshot` es la primitiva común para comparar una versión y aplicar un candidato ya validado. Preserva modo de permisos y detecta cambios de contenido, identidad, carpeta de anclaje y destino. La guarda global de escritores solo serializa E/S dentro del proceso: no contiene estado de dominio ni sustituye al actor. El reemplazo de un archivo existente mantiene una ventana final de concurrencia con editores ajenos; no se presenta como CAS ni como transacción de varios archivos. Límites y contratos: [entrega UXR-3.1](audits/2026-10-17-uxr-3-1.md).
 
 ## 11. Arranque, supervisión y recuperación **[C]** (ADR-015) con detalle **[P]**
 

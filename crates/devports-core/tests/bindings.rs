@@ -16,12 +16,23 @@ const HEADER: &str = "// Generated from the Rust types by `crates/devports-core/
 fn generated() -> String {
     let types = Types::default()
         .register::<Snapshot>()
+        .register::<devports_core::adopt::review::AdoptionOptions>()
+        .register::<devports_core::adopt::review::AdoptionPreview>()
+        .register::<devports_core::adopt::review::AdoptionError>()
+        .register::<devports_core::adopt::review::ServiceEdits>()
         .register::<InstanceView>()
         .register::<LogEntry>();
     let body = Typescript::default()
         .export(&types, specta_serde::Format)
         .expect("the types can be exported");
-    format!("{HEADER}{body}")
+    // Specta emits trailing spaces around documented unions; normalize in the
+    // generator so checked-in bindings stay deterministic without hand edits.
+    let body = body
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{HEADER}{body}\n")
 }
 
 #[test]

@@ -39,6 +39,41 @@ pub async fn preview_project_stop(
 }
 
 #[tauri::command]
+pub async fn adoption_options(
+    core: State<'_, CoreState>,
+    reference: String,
+) -> Result<
+    devports_core::adopt::review::AdoptionOptions,
+    devports_core::adopt::review::AdoptionError,
+> {
+    core.0.adoption_options(&reference).await
+}
+
+#[tauri::command]
+pub async fn preview_adoption(
+    core: State<'_, CoreState>,
+    reference: String,
+    target: devports_core::adopt::review::AdoptionTarget,
+) -> Result<
+    devports_core::adopt::review::AdoptionPreview,
+    devports_core::adopt::review::AdoptionError,
+> {
+    core.0.preview_adoption(&reference, target).await
+}
+
+#[tauri::command]
+pub async fn validate_adoption(
+    core: State<'_, CoreState>,
+    id: String,
+    edits: devports_core::adopt::review::ServiceEdits,
+) -> Result<
+    devports_core::adopt::review::AdoptionPreview,
+    devports_core::adopt::review::AdoptionError,
+> {
+    core.0.validate_adoption(&id, edits).await
+}
+
+#[tauri::command]
 pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
     state.get()
 }

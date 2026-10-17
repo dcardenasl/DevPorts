@@ -15,7 +15,12 @@
 //! The interface reads a [`Snapshot`] from a `watch` channel and receives
 //! [`Notice`]s from a `broadcast` channel; it never touches the engine.
 
+mod adoption;
 mod probe;
+
+use crate::adopt::review::AdoptionBook;
+pub use crate::adopt::review::AdoptionTarget as AdoptTarget;
+use adoption::AdoptionMsg;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -199,17 +204,6 @@ pub fn attention_items(instances: &[InstanceView], now: i64) -> Vec<AttentionIte
         .collect()
 }
 
-/// Where a person's adoption goes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AdoptTarget {
-    /// Add it to this existing project.
-    Project(String),
-    /// Create a project in the process's repository, named `name` or after it.
-    New(Option<String>),
-    /// Declare a container as a shared service in `shared.yml`.
-    Shared,
-}
-
 #[derive(Clone, Copy)]
 enum StopScope {
     Instance,
@@ -237,6 +231,7 @@ enum Msg {
     Log(LogArgs, oneshot::Sender<LogResult>),
     Describe(String, oneshot::Sender<Option<Description>>),
     Adopted(Applied),
+    Adoption(AdoptionMsg),
 }
 
 /// What an adoption needs to know about the thing being adopted.
@@ -378,16 +373,10 @@ impl CoreHandle {
     /// [`ApplyError`] when it cannot be described there or the file cannot be
     /// written; nothing is changed in that case.
     pub async fn adopt(&self, reference: &str, target: AdoptTarget) -> Result<Applied, ApplyError> {
-        let (reply, answer) = oneshot::channel();
-        self.messages
-            .send(Msg::Describe(reference.to_owned(), reply))
+        let description = self
+            .describe_for_adoption(reference)
             .await
-            .map_err(|_| ApplyError::Io("DevPorts se está cerrando".to_owned()))?;
-        let description = answer
-            .await
-            .ok()
-            .flatten()
-            .ok_or_else(|| ApplyError::Unsuitable("esa instancia ya no existe".to_owned()))?;
+            .map_err(|error| ApplyError::Unsuitable(error.to_string()))?;
         let Description {
             view,
             projects,
@@ -432,22 +421,9 @@ impl CoreHandle {
         .map_err(|error| ApplyError::Io(error.to_string()))??;
         // The new manifest is picked up now instead of at the next pass.
         let home = Arc::clone(&self.home);
-        if let Ok(Ok((catalog, shared, problems))) = tokio::task::spawn_blocking(move || {
-            let (config, shared) = load_settings(&home)?;
-            let discovery = discover_all(&config, &shared);
-            Ok::<_, RuntimeError>((
-                discovery.catalog,
-                shared,
-                discovery_problems(&discovery.issues),
-            ))
-        })
-        .await
+        if let Ok(Ok(update)) =
+            tokio::task::spawn_blocking(move || adoption::load_catalog(&home)).await
         {
-            let update = CatalogUpdate {
-                catalog,
-                shared,
-                problems,
-            };
             let _ = self.messages.send(Msg::Catalog(Box::new(update))).await;
         }
         let _ = self.messages.send(Msg::Adopted(applied.clone())).await;
@@ -604,6 +580,9 @@ impl Core {
                 dirty: true,
                 engine_problems: Vec::new(),
                 pending_stops: std::collections::BTreeMap::new(),
+                adoptions: AdoptionBook::default(),
+                adoption_waiters: std::collections::BTreeMap::new(),
+                home: Arc::clone(&handle.home),
             }
             .run(),
         )];
@@ -701,6 +680,12 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     /// What the engine could not do, kept for the interface.
     engine_problems: Vec<String>,
     pending_stops: std::collections::BTreeMap<String, oneshot::Sender<Result<(), ActionError>>>,
+    adoptions: AdoptionBook,
+    adoption_waiters: std::collections::BTreeMap<
+        String,
+        Vec<oneshot::Sender<Result<Applied, crate::adopt::review::AdoptionError>>>,
+    >,
+    home: Arc<PathBuf>,
 }
 
 impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Actor<C, S, P> {
@@ -728,6 +713,10 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
 
     fn handle(&mut self, message: Msg) -> Vec<Effect> {
         match message {
+            Msg::Adoption(message) => {
+                self.handle_adoption(message);
+                Vec::new()
+            }
             Msg::Request(request, reply) => {
                 let (response, effects) = self.engine.handle_request(request);
                 let _ = reply.send(response);
@@ -792,25 +781,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 Vec::new()
             }
             Msg::Describe(reference, reply) => {
-                let view = self
-                    .engine
-                    .views()
-                    .iter()
-                    .find(|view| view.instance_ref == reference)
-                    .cloned();
-                let _ = reply.send(view.map(|view| {
-                    Description {
-                        view,
-                        projects: self
-                            .engine
-                            .catalog()
-                            .projects()
-                            .iter()
-                            .map(|project| (project.name.clone(), project.root.clone()))
-                            .collect(),
-                        shared: self.engine.shared_names(),
-                    }
-                }));
+                let _ = reply.send(self.describe_adoption(&reference));
                 Vec::new()
             }
             Msg::Adopted(applied) => {

@@ -46,6 +46,9 @@ pub enum ApplyError {
     /// The file could not be read or written.
     #[error("{0}")]
     Io(String),
+    /// The manifest changed while its proposal was being reviewed.
+    #[error("{} cambió desde la revisión; vuelve a revisarlo", .0.display())]
+    Conflict(PathBuf),
 }
 
 /// Adds `view` as a service to the manifest of the project rooted at `root`.
@@ -59,9 +62,12 @@ pub fn add_service(
     known_shared: Option<&BTreeSet<String>>,
 ) -> Result<Applied, ApplyError> {
     let path = root.join(MANIFEST_FILE);
-    let text = std::fs::read_to_string(&path)
-        .map_err(|error| ApplyError::Io(format!("{}: {error}", path.display())))?;
-    let before = manifest::parse_checked(&text, &path, known_shared)
+    let snapshot = crate::document::FileSnapshot::capture(&path).map_err(edit_error)?;
+    let text = snapshot
+        .text()
+        .map_err(edit_error)?
+        .ok_or_else(|| ApplyError::Io("el manifiesto ya no existe".to_owned()))?;
+    let before = manifest::parse_checked(text, &path, known_shared)
         .map_err(|error| ApplyError::Invalid(error.to_string()))?;
     let service = service_for(root, view).ok_or_else(|| {
         ApplyError::Unsuitable(
@@ -71,7 +77,7 @@ pub fn add_service(
     })?;
     let name = unused_name(&service.name, &before.manifest.services);
     let service = ProposedService { name, ..service };
-    let edited = insert_service(&text, &service.yaml_lines())?;
+    let edited = insert_service(text, &service.yaml_lines())?;
 
     let after = manifest::parse_checked(&edited, &path, known_shared)
         .map_err(|error| ApplyError::Invalid(error.to_string()))?;
@@ -80,7 +86,7 @@ pub fn add_service(
             "el servicio no quedó en el manifiesto".to_owned(),
         ));
     }
-    write_atomic(&path, &edited)?;
+    snapshot.commit(&edited).map_err(edit_error)?;
     Ok(Applied {
         manifest: path,
         project: after.manifest.project,
@@ -101,18 +107,16 @@ pub fn add_shared(path: &Path, view: &InstanceView) -> Result<Applied, ApplyErro
         ));
     }
     let service = container_service_for(view)?;
-    let existing = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            "version: 1\nservices: {}\n".to_owned()
-        }
-        Err(error) => return Err(ApplyError::Io(format!("{}: {error}", path.display()))),
-    };
-    let (before, _) = crate::config::SharedServices::parse(&existing, path)
+    let snapshot = crate::document::FileSnapshot::capture(path).map_err(edit_error)?;
+    let existing = snapshot
+        .text()
+        .map_err(edit_error)?
+        .unwrap_or("version: 1\nservices: {}\n");
+    let (before, _) = crate::config::SharedServices::parse(existing, path)
         .map_err(|error| ApplyError::Invalid(error.to_string()))?;
     let name = unused_name(&service.name, &before.services);
     let service = ProposedService { name, ..service };
-    let edited = insert_service(&existing, &service.yaml_lines())?;
+    let edited = insert_service(existing, &service.yaml_lines())?;
     let (after, _) = crate::config::SharedServices::parse(&edited, path)
         .map_err(|error| ApplyError::Invalid(error.to_string()))?;
     if !after.services.contains_key(&service.name) {
@@ -124,7 +128,7 @@ pub fn add_shared(path: &Path, view: &InstanceView) -> Result<Applied, ApplyErro
         std::fs::create_dir_all(folder)
             .map_err(|error| ApplyError::Io(format!("{}: {error}", folder.display())))?;
     }
-    write_atomic(path, &edited)?;
+    snapshot.commit(&edited).map_err(edit_error)?;
     Ok(Applied {
         manifest: path.to_path_buf(),
         project: "compartidos".to_owned(),
@@ -160,7 +164,8 @@ pub fn create_project(
         ));
     }
     let path = root.join(MANIFEST_FILE);
-    if path.exists() {
+    let snapshot = crate::document::FileSnapshot::capture(&path).map_err(edit_error)?;
+    if snapshot.text().map_err(edit_error)?.is_some() {
         return Err(ApplyError::Exists(path));
     }
     let mut proposal = propose(root, std::slice::from_ref(&with_no_service(view)));
@@ -180,7 +185,7 @@ pub fn create_project(
         .first()
         .map(|service| service.name.clone())
         .unwrap_or_default();
-    write_atomic(&path, &text)?;
+    snapshot.commit(&text).map_err(edit_error)?;
     Ok(Applied {
         manifest: path,
         project: loaded.manifest.project,
@@ -196,46 +201,53 @@ fn with_no_service(view: &InstanceView) -> InstanceView {
 }
 
 /// `name`, or `name-2`, `name-3`… when taken.
-fn unused_name<V>(name: &str, taken: &std::collections::BTreeMap<String, V>) -> String {
+pub(super) fn unused_name<V>(name: &str, taken: &std::collections::BTreeMap<String, V>) -> String {
     if !taken.contains_key(name) {
         return name.to_owned();
     }
     (2_u32..=u32::MAX)
-        .map(|number| format!("{name}-{number}"))
+        .map(|number| {
+            let suffix = format!("-{number}");
+            let base = name
+                .chars()
+                .take(63_usize.saturating_sub(suffix.len()))
+                .collect::<String>();
+            format!("{base}{suffix}")
+        })
         .find(|candidate| !taken.contains_key(candidate))
         .unwrap_or_else(|| name.to_owned())
 }
 
 /// Appends `block` (a service written with two- and four-space indentation) to
 /// the `services:` mapping of `text`, matching the indentation the file uses.
-fn insert_service(text: &str, block: &[String]) -> Result<String, ApplyError> {
-    let mut lines: Vec<String> = text.lines().map(str::to_owned).collect();
+pub(super) fn insert_service(text: &str, block: &[String]) -> Result<String, ApplyError> {
+    // Retain each original line terminator and byte of unrelated content.
+    let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
+    let mut lines: Vec<String> = text.split_inclusive('\n').map(str::to_owned).collect();
     let services_at = lines.iter().position(|line| {
-        line.strip_prefix("services:")
-            .is_some_and(|rest| rest.trim().is_empty() || rest.trim_start().starts_with('#'))
-            || line.trim_end() == "services: {}"
-    });
-    let Some(services_at) = services_at else {
-        // A valid manifest always has `services`; this is its flow-style spelling.
-        return Err(ApplyError::Unsupported(
-            "el manifiesto escribe `services` en una forma que DevPorts no edita; agrega el servicio a mano"
-                .to_owned(),
-        ));
-    };
-
+        line.strip_prefix("services:").is_some_and(|rest| {
+            let rest = rest.trim();
+            rest.is_empty() || rest.starts_with('#') || rest.strip_prefix("{}").is_some_and(|tail| tail.trim().is_empty() || tail.trim_start().starts_with('#'))
+        })
+    }).ok_or_else(|| ApplyError::Unsupported("el manifiesto escribe `services` en una forma que DevPorts no edita; agrega el servicio a mano".to_owned()))?;
     if let Some(line) = lines.get_mut(services_at)
-        && line.trim_end() == "services: {}"
+        && let Some(rest) = line.strip_prefix("services:")
+        && rest.trim_start().starts_with("{}")
     {
-        "services:".clone_into(line);
+        let tail = rest.trim_start().strip_prefix("{}").unwrap_or_default();
+        *line = format!("services:{tail}");
     }
-    // The mapping ends before the next line that starts at column zero (a new
-    // top-level key); comments and blank lines at its end stay after the block.
     let mut end = services_at.saturating_add(1);
     let mut last_content = services_at;
-    let mut child_indent: Option<usize> = None;
+    let mut child_indent = None;
     while let Some(line) = lines.get(end) {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed.starts_with('#') {
+            // Indented comments belong to the existing service/mapping, while
+            // column-zero trailing notes stay after the inserted service.
+            if trimmed.starts_with('#') && line.len() > line.trim_start().len() {
+                last_content = end;
+            }
             end = end.saturating_add(1);
             continue;
         }
@@ -261,24 +273,25 @@ fn insert_service(text: &str, block: &[String]) -> Result<String, ApplyError> {
         })
         .collect();
     let at = last_content.saturating_add(1);
-    for (offset, line) in reindented.into_iter().enumerate() {
-        lines.insert(at.saturating_add(offset), line);
+    let mut prefix = lines.iter().take(at).cloned().collect::<String>();
+    let suffix = lines.iter().skip(at).cloned().collect::<String>();
+    if !prefix.ends_with('\n') {
+        prefix.push_str(newline);
     }
-    let mut out = lines.join("\n");
-    out.push('\n');
-    Ok(out)
+    prefix.push_str(&reindented.join(newline));
+    if !suffix.is_empty() || text.ends_with('\n') {
+        prefix.push_str(newline);
+    }
+    prefix.push_str(&suffix);
+    Ok(prefix)
 }
 
-/// Writes through a temporary file in the same folder and renames it over the
-/// target, so a crash never leaves a half-written manifest.
-fn write_atomic(path: &Path, text: &str) -> Result<(), ApplyError> {
-    let temp = path.with_extension("yml.devports-tmp");
-    std::fs::write(&temp, text)
-        .and_then(|()| std::fs::rename(&temp, path))
-        .map_err(|error| {
-            let _ = std::fs::remove_file(&temp);
-            ApplyError::Io(format!("{}: {error}", path.display()))
-        })
+pub(super) fn edit_error(error: crate::document::EditError) -> ApplyError {
+    match error {
+        crate::document::EditError::Conflict(path) => ApplyError::Conflict(path),
+        crate::document::EditError::Unsupported(reason) => ApplyError::Unsupported(reason),
+        other => ApplyError::Io(other.to_string()),
+    }
 }
 
 #[cfg(test)]

@@ -248,3 +248,37 @@ fn paths_in_a_start_command_are_tidied_so_they_mean_the_same_later() {
         "ruby app.rb --bind=0.0.0.0"
     );
 }
+
+// covers: UXR-3.1
+#[test]
+fn proposed_commands_keep_observed_arguments_literal_in_the_shell() {
+    let command = start_command(
+        &[
+            "node".to_owned(),
+            "a path/server.js".to_owned(),
+            "$(touch /tmp/not-executed)".to_owned(),
+            "8080".to_owned(),
+        ],
+        8080,
+        Path::new("/work"),
+    );
+    assert_eq!(
+        command,
+        "node 'a path/server.js' '$(touch /tmp/not-executed)' ${PORT}"
+    );
+    let mut service = process_service(
+        Path::new("/work"),
+        Path::new("/work"),
+        &process("/work", 8080, &["node"]),
+    );
+    service.name = "true".to_owned();
+    service.start = Some("false".to_owned());
+    let proposal = Proposal {
+        project: "true".to_owned(),
+        root: PathBuf::from("/work"),
+        services: vec![service],
+    };
+    let loaded = crate::manifest::parse(&proposal.to_yaml(), Path::new("m.yml")).unwrap();
+    assert_eq!(loaded.project, "true");
+    assert_eq!(loaded.services["true"].start.as_deref(), Some("false"));
+}

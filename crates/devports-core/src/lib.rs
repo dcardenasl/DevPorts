@@ -12,6 +12,7 @@ pub mod config;
 pub mod diagnostic;
 pub mod discovery;
 pub mod docker;
+pub mod document;
 pub mod engine;
 pub mod fingerprint;
 pub mod gitinfo;
@@ -24,6 +25,7 @@ pub mod platform;
 pub mod ports;
 pub mod process;
 pub mod runtime;
+mod shell;
 pub mod store;
 pub mod yaml_keys;
 

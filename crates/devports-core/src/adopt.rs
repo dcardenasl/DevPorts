@@ -12,6 +12,7 @@ use devports_proto::views::InstanceView;
 use crate::fingerprint::Fingerprint;
 
 pub mod apply;
+pub mod review;
 
 /// Images recognised as databases and caches: `kind: data` (ADR-006, ADR-013).
 const DATA_IMAGES: [&str; 7] = [
@@ -32,7 +33,9 @@ const GENERIC_FOLDERS: [&str; 9] = [
 const LAUNCHERS: [&str; 6] = ["npm", "npx", "yarn", "pnpm", "composer", "bun"];
 
 /// One proposed service.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct ProposedService {
     /// Service name.
     pub name: String,
@@ -139,7 +142,11 @@ fn process_service(dir: &Path, cwd: &Path, view: &InstanceView) -> ProposedServi
         cwd: Some(relative.map_or_else(|| ".".to_owned(), |rel| format!("./{}", rel.display()))),
         docker: None,
         port: view.port,
-        start: view.port.map(|port| start_command(&argv, port, cwd)),
+        start: if argv.is_empty() {
+            None
+        } else {
+            view.port.map(|port| start_command(&argv, port, cwd))
+        },
         match_text: (!argv.is_empty()).then(|| Fingerprint::from_argv(&argv).render()),
         is_data: false,
         review,
@@ -160,7 +167,7 @@ fn container_service(name: &str, view: &InstanceView) -> ProposedService {
         cwd: None,
         docker: Some(name.to_owned()),
         port: view.port,
-        start: Some(format!("docker start {name}")),
+        start: Some(format!("docker start {}", crate::shell::shell_quote(name))),
         match_text: None,
         is_data,
         review: None,
@@ -190,11 +197,17 @@ fn start_command(argv: &[String], port: u16, cwd: &Path) -> String {
             if token == port_text {
                 "${PORT}".to_owned()
             } else if let Some(head) = token.strip_suffix(&format!("={port_text}")) {
-                format!("{head}=${{PORT}}")
+                format!(
+                    "{}${{PORT}}",
+                    crate::shell::shell_quote(&format!("{head}="))
+                )
             } else if let Some(head) = token.strip_suffix(&format!(":{port_text}")) {
-                format!("{head}:${{PORT}}")
+                format!(
+                    "{}${{PORT}}",
+                    crate::shell::shell_quote(&format!("{head}:"))
+                )
             } else {
-                token
+                crate::shell::shell_quote(&token)
             }
         })
         .collect::<Vec<_>>()
@@ -254,7 +267,7 @@ impl ProposedService {
     /// spaces.
     #[must_use]
     pub fn yaml_lines(&self) -> Vec<String> {
-        let mut lines = vec![format!("  {}:", self.name)];
+        let mut lines = vec![format!("  {}:", scalar(&self.name))];
         if let Some(cwd) = &self.cwd {
             lines.push(format!("    cwd: {}", scalar(cwd)));
         }
@@ -308,7 +321,13 @@ fn join_lines(lines: &[String]) -> String {
 
 /// A YAML scalar, quoted only when it has to be.
 fn scalar(text: &str) -> String {
+    let reserved = [
+        "null", "true", "false", "yes", "no", "on", "off", "~", ".nan", ".inf", "-.inf", "+.inf",
+    ];
     let plain = !text.is_empty()
+        && !text.chars().any(char::is_control)
+        && !reserved.contains(&text.to_ascii_lowercase().as_str())
+        && !text.starts_with(|character: char| character.is_ascii_digit())
         && !text.starts_with(|c: char| {
             matches!(
                 c,
@@ -340,7 +359,7 @@ fn scalar(text: &str) -> String {
     if plain {
         text.to_owned()
     } else {
-        format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+        serde_json::Value::String(text.to_owned()).to_string()
     }
 }
 

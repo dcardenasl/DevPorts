@@ -280,3 +280,50 @@ fn a_folder_that_is_the_whole_home_or_the_volume_root_is_not_a_project() {
     ));
     assert!(!home.join(MANIFEST_FILE).exists());
 }
+
+// covers: UXR-3.1
+#[test]
+fn empty_mappings_keep_inline_comments_and_files_without_a_final_newline() {
+    let source = "# before\r\nversion: 1\r\nproject: shop\r\nservices: {} # keep this comment";
+    let edited = insert_service(source, &["  api:".to_owned(), "    cwd: .".to_owned()]).unwrap();
+    assert!(edited.starts_with(
+        "# before\r\nversion: 1\r\nproject: shop\r\nservices: # keep this comment\r\n"
+    ));
+    assert!(!edited.ends_with('\n'));
+    assert!(
+        manifest::parse(&edited, Path::new("m.yml"))
+            .unwrap()
+            .services
+            .contains_key("api")
+    );
+}
+
+// covers: UXR-3.1
+#[test]
+fn proposed_collision_names_stay_within_the_manifest_name_limit() {
+    let name = "a".repeat(63);
+    let taken = std::collections::BTreeMap::from([(name.clone(), true)]);
+    let proposed = unused_name(&name, &taken);
+    assert!(manifest::is_valid_name(&proposed));
+    assert_ne!(proposed, name);
+    assert!(proposed.ends_with("-2"));
+}
+
+// covers: UXR-3.1
+#[test]
+fn comments_inside_an_existing_service_are_not_reassigned_to_the_new_one() {
+    let source = "version: 1\nproject: shop\nservices:\n  api:\n    cwd: ./api\n    # comment about the API\n# note after services\n";
+    let edited = insert_service(
+        source,
+        &["  admin:".to_owned(), "    cwd: ./admin".to_owned()],
+    )
+    .unwrap();
+    assert!(edited.find("# comment about the API").unwrap() < edited.find("  admin:").unwrap());
+    assert!(edited.find("  admin:").unwrap() < edited.find("# note after services").unwrap());
+    assert!(
+        manifest::parse(&edited, Path::new("m.yml"))
+            .unwrap()
+            .services
+            .contains_key("admin")
+    );
+}
