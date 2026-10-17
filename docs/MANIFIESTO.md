@@ -122,6 +122,15 @@ Se aplica igual al proceso observado y al valor de `match`:
 | `python3 -m http.server 8001` | `python3 -m http.server N` |
 | `php -S localhost:8000 -t public` | `php -S localhost:N -t public` |
 
+### Precisiones de implementación (T0.3)
+Decisiones que el algoritmo anterior dejaba abiertas; el código y sus pruebas (U-01, U-02, PT-01, PT-02) las fijan:
+- El rango 1024 a 65535 aplica también a la forma `texto:número` y a `--opcion=número`; `localhost:80` no cambia.
+- Cada token pasa por todas las reglas **en una sola pasada** (primero el nombre base de rutas, luego los puertos). Así `/opt/8080` pasa a `N` y la normalización es idempotente (PT-01).
+- `argv[0]` se reduce a su nombre base aunque sea una ruta relativa. En macOS, el Python de Homebrew se relanza como `Python`, así que un `match` no debe apoyarse en `argv[0]` (usar `-m http.server N`, no `python3 -m http.server N`).
+- Un `match` vacío no reconoce nada. Un `match` es una secuencia contigua de tokens, en el mismo orden.
+- Las rutas de proyecto y de `cwd` se comparan **canonicalizadas** (`/var` y `/private/var`; mayúsculas y minúsculas en volúmenes que no las distinguen). Se compara por componentes de ruta: `/work/shop-old` no está dentro de `/work/shop`.
+- Desempate de varios servicios: `match` con más tokens; luego el `port` en el que escucha el proceso; si persiste, ambiguo. Los servicios de contenedor (`docker`) nunca reciben procesos del host.
+
 ### Cuándo un proceso coincide con un servicio
 Un proceso coincide con el servicio S del proyecto P si se cumplen **las dos**:
 1. Su directorio de trabajo resuelto es igual a `S.cwd` o está dentro de él.

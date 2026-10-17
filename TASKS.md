@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**T0.3** (descubrimiento de manifiestos y mapeo proceso→proyecto), o T0.4 / T0.5 en paralelo. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**T0.4** (Docker) o **T0.5** (spike Tauri), en cualquier orden. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
 
 ---
 
@@ -70,7 +70,7 @@
   *Hecho cuando:* `ls` lista `php -S`, `node`, `python -m http.server` lanzados por la prueba con cwd/argv correctos sin privilegios; medición registrada. *Pruebas:* fuente falsa (U), integración real macOS (I-02 parcial).
   → `feat(core): add macos process source on libproc` · `feat(cli): add read-only ls with baseline open log`
 
-- [ ] **T0.3 — Descubrimiento de manifiestos y mapeo proceso→proyecto.** *Deps:* T0.2. *Lee:* MANIFIESTO §3, §7. *Verifica:* V11.
+- [x] **T0.3 — Descubrimiento de manifiestos y mapeo proceso→proyecto.** *Deps:* T0.2. *Lee:* MANIFIESTO §3, §7. *Verifica:* V11.
   Recorrido de raíces (3 niveles, ignora `node_modules/vendor/.git/target`), carga mínima de `.devports.yml`, normalización (MANIFIESTO §3) y matching. *Pruebas:* U-01, U-02, PT-01, PT-02, I-14.
   → `feat(core): discover projects and match processes to services`
 
@@ -109,7 +109,7 @@
   → `feat(proto): add ipc protocol types` · `feat(core): add unix socket server with peer credential check` · `feat(cli): add ping client`
 
 - [ ] **T1.2 — Parsers y validación de `.devports.yml`, `shared.yml`, `config.yml`.** *Deps:* T1.1. *Lee:* MANIFIESTO §1,2,6,9.
-  Errores con número de línea, advertencias (clave `test` ⇒ mensaje ADR-010), valores por defecto de `config.yml`. **Decidir y fijar el método de escritura que preserva comentarios** (editor de YAML con CST) validado contra I-15.
+  Errores con número de línea, advertencias (clave `test` ⇒ mensaje ADR-010), valores por defecto de `config.yml`. T0.3 ya dejó `manifest::parse/load` (YAML con `serde-saphyr`, versión 1) y los tipos `Manifest`/`ServiceSpec`: T1.2 añade el validador encima (formatos, unicidad, uno de `cwd` o `docker`, advertencias, números de línea con `Spanned`, y **`cwd` que salga de la carpeta del proyecto = error**) y `shared.yml`/`config.yml`. **Decidir y fijar el método de escritura que preserva comentarios** (editor de YAML con CST) validado contra I-15.
   *Pruebas:* U-03 completa (cada error/advertencia), versión mayor rechazada.
   → `feat(core): parse and validate manifest, shared and config files`
 
@@ -143,7 +143,7 @@
   → `feat(core): bind and stop docker containers for temporary instances` · `test(tools): add docker checks script`
 
 - [ ] **T1.10 — `ls`, `stop`, `extend`, `log`, `adopt` (propuesta).** *Deps:* T1.8. RF-05, RF-11, RF-15; CLI §4-7.
-  Los tokens nunca salen en `ls`/`log`. `adopt` solo lectura. **Retirar `devports-probe` (módulo `probe` y binario) y su entrada de CHANGELOG** (ADR-025, punto 8). *Pruebas:* I-08, I-15 (propuesta), U-08.
+  Los tokens nunca salen en `ls`/`log`. `adopt` solo lectura. `adopt` debe generar `match` sin depender de `argv[0]` (ver MANIFIESTO §3, precisiones). **Retirar `devports-probe` (módulo `probe` y binario) y su entrada de CHANGELOG** (ADR-025, punto 8). *Pruebas:* I-08, I-15 (propuesta), U-08.
   → `feat(cli): add ls, stop, extend, log and adopt commands`
 
 - [ ] **T1.11 — Salud (health checks) y estado «colgada».** *Deps:* T1.6. *Lee:* MANIFIESTO §5. (Sustituye al `--replace` eliminado.)
