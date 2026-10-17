@@ -155,6 +155,10 @@ async fn a_second_core_on_the_same_socket_is_refused() {
 }
 
 #[tokio::test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one scenario told from start to finish"
+)]
 async fn a_duplicate_asks_for_attention_until_the_person_keeps_it_and_adoption_writes_the_manifest()
 {
     use devports_core::runtime::AdoptTarget;
