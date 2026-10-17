@@ -78,7 +78,7 @@ Servidor MCP; adaptadores por agente; proxy de nombres estables; versión Pro o 
 ## 8. Requisitos no funcionales
 | ID | Requisito | Meta |
 |---|---|---|
-| NF-01 | Consumo en reposo (panel cerrado) | Menos de 50 MB y menos de 1 % de CPU **[P]** |
+| NF-01 | Consumo en reposo (panel cerrado) | Menos de 50 MB de memoria física (app más procesos auxiliares de WebKit, no RSS) y menos de 1 % de CPU **[P]** |
 | NF-02 | Latencia de detección | 3 s o menos **[P]** |
 | NF-03 | Arranque del CLI hasta enviar la petición | Menos de 50 ms **[P]** |
 | NF-04 | Seguridad de IPC | Socket 0600, verificación de uid, sin puerto TCP **[C]** |

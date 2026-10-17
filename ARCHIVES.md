@@ -3,6 +3,11 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## T0.9 — Informe de la Fase 0 (V1 a V12) · 2026-10-17
+- Commit: `docs: add phase 0 verification report`.
+- Resultado: `docs/verificacion-fase0.md` con la tabla V1 a V12 (9 favorables o resueltas, 2 parciales, 1 favorable sin margen), los 6 ajustes a valores [P] y la lista de acciones de David. NF-01 pasa a medirse como memoria física (app más WebKit).
+- Estado de la puerta G0: (a) cumplido, (c) cumplido con salvedad, (b) pendiente de S0 y una semana de uso. Comprobado que `~/.devports-baseline/` no existe, es decir, `baseline.sh` nunca se ha ejecutado.
+
 ## T0.8 — Spike de `exec`: PID y ascendencia · 2026-10-17
 - Commits: `feat(core): add process ancestry helpers for launcher binding`, `test(core): verify exec keeps pid and ancestry`, `docs: record t0.8 results for exec and ancestry`.
 - Verificación local: fmt, clippy `-D warnings` y `cargo test --workspace` en verde; 11 pruebas unitarias nuevas de `process::ancestry` con fuente falsa y 4 con procesos reales, sin procesos huérfanos al terminar.

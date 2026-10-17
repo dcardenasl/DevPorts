@@ -232,9 +232,11 @@ Retención de eventos: `events_retention_days` (30) **[P]**.
 
 ## 14. Rendimiento **[P]**
 
-Presupuesto de la Fase 0 **[C]** el criterio, **[P]** los números: menos de 50 MB en reposo y menos de 1 % de CPU (panel cerrado). Contribuyentes a medir: escaneo cada 1,5 s, SQLite, stream de Docker, observador de archivos de las raíces. Palancas si no se cumple: subir el intervalo a 2 s, escanear solo procesos con `uid` propio y excluir los de sistema por nombre, limitar la profundidad del observador. Si aun así no se cumple, o el panel anclado resulta deficiente, evaluar Swift solo para la envoltura (el núcleo y el socket no cambian) **[C]**.
+Presupuesto de la Fase 0 **[C]** el criterio, **[P]** los números: menos de 50 MB en reposo y menos de 1 % de CPU (panel cerrado). **Definición (T0.9):** la memoria es la **memoria física (`footprint`) de la app más sus procesos auxiliares de WebKit** con el panel cerrado, que es la cifra del Monitor de Actividad; el RSS cuenta frameworks compartidos y no se usa. Medido en T0.5 con el spike: 21 MB sin abrir nunca el panel y 49,1 MB tras abrirlo y cerrarlo, sin el núcleo dentro; ver `docs/verificacion-fase0.md`. Contribuyentes a medir: escaneo cada 1,5 s, SQLite, stream de Docker, observador de archivos de las raíces. Palancas si no se cumple: subir el intervalo a 2 s, escanear solo procesos con `uid` propio y excluir los de sistema por nombre, limitar la profundidad del observador. Si aun así no se cumple, o el panel anclado resulta deficiente, evaluar Swift solo para la envoltura (el núcleo y el socket no cambian) **[C]**.
 
 ## 15. Puntos a verificar en la Mac de David (Fase 0)
+
+> Resultados de V1 a V12 en `docs/verificacion-fase0.md`.
 
 | # | Verificación | Qué decide |
 |---|---|---|
