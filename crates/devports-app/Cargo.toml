@@ -7,8 +7,19 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[features]
+# Opens and closes the panel on a timer so memory can be measured without a human
+# at the mouse (tools/spike-measure.sh). Spike only: never part of a release.
+spike-autopilot = ["dep:tokio"]
+
 [dependencies]
 devports-core.workspace = true
+tokio = { version = "1", features = ["time"], optional = true }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
 
 [lints]
 workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

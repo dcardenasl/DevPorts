@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "panel",
+  "description": "Capability of the menu-bar panel window",
+  "windows": ["panel"],
+  "permissions": ["core:event:default"]
+}
