@@ -4,6 +4,7 @@
 //! [`ProcessSource`], and only the macOS implementation exists in v1
 //! (`ARQUITECTURA.md`, section 3; ADR-016). Tests use [`fake::FakeProcessSource`].
 
+pub mod ancestry;
 pub mod fake;
 
 use std::path::PathBuf;
