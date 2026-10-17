@@ -6,6 +6,7 @@
 //! no interface at all; the menu-bar app is just one host for it.
 
 pub mod platform;
+pub mod probe;
 pub mod process;
 
 /// Protocol version the core's IPC server speaks.
