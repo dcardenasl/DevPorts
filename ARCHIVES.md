@@ -3,6 +3,13 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## T0.6 — Spike de notificación con botón de acción · 2026-10-17
+- Commits: `feat(app): add notification action spike behind a feature flag`, `ci: lint the notification spike on macos`, `docs: record t0.6 findings and the manual notification check`.
+- Verificación local: fmt, clippy `-D warnings` con `spike-autopilot` y `spike-notify` juntos, `cargo test --workspace` y `cargo deny check` en verde.
+- **V6, resultado parcial (la parte que decide una persona queda para T0.9):** (1) El plugin 2.7 admite acciones en escritorio y las informa con `on_action`; el spike registra un tipo de acción «Extender 30 min» y un manejador. (2) Desde un binario sin paquete, macOS 26 **no entrega la notificación hasta que se acepta su permiso**: al enviarla apareció el aviso del sistema «Notificaciones de devports-app: las notificaciones pueden incluir avisos, sonidos y contadores» (captura de pantalla). El entorno de desarrollo no puede aceptarlo ni pulsar el botón, así que **no se verificó que el botón aparezca ni que su clic llegue**. (3) El backend usa **NSUserNotification**, API obsoleta desde macOS 11: riesgo a vigilar; plan B y decisión en ADR-025 punto 7.
+- Efecto en tu Mac: la ejecución dejó una solicitud de permiso pendiente para «devports-app» en Configuración del Sistema > Notificaciones; aceptarla o rechazarla es parte de la comprobación manual.
+- Hallazgo de proceso: la captura de pantalla de `screencapture -R` usa puntos, no píxeles, y la región fuera de pantalla se rechaza.
+
 ## T0.5 — Spike de Tauri: ícono con contador, panel anclado y efímero, medición en reposo · 2026-10-17
 - Commits: `chore(gitignore): ignore tauri generated schemas`, `feat(app): add tauri tray spike with counter and ephemeral anchored panel`, `test(tools): add footprint measurement script for the tauri spike`, `ci: build the macos shell only on macos runners`.
 - Verificación local: fmt, clippy `-D warnings` (con y sin la característica `spike-autopilot`) y `cargo test --workspace` en verde; `cargo deny check` ok (solo avisos de versiones duplicadas); `cargo audit` solo avisa de `glib` (RUSTSEC-2024-0429, dependencia de GTK que Tauri arrastra en Linux y no se compila en macOS).
