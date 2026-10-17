@@ -8,7 +8,7 @@ App de barra de menús para macOS que mantiene el orden de los servidores de des
 **Estado:** núcleo, CLI y app de barra construidos (fases 1 y 2); esperan las puertas G1/G2 (uso real). Ver `TASKS.md` y `SNAPSHOT.md`.
 
 ## Cómo retomar en frío
-1. Leer [`TASKS.md`](TASKS.md): primera tarea sin marcar con dependencias cumplidas.
+1. Leer [`TASKS.md`](TASKS.md): primera tarea sin marcar con dependencias cumplidas. Para las correcciones UXR, usar las [fichas de sesión](TASKS.md#uxr-sesiones): contienen fuentes, alcance, aceptación y registro de entrega. Leer en ARCHIVES.md el resultado de sus dependencias; una sesión no necesita recuperar la conversación original.
 2. Leer los docs que esa tarea cita. Orden general: `docs/DECISIONES.md` → `PRD.md` → `ARQUITECTURA.md` → `MANIFIESTO.md` → `CLI.md` → `PRUEBAS.md` → `ROADMAP.md`.
 3. `git branch --show-current` debe decir `dev`; `git status`; `git log --oneline | head -15` (copiar el estilo real).
 4. Cada prueba automatizada del plan lleva `// covers: ID` y `tools/check_matrix.py` falla si falta una (PRUEBAS.md §4).
