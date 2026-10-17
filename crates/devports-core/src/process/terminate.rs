@@ -65,6 +65,17 @@ pub enum Refusal {
     OtherUser(u32),
 }
 
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Protected(pid) => {
+                write!(f, "el proceso {pid} está protegido (DevPorts o su entorno)")
+            }
+            Self::OtherUser(pid) => write!(f, "el proceso {pid} pertenece a otro usuario"),
+        }
+    }
+}
+
 /// Timings of the procedure; the defaults are the documented ones.
 #[derive(Debug, Clone, Copy)]
 pub struct Timings {

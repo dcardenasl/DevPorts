@@ -67,6 +67,27 @@ impl EngineContainerSource {
         Ok(Self { docker, context })
     }
 
+    /// Stops a container with `docker stop` semantics (10 s grace). It is never
+    /// removed. A container that is already stopped is not an error.
+    ///
+    /// # Errors
+    ///
+    /// The engine's refusal or a lost connection.
+    pub async fn stop(&self, id: &str) -> Result<(), ContainerSourceError> {
+        let options = bollard::query_parameters::StopContainerOptionsBuilder::new()
+            .t(10)
+            .build();
+        match self.docker.stop_container(id, Some(options)).await {
+            // 304 already stopped, 404 gone: both are the goal.
+            Ok(())
+            | Err(bollard::errors::Error::DockerResponseServerError {
+                status_code: 304 | 404,
+                ..
+            }) => Ok(()),
+            Err(error) => Err(ContainerSourceError::Request(error.to_string())),
+        }
+    }
+
     /// The context this source is connected through.
     #[must_use]
     pub fn context(&self) -> &ResolvedContext {

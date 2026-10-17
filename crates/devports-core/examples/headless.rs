@@ -1,8 +1,8 @@
-//! Runs the core with no interface at all, to try the CLI against it:
+//! Runs the whole core with no interface, to try the CLI against it:
 //!
 //! ```text
 //! cargo run -p devports-core --example headless
-//! DEVPORTS_SOCKET=... cargo run -p devports-cli -- ping
+//! cargo run -p devports-cli -- ls
 //! ```
 //!
 //! Stops on Ctrl-C and removes its socket.
@@ -10,58 +10,36 @@
 // An example talks to the terminal.
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-use std::sync::Arc;
-
-use devports_core::ipc::{IpcServer, Limits, PeerInfo, RequestHandler};
-use devports_proto::{ErrorBody, ErrorCode, Op, PROTOCOL_VERSION, PingResult, Request, Response};
-
-struct Headless;
-
-impl RequestHandler for Headless {
-    async fn handle(&self, request: Request, _peer: PeerInfo) -> Response {
-        match request.op {
-            Op::Ping => Response::ok(
-                request.id.clone(),
-                &PingResult {
-                    version: env!("CARGO_PKG_VERSION").to_owned(),
-                    protocol: PROTOCOL_VERSION,
-                    pid: std::process::id(),
-                },
-            )
-            .unwrap_or_else(|error| {
-                Response::err(
-                    request.id,
-                    ErrorBody::new(ErrorCode::Internal, error.to_string()),
-                )
-            }),
-            _ => Response::err(
-                request.id,
-                ErrorBody::new(
-                    ErrorCode::Unavailable,
-                    "this operation is not implemented yet",
-                ),
-            ),
-        }
-    }
-}
-
+#[cfg(target_os = "macos")]
 #[tokio::main]
 async fn main() {
-    let Some(path) = devports_proto::paths::socket_path_from_env() else {
-        eprintln!("cannot tell where to put the socket: set DEVPORTS_SOCKET");
+    use devports_core::runtime::{Core, CoreOptions};
+
+    let Some(options) = CoreOptions::from_env() else {
+        eprintln!("cannot tell where to put the files: set HOME");
         std::process::exit(1);
     };
-    let server = match IpcServer::bind(&path, Limits::default()).await {
-        Ok(server) => server,
+    println!("socket: {}", options.socket.display());
+    let core = match Core::start_system(options).await {
+        Ok(core) => core,
         Err(error) => {
             eprintln!("cannot start: {error}");
             std::process::exit(1);
         }
     };
-    println!("listening on {}", server.path().display());
-    server
-        .serve(Arc::new(Headless), async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await;
+    let handle = core.handle();
+    let mut notices = handle.notices();
+    tokio::spawn(async move {
+        while let Ok(notice) = notices.recv().await {
+            println!("notice: {notice:?}");
+        }
+    });
+    let _ = tokio::signal::ctrl_c().await;
+    handle.shutdown();
+    core.wait().await;
+}
+
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("DevPorts runs on macOS only");
 }

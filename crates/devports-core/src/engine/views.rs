@@ -10,14 +10,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use devports_proto::views::{ChainLink, InstanceRole, InstanceState, InstanceView};
 
-use super::{Engine, HUNG_AFTER, Target};
+use super::{Engine, HUNG_AFTER, HealthTarget, Target};
 use crate::catalog::{Classification, ContainerClassification};
 use crate::clock::Clock;
 use crate::docker::Container;
 use crate::fingerprint::Fingerprint;
 use crate::gitinfo;
 use crate::ids::{container_reference, observed_reference};
-use crate::manifest::ServiceKind;
+use crate::manifest::{Health, ServiceKind};
 use crate::messages;
 use crate::ports::PortProbe;
 use crate::process::{ListeningProcess, ProcessId, ProcessInfo, ProcessSource};
@@ -170,6 +170,54 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 })
                 .and_then(|service| service.port),
             None => self.shared.services.get(service).and_then(|spec| spec.port),
+        }
+    }
+
+    /// What the health prober must check now: running instances with a port.
+    #[must_use]
+    pub fn health_targets(&self) -> Vec<HealthTarget> {
+        self.views
+            .iter()
+            .filter(|view| {
+                view.instance_ref != "-"
+                    && view.registered
+                    && matches!(
+                        view.state,
+                        InstanceState::Healthy | InstanceState::Unhealthy
+                    )
+            })
+            .filter_map(|view| {
+                let port = view.port?;
+                let health = view
+                    .service
+                    .as_deref()
+                    .and_then(|service| self.declared_health(view.project.as_deref(), service))
+                    .unwrap_or_default();
+                Some(HealthTarget {
+                    reference: view.instance_ref.clone(),
+                    port,
+                    health,
+                })
+            })
+            .collect()
+    }
+
+    fn declared_health(&self, project: Option<&str>, service: &str) -> Option<Health> {
+        match project {
+            Some(name) => self
+                .catalog
+                .projects()
+                .iter()
+                .find(|candidate| candidate.name == name)?
+                .services
+                .iter()
+                .find(|candidate| candidate.name == service)
+                .map(|service| service.health.clone()),
+            None => self
+                .shared
+                .services
+                .get(service)
+                .map(|spec| spec.health.clone()),
         }
     }
 

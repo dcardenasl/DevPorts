@@ -59,6 +59,36 @@ pub enum DiscoveryIssue {
     },
 }
 
+impl std::fmt::Display for DiscoveryIssue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::RootMissing(path) => write!(f, "{}: la carpeta no existe", path.display()),
+            Self::Unreadable { path, reason } => {
+                write!(f, "{}: no se pudo leer: {reason}", path.display())
+            }
+            Self::Manifest(error) => write!(f, "{error}"),
+            Self::ManifestWarnings { path, diagnostics } => {
+                let first = diagnostics
+                    .first()
+                    .map(ToString::to_string)
+                    .unwrap_or_default();
+                write!(f, "{}: {first}", path.display())
+            }
+            Self::DuplicateProjectName { name, roots } => {
+                let places: Vec<String> = roots
+                    .iter()
+                    .map(|root| root.display().to_string())
+                    .collect();
+                write!(
+                    f,
+                    "el nombre de proyecto «{name}» se repite en {}",
+                    places.join(", ")
+                )
+            }
+        }
+    }
+}
+
 /// Expands a leading `~` or `~/` to `home`. Anything else is returned unchanged.
 #[must_use]
 pub fn expand_tilde(path: &str, home: &Path) -> PathBuf {

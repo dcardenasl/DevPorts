@@ -43,6 +43,17 @@ use crate::store::{InstanceRecord, Store, StoreError};
 
 pub use actions::ActionError;
 
+/// One instance whose health the prober must check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HealthTarget {
+    /// The instance's reference.
+    pub reference: String,
+    /// The port to check on localhost.
+    pub port: u16,
+    /// How to check it.
+    pub health: crate::manifest::Health,
+}
+
 /// What the engine wants done outside itself.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
