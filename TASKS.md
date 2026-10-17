@@ -49,6 +49,10 @@
   *Hecho cuando:* un mensaje con `Co-Authored-By` o mayúscula tras los dos puntos es rechazado; uno válido pasa.
   → `chore(hooks): add commit-msg and pre-commit hooks with installer`
 
+## H0 — Endurecimiento de los hallazgos de la Fase 0 (hecho)
+
+- [x] **H0 — Resolver los hallazgos con soluciones definitivas.** Comparación de programas por familia; política de dependencias solo macOS; reloj inyectable y guarda del panel probada; esquinas redondeadas y panel sin destello con API pública; almacén web no persistente (49 a ~41 MB); `UNUserNotificationCenter` en lugar del plugin obsoleto; política de procesos corregida. Evidencia en `ARCHIVES.md`. Lo que **no** se puede cerrar sin una persona (anclaje bajo el ícono, aceptar el permiso y pulsar el botón) quedó como comprobación manual en `docs/verificacion-fase0.md`.
+
 ## Semana 0 — Línea base (HUMANO, en paralelo desde hoy)
 
 - [ ] **S0 — Medir la línea base.** David ejecuta `./tools/baseline.sh start` (script **no probado en macOS**: primero `./tools/baseline.sh once` y revisar `~/.devports-baseline/samples.tsv`; bash 3.2). Trabajar normal ≥5 días laborales; `report` → `docs/linea-base-AAAA-MM-DD.txt`.
@@ -168,7 +172,7 @@
   *Hecho cuando:* David confirma cada punto; los PNG existentes cubren los estados diseñados.
   → `docs(ui): record adr-026 ui decisions and design tokens`
 
-- [ ] **T2.1 — Shell Tauri que aloja el núcleo + tooling de `ui/`.** *Deps:* T2.0. RF-14.
+- [ ] **T2.1 — Shell Tauri que aloja el núcleo + tooling de `ui/`.** Eliminar el código de spike (`spike-autopilot`, `spike-notify`, `autopilot.rs`, `notify_spike.rs`, `attention.rs` de juguete y el `frontend/` estático); conservar y reutilizar `panel.rs` (guarda, alfa 0 hasta `panel_ready`, almacén no persistente), `window_style.rs`, `diagnostics.rs` y `clock`. *Deps:* T2.0. RF-14.
   `crates/devports-app` arranca el núcleo y el socket; `ui/` con Vite+React 19+TS estricto (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, cero `any`), ESLint, Prettier, Vitest + Testing Library; bindings generados con `tauri-specta` (`ui/src/bindings.ts` no se edita; CI verifica deriva); texto UI centralizado; el núcleo empuja instantáneas por eventos Tauri, React sin lógica de negocio. Ícono con contador.
   → `feat(app): host core in tauri shell with tray counter` · `feat(ui): scaffold react panel with generated bindings`
 
@@ -180,7 +184,7 @@
   Detener Principal (confirmación; `data`/compartido muestra dependientes), Extender, Terminar, Conservar, Marcar como legítimo, Adoptar y **escribir manifiesto preservando comentarios** (I-15), Copiar comando, Abrir URL, Detener los N. Estas operaciones existen **solo** en comandos Tauri, nunca en el socket (ADR-009; test que lo verifica).
   → `feat(app): add stop, extend, adopt and legitimize commands`
 
-- [ ] **T2.4 — Notificaciones.** *Deps:* T2.3, T0.6. Vencimiento T-60 s y duplicado agrupado (ventana 10 min por proyecto), solo esos dos casos (ADR-014); según V6, con botón o abriendo el panel enfocado. → `feat(app): add grouped system notifications`
+- [ ] **T2.4 — Notificaciones.** Quitar la puerta `spike-notify` de `notifications.rs` (ya implementa `UNUserNotificationCenter`), añadir la deduplicación de 10 min por proyecto con el `Clock` inyectado y probarla con `ManualClock`. Mantener `NoBundle` como degradación explícita. *Deps:* T2.3, T0.6. Vencimiento T-60 s y duplicado agrupado (ventana 10 min por proyecto), solo esos dos casos (ADR-014); según V6, con botón o abriendo el panel enfocado. → `feat(app): add grouped system notifications`
 
 - [ ] **T2.5 — Vista de Actividad.** *Deps:* T2.2. RF-15; filtros Todo/Rechazos/Temporales(+Alertas si T2.0 lo confirma). → `feat(ui): add activity view with filters`
 
@@ -188,7 +192,7 @@
 
 - [ ] **T2.7 — Medición del presupuesto y palancas.** *Deps:* T2.1–T2.6. NF-01; M-14 (1 h en reposo). Ajustar intervalo/profundidad si no cumple; si el panel anclado es deficiente, decisión sobre SwiftUI **antes** de seguir. → `perf: tune observation within idle budget`
 
-- [ ] **T2.8 — Release v0.1.0 (opcional, tras G2).** `release.yml` con bundle macOS sellado ad hoc (copiar de GitCanvas), `/release`. PR `dev → main` lo aprueba David.
+- [ ] **T2.8 — Release v0.1.0 (opcional, tras G2).** **Sellar** el paquete con firma ad hoc (`codesign --force --deep --sign -`) y verificarlo (`codesign --verify --deep --strict`) antes de publicar: sin eso las notificaciones no funcionan (ADR-025). `release.yml` con bundle macOS sellado ad hoc (copiar de GitCanvas), `/release`. PR `dev → main` lo aprueba David.
 
 - [ ] **G2 — PUERTA FASE 2 (HUMANA).** UI y M-13..M-15 en verde + presupuesto cumplido + 5 días de uso diario sin cuelgues.
 

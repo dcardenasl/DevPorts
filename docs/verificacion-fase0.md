@@ -1,6 +1,6 @@
 # DevPorts: informe de verificación de la Fase 0
 
-> Fecha: 2026-10-17. Máquina: Mac con Apple Silicon, macOS 26.3, Rust 1.98.1, Docker Desktop.
+> Fecha: 2026-10-17 (actualizado tras el endurecimiento de los hallazgos, tarea H0). Máquina: Mac con Apple Silicon, macOS 26.3, Rust 1.98.1, Docker Desktop.
 > Cubre las tareas T0.2 a T0.8. Evidencia detallada (comandos, cifras, commits) en `ARCHIVES.md`.
 > Lo que este informe **no** puede cerrar solo (S0, comprobaciones manuales y la puerta G0) está en la sección 3 y requiere a David.
 
@@ -14,16 +14,16 @@ Leyenda: **Favorable** = cumple y está probado con procesos, contenedores o lau
 | V2 | `cwd` y `argv` disponibles para `node`, `php`, `python` | **Favorable** | `php -S`, `node -e` y `python3 -m http.server` mostraron puerto, pid, carpeta y comando correctos. Dos hallazgos: `libproc::pidcwd` **no está implementado en macOS** y `libproc` no lee `argv`, así que ambos salen de `sysinfo`; y el Python de Homebrew se relanza como `Python`, así que un `match` no debe apoyarse en `argv[0]` | `sysinfo` para `argv` y `cwd` (ADR-025). Regla escrita en MANIFIESTO §3 |
 | V3 | Costo de CPU del escaneo completo cada 1,5 s | **Favorable** | Con 24 procesos escuchando, un escaneo cuesta unos 4 a 5 ms de CPU y 7 MB (build release, 40 ejecuciones). El presupuesto es 15 ms por ciclo (1 %) | Intervalo de 1,5 s se mantiene. Se vuelve a medir con el núcleo residente en T2.7 |
 | V4 | `docker context inspect` y eventos en el runtime de David | **Favorable** | El contexto se resuelve leyendo el almacén de contextos, igual que la CLI (probado con `default` y `desktop-linux`); `bollard` lista y recibe `start`, `stop`/`die` y `destroy` en menos de 3 s contra el demonio real (`tests/docker_engine.rs`, `--ignored`) | Se lee el almacén de contextos en vez de ejecutar `docker context inspect`: el núcleo no crea procesos (ADR-025). Los eventos se piden con `since` y se tratan como pistas |
-| V5 | Tauri: contador junto al ícono, panel anclado, política accessory, destrucción del webview | **Parcial** | Ícono de plantilla visible en la barra; sin ícono en el Dock; panel de 380 x 520 con IPC funcionando; el webview se destruye al cerrar. La CLI de Tauri funciona sin `src-tauri/`. **No verificado:** anclaje bajo el ícono tras un clic real, cierre por pérdida real de foco y la guarda contra reapertura. Esquinas rectas (las de 14 px exigen ventana transparente) | Tauri sirve como envoltura. Comprobación manual en la sección 3. Esquinas: decisión en T2.0 |
-| V6 | Botones de acción en notificaciones de macOS | **Parcial** | `tauri-plugin-notification` 2.7 admite acciones en escritorio (`on_action`). macOS pidió el permiso de notificaciones y no entregó nada hasta aceptarlo, así que el botón y su clic **no se verificaron**. El backend usa NSUserNotification, obsoleta desde macOS 11 | Diseño provisional: botón «Extender 30 min» si funciona; si no, la notificación abre el panel enfocado (ARQUITECTURA §12). Plan B: `UNUserNotificationCenter` desde `platform::macos` |
+| V5 | Tauri: contador junto al ícono, panel anclado, política accessory, destrucción del webview | **Favorable; falta mirar el anclaje** | Ícono de plantilla visible; sin ícono en el Dock; panel de 380 x 520 con IPC; el webview se destruye al cerrar. La CLI de Tauri funciona sin `src-tauri/`. Endurecido: esquinas de 14 px con API pública de AppKit (comprobado en captura); el panel se pone en pantalla transparente, se pinta y solo entonces se hace opaco, así que **no hay destello gris** (ráfaga de capturas: del fondo directo al panel pintado); la guarda contra reapertura usa un reloj inyectable y tiene 5 pruebas. **No verificable sin un clic humano:** el anclaje bajo el ícono tras un clic (lo calcula el plugin de posicionamiento) y el cierre por pérdida real de foco | Tauri sirve como envoltura. Comprobación manual de la sección 3.3 |
+| V6 | Botones de acción en notificaciones de macOS | **Resuelto en diseño; falta pulsar el botón** | El plugin de Tauri usa `NSUserNotification` (obsoleta): descartado. Se implementó `UNUserNotificationCenter` directo (`notifications.rs`): categoría con la acción «Extender 30 min», delegado que recibe el clic y mapeo de respuestas probado. Con el paquete sellado, macOS muestra su aviso de permiso («Notificaciones de DevPorts», con el ícono de la app) y la notificación llega al sistema. Sin sellar, el sistema la rechaza sin preguntar (`granted: false`, error 1): hallazgo que obliga a sellar el paquete en la entrega. **Falta** aceptar el permiso y pulsar el botón | `UNUserNotificationCenter`. Comprobación manual con `tools/spike-notify.sh` (sección 3.3) |
 | V7 | launchd `KeepAlive` con la app; «Salir» no reinicia | **Favorable** | Con un trabajo de launchd real: arranca con `RunAtLoad`; tras `SIGKILL` se reinicia en unos 4 s (`ThrottleInterval` 5); tras `exit(0)` no se reinicia; `bootout` la detiene (`tools/spike-launchd.sh`) | Agente propio con `KeepAlive{SuccessfulExit:false}` y `ThrottleInterval` 5 (T2.6). El plugin de autoarranque de Tauri **no sirve**: no escribe `KeepAlive`. A evaluar: `SMAppService` |
 | V8 | Latencia de `open -g` para el autoarranque del CLI | **Favorable** | 42 a 129 ms en volver, proceso visible a los 59 a 162 ms; funciona por ruta, por nombre y por identificador | El CLI usa `open -g -b com.davidcardenas.devports`. El plazo de 2 s del falla abierto sobra |
 | V9 | `exec` conserva el PID y la ascendencia usada para el vínculo fuerte | **Favorable** | `exec` conserva el pid; un servidor que bifurca es descendiente del lanzador; uno desprendido queda con `ppid = 1` y pierde la ascendencia; un servidor desde una shell no interactiva hereda el grupo de procesos del lanzador (`tests/macos_exec_ancestry.rs`) | El vínculo fuerte y el medio quedan como están. Confirmada la regla de no señalar grupos |
-| V10 | Memoria y CPU en reposo contra el presupuesto | **Favorable, sin margen** | Memoria física (`footprint`): 21,0 MB con el panel sin abrir; 66,7 MB con el panel abierto; **49,1 MB** con el panel cerrado tras usarlo (app 32,0 + 2 procesos compartidos de WebKit 17,1 que no se liberan). CPU: 0,00 a 0,05 % en reposo. RSS (78 a 100 MB) engaña y no se usa | El presupuesto se cumple por 0,9 MB y **sin el núcleo dentro**. Se mide la memoria física, no el RSS (ver sección 2). La decisión sobre SwiftUI queda para T2.7/G2 |
+| V10 | Memoria y CPU en reposo contra el presupuesto | **Favorable, con poco margen** | Memoria física (`footprint`): 21,0 MB con el panel sin abrir. Tras usar el panel: 49,1 MB con el almacén web persistente (app 32,0 + 2 procesos compartidos de WebKit 17,1) y **40,7 a 43,0 MB con el almacén no persistente** (app 31 a 33 + 1 proceso de WebKit 9,5), que es lo que usa el panel ahora. Con el panel abierto, 67 a 70 MB. CPU: 0,00 a 0,08 % en reposo. RSS (78 a 109 MB) engaña y no se usa | Margen de 7 a 9 MB, **todavía sin el núcleo dentro**. Regla fijada: si en T2.7 el total con el núcleo supera 50 MB, la palanca siguiente es un panel nativo sin WebKit (ADR-017), no recortar funciones |
 | V11 | Velocidad del descubrimiento bajo `~/developer` con 3 niveles | **Favorable** | 2 ms en caliente y 62 ms en frío sobre `~/Developer` real (aún sin manifiestos) | Valores por defecto se mantienen (raíz `~/developer`, profundidad 3) |
 | V12 | Runtime de Docker y uso de compose | **Resuelto** | **Docker Desktop**, contexto `default` (`/var/run/docker.sock` enlaza a `~/.docker/run/docker.sock`). Usa **compose y `docker run`**: el MySQL compartido es el servicio `mysql` del proyecto compose `docker-services` en `~/docker-services`, fuera de `~/developer`, junto a `phpmyadmin`; hay contenedores sueltos con puertos dinámicos (`suite-*`, `ci4-preflight-mysql-*`) | El MySQL se declara en `shared.yml` con `docker: mysql`; los sueltos aparecen «sin proyecto». Cierra el punto abierto 2 de DECISIONES |
 
-Resumen: 9 favorables o resueltas, 2 parciales (V5 y V6, pendientes de una comprobación humana) y 1 favorable sin margen (V10).
+Resumen: 10 favorables o resueltas, V5 y V6 con una sola comprobación humana pendiente cada una, y V10 favorable con 7 a 9 MB de margen antes de sumar el núcleo.
 
 ## 2. Ajustes a valores **[P]** de la especificación
 
@@ -34,7 +34,10 @@ Registrados en ADR-025 (`DECISIONES.md`), con el cambio ya aplicado en los docum
 3. **Contexto de Docker (ARQUITECTURA §4).** Se lee el almacén de contextos; no se ejecuta `docker context inspect`.
 4. **Falla abierto del CLI (CLI §3).** `open -g -b <identificador>` en lugar de `open -g -a "<nombre>"`.
 5. **Supervisión (ARQUITECTURA §11).** Agente propio; el plugin de autoarranque queda descartado.
-6. **`unsafe` (ADR-025).** `unsafe_code` pasó de `forbid` a `deny` con una sola excepción vigilada por un test; el núcleo no crea procesos.
+6. **`unsafe` (ADR-025).** `unsafe_code` pasó de `forbid` a `deny` con tres archivos exceptuados y vigilados por un test (adaptador de procesos, estilo de ventana y notificaciones); el núcleo no crea procesos.
+7. **Comparación de programas (MANIFIESTO §3).** El programa se compara por su familia (minúsculas y sin versión final), de modo que `match: python3 -m http.server N` reconoce lo que el kernel informa para el Python de Homebrew.
+8. **Notificaciones (ARQUITECTURA §12).** `UNUserNotificationCenter` directo en lugar del plugin; exige paquete sellado.
+9. **Política de dependencias.** `cargo deny` evalúa solo el grafo de macOS y reemplaza a `cargo audit` en CI.
 
 ## 3. Lo que falta para cerrar la Fase 0 (acciones de David)
 
@@ -62,15 +65,15 @@ Usarla durante una semana de trabajo. El criterio de la puerta es: duplicados si
 
 | # | Comprobación | Resultado esperado | Anotar |
 |---|---|---|---|
-| 1 | `cargo run -p devports-app` y clic izquierdo en el ícono | El panel aparece **bajo el ícono** | ¿Bien anclado? ¿Parpadea? |
+| 1 | `cargo run -p devports-app` y clic izquierdo en el ícono | El panel aparece **bajo el ícono**, con esquinas redondeadas y sin destello | ¿Bien anclado? |
 | 2 | Con el panel abierto, clic fuera de él | Se cierra | |
 | 3 | Con el panel abierto, clic en el ícono | Se cierra y **no** se reabre | |
 | 4 | Clic derecho en el ícono | Menú «Abrir panel» y «Salir» | |
 | 5 | «Salir» | El proceso termina | |
-| 6 | `cargo run -p devports-app --features spike-notify`; aceptar el permiso de notificaciones que pide macOS | Notificación «api vence en 1 minuto» con botón «Extender 30 min» | ¿Botón directo o en «Opciones»? Pulsarlo escribe `notify: user performed extend` en la terminal; pulsar el cuerpo escribe `tap` |
-| 7 | Abrir `target/debug/bundle/macos/DevPorts.app` (tras `npx @tauri-apps/cli@2 build --debug --bundles app` en `crates/devports-app`) | Sin ícono en el Dock ni rebote | |
+| 6 | `tools/spike-notify.sh` (construye el paquete, lo sella y lo ejecuta); pasar el puntero por el aviso «Notificaciones de DevPorts» y pulsar **Permitir** | Notificación «api vence en 1 minuto» con botón «Extender 30 min» | ¿Botón directo o dentro de «Opciones»? Pulsarlo escribe `notify: user performed Extend`; repetir y pulsar el cuerpo escribe `... Opened` |
+| 7 | Abrir `target/debug/bundle/macos/DevPorts.app` (lo deja construido y sellado `tools/spike-notify.sh`) | Sin ícono en el Dock ni rebote | |
 
-La comprobación 6 deja una entrada «devports-app» en Configuración del Sistema > Notificaciones; se puede eliminar después.
+La comprobación 6 deja entradas «DevPorts» y, de una prueba anterior, «devports-app» en Configuración del Sistema > Notificaciones; se pueden eliminar después.
 
 ### 3.4 Puerta G0 (decisión humana, ADR-022)
 | Criterio | Estado |

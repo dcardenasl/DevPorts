@@ -218,7 +218,7 @@ Retención de eventos: `events_retention_days` (30) **[P]**.
   - *Sin proyecto:* procesos y contenedores fuera de todo proyecto, con "Adoptar".
   - *Actividad:* registro de hoy (ADR-014).
 - **Datos:** el núcleo empuja instantáneas a la interfaz por eventos de Tauri; React no contiene lógica de negocio.
-- **Notificaciones:** `tauri-plugin-notification`. Solo los dos casos de ADR-014. **A verificar:** si macOS permite botones de acción ("Extender 30 min") desde el plugin; si no, la notificación abre el panel enfocado en ese elemento.
+- **Notificaciones:** `UNUserNotificationCenter` directamente (módulo `notifications` de la app), con una categoría de acciones que da el botón "Extender 30 min"; el plugin de Tauri se descartó porque envuelve `NSUserNotification`, obsoleta desde macOS 11. Solo los dos casos de ADR-014. Requiere un paquete `.app` **sellado** (firma ad hoc que ate el `Info.plist`) y el permiso del usuario la primera vez. Un clic en el cuerpo abre el panel enfocado en ese elemento; el botón extiende sin abrir nada.
 - **Detener una Principal** (acción de la persona): confirmación de un clic; si es `kind: data` o compartida, se muestra la advertencia con los proyectos afectados.
 
 ## 13. Seguridad
@@ -232,7 +232,7 @@ Retención de eventos: `events_retention_days` (30) **[P]**.
 
 ## 14. Rendimiento **[P]**
 
-Presupuesto de la Fase 0 **[C]** el criterio, **[P]** los números: menos de 50 MB en reposo y menos de 1 % de CPU (panel cerrado). **Definición (T0.9):** la memoria es la **memoria física (`footprint`) de la app más sus procesos auxiliares de WebKit** con el panel cerrado, que es la cifra del Monitor de Actividad; el RSS cuenta frameworks compartidos y no se usa. Medido en T0.5 con el spike: 21 MB sin abrir nunca el panel y 49,1 MB tras abrirlo y cerrarlo, sin el núcleo dentro; ver `docs/verificacion-fase0.md`. Contribuyentes a medir: escaneo cada 1,5 s, SQLite, stream de Docker, observador de archivos de las raíces. Palancas si no se cumple: subir el intervalo a 2 s, escanear solo procesos con `uid` propio y excluir los de sistema por nombre, limitar la profundidad del observador. Si aun así no se cumple, o el panel anclado resulta deficiente, evaluar Swift solo para la envoltura (el núcleo y el socket no cambian) **[C]**.
+Presupuesto de la Fase 0 **[C]** el criterio, **[P]** los números: menos de 50 MB en reposo y menos de 1 % de CPU (panel cerrado). **Definición (T0.9):** la memoria es la **memoria física (`footprint`) de la app más sus procesos auxiliares de WebKit** con el panel cerrado, que es la cifra del Monitor de Actividad; el RSS cuenta frameworks compartidos y no se usa. Medido con el spike y sin el núcleo dentro: 21 MB sin abrir nunca el panel y, tras abrirlo y cerrarlo, 49,1 MB con el almacén web persistente y **40,7 a 43 MB con el almacén no persistente** que usa el panel; ver `docs/verificacion-fase0.md`. Contribuyentes a medir: escaneo cada 1,5 s, SQLite, stream de Docker, observador de archivos de las raíces. Palancas si no se cumple: subir el intervalo a 2 s, escanear solo procesos con `uid` propio y excluir los de sistema por nombre, limitar la profundidad del observador. Si aun así no se cumple, o el panel anclado resulta deficiente, evaluar Swift solo para la envoltura (el núcleo y el socket no cambian) **[C]**.
 
 ## 15. Puntos a verificar en la Mac de David (Fase 0)
 
