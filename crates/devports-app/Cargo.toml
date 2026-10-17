@@ -13,14 +13,14 @@ publish.workspace = true
 spike-autopilot = []
 # Shows one notification with an action button after a delay and reports what the
 # user does with it (task T0.6, V6). Spike only: never part of a release.
-spike-notify = ["dep:tauri-plugin-notification"]
+spike-notify = []
 
 [dependencies]
 devports-core.workspace = true
+thiserror = "2"
 tokio = { version = "1", features = ["time"] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
-tauri-plugin-notification = { version = "2", optional = true }
 
 [lints]
 workspace = true
@@ -32,3 +32,9 @@ tauri-build = { version = "2", features = [] }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", default-features = false, features = ["NSWindow", "NSView", "NSColor", "NSResponder", "objc2-core-foundation"] }
 objc2-quartz-core = { version = "0.3", default-features = false, features = ["CALayer", "objc2-core-foundation"] }
+# System notifications through UNUserNotificationCenter (the notification plugin
+# of Tauri wraps NSUserNotification, deprecated since macOS 11).
+block2 = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSArray", "NSSet", "NSError", "NSObject", "NSBundle", "NSDictionary"] }
+objc2-user-notifications = { version = "0.3", default-features = false, features = ["block2", "UNUserNotificationCenter", "UNNotification", "UNNotificationAction", "UNNotificationCategory", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationSettings", "UNNotificationSound", "UNNotificationTrigger", "UNError"] }
