@@ -823,6 +823,10 @@ dependencies = [
 [[package]]
 name = "devports-proto"
 version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "digest"
