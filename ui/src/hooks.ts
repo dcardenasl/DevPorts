@@ -170,12 +170,17 @@ export function useOperations(api: Backend | undefined): {
         (item) =>
           item.kind === request.kind &&
           JSON.stringify(
-            item.targets.map(({ reference, adoptTarget }) => ({ reference, adoptTarget })),
+            item.targets.map(({ reference, adoptTarget, stopExpectation }) => ({
+              reference,
+              adoptTarget: adoptTarget ?? null,
+              stopExpectation: stopExpectation ?? null,
+            })),
           ) ===
             JSON.stringify(
-              request.targets.map(({ reference, adoptTarget }) => ({
+              request.targets.map(({ reference, adoptTarget, stopExpectation }) => ({
                 reference,
                 adoptTarget: adoptTarget ?? null,
+                stopExpectation: stopExpectation ?? null,
               })),
             ),
       );

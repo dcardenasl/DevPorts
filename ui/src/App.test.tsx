@@ -64,6 +64,7 @@ function fakeBackend(
         targets: request.targets.map((target) => ({
           reference: target.reference,
           adoptTarget: target.adoptTarget ?? null,
+          stopExpectation: target.stopExpectation ?? null,
           status: "succeeded",
           error: null,
           result: request.kind === "adopt" ? { project: "x", service: "y" } : null,
@@ -134,7 +135,15 @@ describe("the panel", () => {
     const { backend, user } = await open();
     await user.click(screen.getByRole("button", { name: "Extender 30 min" }));
     await user.click(screen.getByRole("button", { name: "Detener los 2" }));
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Detener seleccionados",
+      }),
+    );
     await user.click(screen.getByRole("button", { name: "Terminar" }));
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Detener api" }),
+    );
     await waitFor(() => {
       const ops = backend.calls.operation?.map(([request]) => request as OperationRequest) ?? [];
       expect(
@@ -210,6 +219,14 @@ describe("the panel", () => {
     const dialog = screen.getByRole("alertdialog");
     expect(within(dialog).getByText("¿Detener mysql?")).toBeInTheDocument();
     expect(within(dialog).getByText("tienda-demo")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Contenedor mysql/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Puerto 3306/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Recurso compartido")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Se detendrá el contenedor de datos. DevPorts no borrará el contenedor ni sus volúmenes.",
+      ),
+    ).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
     expect(backend.calls.operation).toBeUndefined();
 
@@ -224,6 +241,38 @@ describe("the panel", () => {
           .map(({ kind, targets }) => [kind, targets[0]?.reference]),
       ).toEqual([["stop", "m9n0"]]);
     });
+  });
+
+  // covers: UXR-2.1
+  it("requires a fresh confirmation when a target changes while its dialog is open", async () => {
+    const snapshot = sampleSnapshot();
+    const { backend, user } = await open(snapshot);
+    await user.click(tab(/Compartidos/));
+    await user.click(screen.getByRole("button", { name: "Detener mysql" }));
+    const mysql = snapshot.instances.find((view) => view.ref === "m9n0");
+    if (mysql === undefined) throw new Error("mysql fixture missing");
+    snapshot.instances = snapshot.instances.map((view) =>
+      view.ref === "m9n0" ? { ...view, port: 3307 } : view,
+    );
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Detener mysql" }),
+    );
+    expect(backend.calls.operation).toBeUndefined();
+    expect(screen.getByText(/La instancia cambió desde la confirmación/)).toBeInTheDocument();
+  });
+
+  // covers: UXR-2.1
+  it("offers an unregistered server a separate confirmed stop beside adoption", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    expect(screen.getByRole("button", { name: "Adoptar" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Detener" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText(/Proceso pid 6012/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Puerto 7000/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Sin proyecto")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    expect(backend.calls.operation).toBeUndefined();
   });
 
   // covers: UI
@@ -340,7 +389,7 @@ describe("the panel", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(invoker).toHaveFocus();
-    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls.operation).toBeUndefined();
   });
 
   // covers: UI, UXR-1.1
@@ -370,7 +419,7 @@ describe("the panel", () => {
     expect(invoker).toHaveFocus();
     expect(backend.calls["adopt"]).toBeUndefined();
     expect(backend.calls["keep"]).toBeUndefined();
-    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls.operation).toBeUndefined();
   });
 
   // covers: UI, UXR-1.1
@@ -437,7 +486,7 @@ describe("the panel", () => {
     render(<App />);
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText("Nombre del proyecto")).toHaveValue("unfinished-project");
-    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls.operation).toBeUndefined();
     expect(backend.calls["adopt"]).toBeUndefined();
     await user.keyboard("{Escape}");
     await waitFor(() => {
@@ -468,7 +517,7 @@ describe("the panel", () => {
     await waitFor(() => {
       expect(backend.getPersisted().draft).toBeNull();
     });
-    expect(backend.calls["stop"]).toBeUndefined();
+    expect(backend.calls.operation).toBeUndefined();
     expect(backend.calls["adopt"]).toBeUndefined();
   });
 });

@@ -61,8 +61,8 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
             <button
               type="button"
               className="btn primary-coral"
-              onClick={() => {
-                actions.stopNow(group.duplicates);
+              onClick={(event) => {
+                actions.requestStop(group.duplicates, event.currentTarget);
               }}
             >
               {group.duplicates.length === 1
@@ -173,8 +173,8 @@ function Expiring({ view, actions }: { view: InstanceView; actions: Actions }): 
         <button
           type="button"
           className="btn"
-          onClick={() => {
-            actions.stopNow([view]);
+          onClick={(event) => {
+            actions.requestStop([view], event.currentTarget);
           }}
         >
           {text.attention.terminate}

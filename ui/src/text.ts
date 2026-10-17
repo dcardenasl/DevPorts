@@ -117,9 +117,30 @@ export const text = {
   confirm: {
     stopTitle: (name: string) => `¿Detener ${name}?`,
     stopBody: "Se le pedirá que termine y, si no lo hace, se forzará.",
+    stopGroupTitle: (count: number) => `¿Detener estas ${count} instancias?`,
+    dataStopBody:
+      "Se detendrá el contenedor de datos. DevPorts no borrará el contenedor ni sus volúmenes.",
     affects: "Perderán este servicio:",
+    identity: (view: {
+      pid: number | null;
+      container: string | null;
+      ref: string;
+      started_at: string | null;
+    }) =>
+      view.pid !== null
+        ? `Proceso pid ${view.pid}${view.started_at === null ? "" : ` · iniciado ${view.started_at}`}`
+        : `Contenedor ${view.container ?? "—"} · ref ${view.ref}`,
+    port: (port: number | null) => (port === null ? "Sin puerto" : `Puerto ${port}`),
+    origin: (view: { shared: boolean; project: string | null; service: string | null }) =>
+      view.shared
+        ? "Recurso compartido"
+        : view.project === null
+          ? "Sin proyecto"
+          : `${view.project}${view.service === null ? "" : ` · ${view.service}`}`,
+    targetChanged: "La instancia cambió desde la confirmación. Revísala y confirma de nuevo.",
     cancel: "Cancelar",
     stop: (name: string) => `Detener ${name}`,
+    stopGroup: "Detener seleccionados",
   },
   status: {
     dockerDown: "Docker no responde",

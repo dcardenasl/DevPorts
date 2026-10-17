@@ -1541,6 +1541,89 @@ fn a_person_can_stop_a_principal_and_a_process_nobody_registered() {
     assert!(world.events().contains(&"stopped".to_owned()));
 }
 
+// covers: UXR-2.1
+#[test]
+fn a_manual_stop_rejects_a_changed_or_disappeared_confirmation_target() {
+    let mut changed_world = world();
+    let now = epoch(&changed_world) - 100;
+    changed_world.scan(vec![proc(
+        77,
+        1,
+        now,
+        "/work/loose/server",
+        Some(8080),
+        &["node", "server.js"],
+    )]);
+    let original = changed_world
+        .engine
+        .views()
+        .iter()
+        .find(|view| view.pid == Some(77))
+        .cloned()
+        .expect("observed target");
+    let expectation = StopExpectation::from_view(&original);
+    let mut changed = expectation.clone();
+    changed.port = Some(9090);
+    assert_eq!(
+        changed_world
+            .engine
+            .stop_confirmed(&original.instance_ref, &changed)
+            .unwrap_err(),
+        ActionError::TargetChanged
+    );
+    let mut reused_identity = expectation.clone();
+    reused_identity.target_identity = Some("new-process-generation".to_owned());
+    assert_eq!(
+        changed_world
+            .engine
+            .stop_confirmed(&original.instance_ref, &reused_identity)
+            .unwrap_err(),
+        ActionError::TargetChanged
+    );
+    assert!(
+        changed_world
+            .engine
+            .stop_confirmed(&original.instance_ref, &expectation)
+            .is_ok()
+    );
+
+    let mut gone_world = world();
+    gone_world.scan(vec![proc(
+        78,
+        1,
+        now,
+        "/work/loose/vanished",
+        Some(8081),
+        &["node", "server.js"],
+    )]);
+    let vanished = gone_world
+        .engine
+        .views()
+        .iter()
+        .find(|view| view.pid == Some(78))
+        .cloned()
+        .expect("observed target");
+    let expectation = StopExpectation::from_view(&vanished);
+    let mut replacement = proc(
+        78,
+        1,
+        now,
+        "/work/loose/vanished",
+        Some(8081),
+        &["node", "server.js"],
+    );
+    replacement.info.id.start =
+        crate::process::ProcessStart(u64::try_from(now).unwrap() * 1_000_000 + 1);
+    gone_world.scan(vec![replacement]);
+    assert_eq!(
+        gone_world
+            .engine
+            .stop_confirmed(&vanished.instance_ref, &expectation)
+            .unwrap_err(),
+        ActionError::UnknownInstance(vanished.instance_ref)
+    );
+}
+
 #[test]
 fn a_person_can_extend_a_running_temporal_from_the_application() {
     let (mut world, reference, _, _) = bound_temporal();

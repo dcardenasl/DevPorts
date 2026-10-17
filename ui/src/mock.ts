@@ -60,6 +60,7 @@ export function mockBackend(): Backend {
         targets: request.targets.map((t) => ({
           reference: t.reference,
           adoptTarget: t.adoptTarget ?? null,
+          stopExpectation: t.stopExpectation ?? null,
           status: "running",
           error: null,
           result: null,

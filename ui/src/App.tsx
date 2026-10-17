@@ -14,7 +14,7 @@ import {
 } from "./icons";
 import { buildOrphans, dependentsOf } from "./model";
 import { text } from "./text";
-import type { AdoptDraft, InstanceView, PanelState, PanelTab } from "./types";
+import type { AdoptDraft, InstanceView, PanelState, PanelTab, StopExpectation } from "./types";
 import { ActivityView, activitySubtitle } from "./views/ActivityView";
 import { AttentionView, attentionSubtitle } from "./views/AttentionView";
 import { OrphansView, orphansSubtitle } from "./views/OrphansView";
@@ -22,7 +22,7 @@ import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
 import { SharedView, sharedSubtitle } from "./views/SharedView";
 
 type Tab = "attention" | "projects" | "shared" | "orphans" | "activity";
-type DialogRequest = { kind: "stop"; view: InstanceView; invoker: HTMLButtonElement | null };
+type DialogRequest = { kind: "stop"; views: InstanceView[]; invoker: HTMLButtonElement | null };
 
 const TABS: { id: Tab; icon: (props: { size?: number }) => ReactElement }[] = [
   { id: "attention", icon: BellIcon },
@@ -57,7 +57,7 @@ export function App(): ReactElement {
   const { start: startOperation, retry: retryOperation, operations } = operationState;
   const runOperation = useCallback(
     (
-      kind: "stop" | "extend" | "keep" | "adopt",
+      kind: "extend" | "keep" | "adopt",
       reference: string,
       adoptTarget?: import("./types").AdoptTarget,
     ): void => {
@@ -72,10 +72,13 @@ export function App(): ReactElement {
     [startOperation, showToast],
   );
   const stopBatch = useCallback(
-    (references: string[]): void => {
+    (views: InstanceView[]): void => {
       void startOperation({
         kind: "stop",
-        targets: references.map((reference) => ({ reference })),
+        targets: views.map((view) => ({
+          reference: view.ref,
+          stopExpectation: stopExpectation(view),
+        })),
       }).catch((failure: unknown) => {
         setFailed(true);
         showToast(failure instanceof Error ? failure.message : String(failure));
@@ -131,11 +134,8 @@ export function App(): ReactElement {
     return {
       snapshot,
       now,
-      requestStop: (view, invoker) => {
-        setDialog({ kind: "stop", view, invoker });
-      },
-      stopNow: (views) => {
-        stopBatch(views.map((view) => view.ref));
+      requestStop: (views, invoker) => {
+        setDialog({ kind: "stop", views, invoker });
       },
       extend: (view) => {
         runOperation("extend", view.ref);
@@ -168,7 +168,7 @@ export function App(): ReactElement {
         runOperation("adopt", view.ref, "shared");
       },
     };
-  }, [api, snapshot, now, attempt, runOperation, stopBatch, selectTab, updatePanelState]);
+  }, [api, snapshot, now, attempt, runOperation, selectTab, updatePanelState]);
 
   if (error !== undefined) {
     return (
@@ -333,15 +333,34 @@ export function App(): ReactElement {
         <>
           {confirmed !== undefined && (
             <ConfirmStop
-              view={confirmed.view}
+              views={confirmed.views}
               returnFocusTo={confirmed.invoker}
-              affected={dependentsOf(confirmed.view, snapshot)}
+              affected={[
+                ...new Set(confirmed.views.flatMap((view) => dependentsOf(view, snapshot))),
+              ]}
               onCancel={() => {
                 setDialog(undefined);
               }}
               onConfirm={() => {
                 setDialog(undefined);
-                runOperation("stop", confirmed.view.ref);
+                const current = confirmed.views.map((view) =>
+                  snapshot.instances.find((candidate) => candidate.ref === view.ref),
+                );
+                if (
+                  current.some((view, index) => {
+                    const requested = confirmed.views[index];
+                    return (
+                      view === undefined ||
+                      requested === undefined ||
+                      !sameStopTarget(view, requested)
+                    );
+                  })
+                ) {
+                  setFailed(true);
+                  showToast(text.confirm.targetChanged);
+                  return;
+                }
+                stopBatch(confirmed.views);
               }}
             />
           )}
@@ -415,4 +434,23 @@ function Shell({
 
 async function copyText(value: string): Promise<void> {
   await navigator.clipboard.writeText(value);
+}
+
+function stopExpectation(view: InstanceView): StopExpectation {
+  return {
+    targetIdentity: view.target_identity,
+    pid: view.pid,
+    container: view.container,
+    port: view.port,
+    project: view.project,
+    service: view.service,
+    kind: view.kind,
+    role: view.role,
+    shared: view.shared,
+    startedAt: view.started_at,
+  };
+}
+
+function sameStopTarget(current: InstanceView, confirmed: InstanceView): boolean {
+  return JSON.stringify(stopExpectation(current)) === JSON.stringify(stopExpectation(confirmed));
 }

@@ -81,6 +81,8 @@ export type InstanceView = {
 	url: string | null,
 	/**  Process id, for a host process. */
 	pid: number | null,
+	/**  Opaque full identity of the exact process or container target, for safe confirmation. */
+	target_identity: string | null,
 	/**  Container name, for a container. */
 	container: string | null,
 	/**  Git branch of its working directory when it started. */

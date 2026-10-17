@@ -40,7 +40,7 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                   label={`${text.projects.stop} ${node.name}`}
                   danger
                   onClick={(event) => {
-                    actions.requestStop(view, event.currentTarget);
+                    actions.requestStop([view], event.currentTarget);
                   }}
                 >
                   <StopIcon size={14} />
@@ -90,6 +90,15 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                 {view.compose === null ? "" : ` · ${view.compose}`}
               </div>
               <div className="row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={(event) => {
+                    actions.requestStop([view], event.currentTarget);
+                  }}
+                >
+                  {text.projects.stop}
+                </button>
                 <button
                   type="button"
                   className="btn primary-green"

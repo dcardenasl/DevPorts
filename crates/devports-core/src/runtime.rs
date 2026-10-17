@@ -35,8 +35,8 @@ use crate::discovery::{self, DiscoveryIssue};
 use crate::docker::engine::EngineContainerSource;
 use crate::docker::{Container, ContainerEventKind, ContainerSource};
 use crate::engine::{
-    ActionError, Effect, Engine, EngineError, HealthTarget, Notice, Parts, StopReason, Target,
-    Terminated, TerminationRequest,
+    ActionError, Effect, Engine, EngineError, HealthTarget, Notice, Parts, StopExpectation,
+    StopReason, Target, Terminated, TerminationRequest,
 };
 use crate::ipc::{IpcError, IpcServer, Limits, PeerInfo, RequestHandler};
 use crate::ports::{PortProbe, SystemPorts};
@@ -213,7 +213,11 @@ pub enum AdoptTarget {
 /// A message to the actor.
 enum Msg {
     Request(Request, oneshot::Sender<Response>),
-    Stop(String, oneshot::Sender<Result<(), ActionError>>),
+    Stop(
+        String,
+        StopExpectation,
+        oneshot::Sender<Result<(), ActionError>>,
+    ),
     Extend(String, oneshot::Sender<Result<(), ActionError>>),
     Host(Vec<ListeningProcess>),
     Containers(Result<Vec<Container>, String>),
@@ -289,9 +293,13 @@ impl CoreHandle {
     /// # Errors
     ///
     /// [`ActionError`] when it does not exist or has nothing to stop.
-    pub async fn stop(&self, reference: &str) -> Result<(), ActionError> {
+    pub async fn stop(
+        &self,
+        reference: &str,
+        expected: StopExpectation,
+    ) -> Result<(), ActionError> {
         let (reply, answer) = oneshot::channel();
-        self.send_action(Msg::Stop(reference.to_owned(), reply))
+        self.send_action(Msg::Stop(reference.to_owned(), expected, reply))
             .await?;
         answer.await.unwrap_or_else(|_| Err(gone()))
     }
@@ -678,16 +686,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 let _ = reply.send(response);
                 effects
             }
-            Msg::Stop(reference, reply) => match self.engine.stop_instance(&reference) {
-                Ok(effects) => {
-                    let _ = reply.send(Ok(()));
-                    effects
-                }
-                Err(error) => {
-                    let _ = reply.send(Err(error));
-                    Vec::new()
-                }
-            },
+            Msg::Stop(reference, expected, reply) => self.handle_stop(&reference, &expected, reply),
             Msg::Extend(reference, reply) => {
                 let _ = reply.send(self.engine.extend_instance(&reference));
                 Vec::new()
@@ -768,6 +767,24 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             }
             Msg::HealthTargets(reply) => {
                 let _ = reply.send(self.engine.health_targets());
+                Vec::new()
+            }
+        }
+    }
+
+    fn handle_stop(
+        &mut self,
+        reference: &str,
+        expected: &StopExpectation,
+        reply: oneshot::Sender<Result<(), ActionError>>,
+    ) -> Vec<Effect> {
+        match self.engine.stop_confirmed(reference, expected) {
+            Ok(effects) => {
+                let _ = reply.send(Ok(()));
+                effects
+            }
+            Err(error) => {
+                let _ = reply.send(Err(error));
                 Vec::new()
             }
         }

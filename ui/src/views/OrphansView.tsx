@@ -84,6 +84,15 @@ function OrphanCard({ view, actions }: { view: InstanceView; actions: Actions })
         <span className="grow" />
         <button
           type="button"
+          className="btn"
+          onClick={(event) => {
+            actions.requestStop([view], event.currentTarget);
+          }}
+        >
+          {text.projects.stop}
+        </button>
+        <button
+          type="button"
           className={view.project !== null ? "btn primary-green" : "btn"}
           onClick={(event) => {
             actions.adopt(view, event.currentTarget);

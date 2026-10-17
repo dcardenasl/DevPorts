@@ -31,6 +31,7 @@ mod views;
 use std::collections::{BTreeMap, BTreeSet};
 
 use devports_proto::views::{ChainLink, InstanceView};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::catalog::Catalog;
@@ -42,6 +43,55 @@ use crate::process::{ListeningProcess, ProcessId, ProcessSource};
 use crate::store::{InstanceRecord, Store, StoreError};
 
 pub use actions::ActionError;
+
+/// UI facts captured when a person confirmed stopping one exact instance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopExpectation {
+    /// Full fingerprint of the target process start or container ID.
+    pub target_identity: Option<String>,
+    /// Process id, when this is a host process.
+    pub pid: Option<u32>,
+    /// Container name, when this is a container.
+    pub container: Option<String>,
+    /// Listening port at confirmation time.
+    pub port: Option<u16>,
+    /// Owning project at confirmation time.
+    pub project: Option<String>,
+    /// Service at confirmation time.
+    pub service: Option<String>,
+    /// App or data kind at confirmation time.
+    pub kind: String,
+    /// Instance role at confirmation time.
+    pub role: devports_proto::views::InstanceRole,
+    /// Whether it is a shared service.
+    pub shared: bool,
+    /// Start time displayed at confirmation time.
+    pub started_at: Option<String>,
+}
+
+impl StopExpectation {
+    /// Captures only the facts needed to revalidate a destructive action.
+    #[must_use]
+    pub fn from_view(view: &InstanceView) -> Self {
+        Self {
+            target_identity: view.target_identity.clone(),
+            pid: view.pid,
+            container: view.container.clone(),
+            port: view.port,
+            project: view.project.clone(),
+            service: view.service.clone(),
+            kind: view.kind.clone(),
+            role: view.role,
+            shared: view.shared,
+            started_at: view.started_at.clone(),
+        }
+    }
+
+    fn matches(&self, view: &InstanceView) -> bool {
+        self == &Self::from_view(view)
+    }
+}
 
 /// How long repository facts (branch, last change) are trusted.
 const GIT_TTL_SECONDS: i64 = 10;
@@ -100,6 +150,19 @@ pub enum Target {
     Process(ProcessId),
     /// A container, stopped with `docker stop`; never removed.
     Container(String),
+}
+
+impl Target {
+    /// Full, opaque fingerprint captured by a stop confirmation. Unlike the
+    /// short display reference it remains collision-resistant for revalidation.
+    #[must_use]
+    pub fn identity(&self) -> String {
+        let material = match self {
+            Self::Process(id) => format!("process:{}:{}", id.pid, id.start.0),
+            Self::Container(id) => format!("container:{id}"),
+        };
+        crate::hash::sha256_hex(material.as_bytes())
+    }
 }
 
 /// Why something is being stopped.

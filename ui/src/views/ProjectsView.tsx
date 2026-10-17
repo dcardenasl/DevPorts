@@ -193,8 +193,8 @@ function ServiceRows({
               type="button"
               className="btn"
               style={{ height: 26, padding: "0 10px" }}
-              onClick={() => {
-                actions.stopNow([view]);
+              onClick={(event) => {
+                actions.requestStop([view], event.currentTarget);
               }}
             >
               {text.attention.stop}
@@ -253,7 +253,7 @@ function ServiceButtons({
           label={`${text.projects.stop} ${service.name}`}
           danger
           onClick={(event) => {
-            actions.requestStop(principal, event.currentTarget);
+            actions.requestStop([principal], event.currentTarget);
           }}
         >
           <StopIcon size={14} />
@@ -276,8 +276,8 @@ function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }
       <IconButton
         label={text.attention.terminate}
         danger
-        onClick={() => {
-          actions.stopNow([view]);
+        onClick={(event) => {
+          actions.requestStop([view], event.currentTarget);
         }}
       >
         <StopIcon size={14} />

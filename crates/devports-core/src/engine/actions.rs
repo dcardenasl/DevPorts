@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::leases::target_of;
 use super::{Effect, Engine, StopReason, Target, TerminationRequest};
 use crate::clock::Clock;
+use crate::engine::StopExpectation;
 use crate::messages;
 use crate::ports::PortProbe;
 use crate::process::ProcessSource;
@@ -27,6 +28,9 @@ pub enum ActionError {
     /// The action was refused for a stated reason.
     #[error("{0}")]
     Refused(String),
+    /// The target changed since the UI showed its stop confirmation.
+    #[error("la instancia cambió desde la confirmación; revísala de nuevo")]
+    TargetChanged,
 }
 
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
@@ -119,6 +123,33 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             target,
             reason: StopReason::PersonRequest,
         })])
+    }
+
+    /// Stops the exact instance a person confirmed, only while its visible facts
+    /// still match the current engine view.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError::TargetChanged`] if the confirmed target is stale, or the
+    /// same errors as [`Engine::stop_instance`] when it cannot be stopped.
+    pub fn stop_confirmed(
+        &mut self,
+        reference: &str,
+        expected: &StopExpectation,
+    ) -> Result<Vec<Effect>, ActionError> {
+        let view = self
+            .views
+            .iter()
+            .find(|view| view.instance_ref == reference)
+            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+        let target_identity = self.targets.get(reference).map(super::Target::identity);
+        if view.state == devports_proto::views::InstanceState::Down
+            || !expected.matches(view)
+            || expected.target_identity.as_deref() != target_identity.as_deref()
+        {
+            return Err(ActionError::TargetChanged);
+        }
+        self.stop_instance(reference)
     }
 
     /// Keeps an unregistered process or container: it stays, and stops asking for

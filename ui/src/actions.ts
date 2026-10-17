@@ -4,10 +4,8 @@ import type { InstanceView, Snapshot } from "./types";
 export interface Actions {
   snapshot: Snapshot;
   now: number;
-  /** Stops it after the person confirms (always asks first). */
-  requestStop: (view: InstanceView, invoker: HTMLButtonElement) => void;
-  /** Stops without asking: duplicates and Temporals, which the card already offers. */
-  stopNow: (views: InstanceView[]) => void;
+  /** Stops these exact instances after a single confirmation. */
+  requestStop: (views: InstanceView[], invoker: HTMLButtonElement) => void;
   extend: (view: InstanceView) => void;
   keep: (view: InstanceView) => void;
   openUrl: (url: string) => void;

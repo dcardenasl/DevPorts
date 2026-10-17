@@ -153,6 +153,7 @@ mod tests {
             port: Some(8080),
             url: Some("http://localhost:8080".to_owned()),
             pid: Some(4121),
+            target_identity: Some("process-fingerprint".to_owned()),
             container: None,
             branch: Some("feature/x".to_owned()),
             worktree: None,

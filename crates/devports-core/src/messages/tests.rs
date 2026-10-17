@@ -16,6 +16,7 @@ fn existing() -> InstanceView {
         port: Some(8080),
         url: Some("http://localhost:8080".to_owned()),
         pid: Some(4121),
+        target_identity: Some("process-fingerprint".to_owned()),
         container: None,
         branch: Some("feature/x".to_owned()),
         worktree: Some("/Users/x/tienda-api".to_owned()),

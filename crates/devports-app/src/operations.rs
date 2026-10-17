@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, PoisonError};
 
+use devports_core::engine::StopExpectation;
 use devports_core::runtime::{AdoptTarget as CoreAdoptTarget, CoreHandle};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -50,6 +51,9 @@ pub struct OperationTarget {
     /// Destination is present only for adoption.
     #[serde(default)]
     pub adopt_target: Option<AdoptTarget>,
+    /// Exact facts displayed in the manual-stop confirmation.
+    #[serde(default)]
+    pub stop_expectation: Option<StopExpectation>,
 }
 
 /// Adoption destination accepted by the operation contract.
@@ -112,6 +116,8 @@ pub struct OperationTargetView {
     pub reference: String,
     /// Requested adoption destination, if any.
     pub adopt_target: Option<AdoptTarget>,
+    /// Minimal confirmed stop identity, never process arguments or secrets.
+    pub stop_expectation: Option<StopExpectation>,
     /// Current target lifecycle.
     pub status: TargetStatus,
     /// Human-readable failure reason, retained until retry succeeds.
@@ -196,6 +202,7 @@ impl OperationStore {
             .map(|target| OperationTargetView {
                 reference: target.reference.clone(),
                 adopt_target: target.adopt_target.clone(),
+                stop_expectation: target.stop_expectation.clone(),
                 status: TargetStatus::Queued,
                 error: None,
                 result: None,
@@ -344,6 +351,13 @@ fn validate(request: &OperationRequest) -> Result<(), OperationError> {
             || target.reference.len() > 128
             || !references.insert(&target.reference)
             || (request.kind == OperationKind::Adopt) != target.adopt_target.is_some()
+            || (request.kind == OperationKind::Stop) != target.stop_expectation.is_some()
+            || (request.kind == OperationKind::Stop
+                && target
+                    .stop_expectation
+                    .as_ref()
+                    .and_then(|expectation| expectation.target_identity.as_ref())
+                    .is_none())
         {
             return Err(OperationError::InvalidRequest);
         }
@@ -418,7 +432,13 @@ async fn perform(
 ) -> Result<Option<AdoptedSummary>, String> {
     match kind {
         OperationKind::Stop => core
-            .stop(&target.reference)
+            .stop(
+                &target.reference,
+                target
+                    .stop_expectation
+                    .clone()
+                    .ok_or_else(|| "falta confirmar la identidad del objetivo".to_owned())?,
+            )
             .await
             .map(|()| None)
             .map_err(|error| error.to_string()),
@@ -466,6 +486,22 @@ pub fn emit(app: &AppHandle, operation: &OperationView) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use devports_proto::views::InstanceRole;
+
+    fn stop_expectation() -> StopExpectation {
+        StopExpectation {
+            target_identity: Some("confirmed-target".to_owned()),
+            pid: Some(42),
+            container: None,
+            port: Some(8080),
+            project: Some("demo".to_owned()),
+            service: Some("api".to_owned()),
+            kind: "app".to_owned(),
+            role: InstanceRole::Principal,
+            shared: false,
+            started_at: Some("2026-10-17T12:00:00Z".to_owned()),
+        }
+    }
 
     fn request(id: &str) -> OperationRequest {
         OperationRequest {
@@ -475,10 +511,12 @@ mod tests {
                 OperationTarget {
                     reference: "first".to_owned(),
                     adopt_target: None,
+                    stop_expectation: Some(stop_expectation()),
                 },
                 OperationTarget {
                     reference: "second".to_owned(),
                     adopt_target: None,
+                    stop_expectation: Some(stop_expectation()),
                 },
             ],
         }

@@ -44,6 +44,19 @@ export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed
 export interface OperationTargetRequest {
   reference: string;
   adoptTarget?: AdoptTarget;
+  stopExpectation?: StopExpectation;
+}
+export interface StopExpectation {
+  targetIdentity: string | null;
+  pid: number | null;
+  container: string | null;
+  port: number | null;
+  project: string | null;
+  service: string | null;
+  kind: string;
+  role: import("./bindings").InstanceRole;
+  shared: boolean;
+  startedAt: string | null;
 }
 export interface OperationRequest {
   id: string;
@@ -53,6 +66,7 @@ export interface OperationRequest {
 export interface OperationTargetResult {
   reference: string;
   adoptTarget: AdoptTarget | null;
+  stopExpectation?: StopExpectation | null;
   status: OperationTargetStatus;
   error: string | null;
   result: { project: string; service: string } | null;
