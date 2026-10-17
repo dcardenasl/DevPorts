@@ -7,18 +7,12 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
-[features]
-# Opens and closes the panel on a timer so memory can be measured without a human
-# at the mouse (tools/spike-measure.sh). Spike only: never part of a release.
-spike-autopilot = []
-# Shows one notification with an action button after a delay and reports what the
-# user does with it (task T0.6, V6). Spike only: never part of a release.
-spike-notify = []
-
 [dependencies]
 devports-core.workspace = true
 thiserror = "2"
 tokio = { version = "1", features = ["time"] }
+serde = { version = "1", features = ["derive"] }
+devports-proto.workspace = true
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
 

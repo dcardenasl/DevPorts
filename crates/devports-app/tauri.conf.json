@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "identifier": "com.davidcardenas.devports",
   "build": {
-    "frontendDist": "./frontend"
+    "frontendDist": "../../ui/dist"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'"
     }
   },
   "bundle": {

@@ -64,6 +64,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                     project: record.project.clone(),
                     service: record.service.clone(),
                     port: record.port,
+                    reason: record.reason.clone(),
                     expires_at: end,
                 }));
             }

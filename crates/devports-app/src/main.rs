@@ -1,48 +1,53 @@
 //! Menu-bar application shell.
 //!
-//! Phase 0 spike (task T0.5): a tray icon that shows an attention counter, a
-//! 380x520 panel anchored under the icon that is *created when opened and
-//! destroyed when it loses focus*, and no Dock icon. It answers V5 and V10 of
-//! `ARQUITECTURA.md` (does Tauri give a polished anchored panel, and does
-//! destroying the webview return the memory) and is replaced by the real shell
-//! in task T2.1.
+//! It hosts the core (which keeps watching whether or not a window exists),
+//! shows an icon with the attention counter, and opens a 380x520 panel anchored
+//! under the icon that is *created when opened and destroyed when it loses
+//! focus*, so a closed panel costs no webview memory (ADR-017, rule 3).
 
-mod attention;
+mod commands;
 mod diagnostics;
+mod host;
+mod notifications;
 mod panel;
 mod tray;
 #[cfg(target_os = "macos")]
 mod window_style;
-
-#[cfg(feature = "spike-autopilot")]
-mod autopilot;
-#[cfg(all(target_os = "macos", feature = "spike-notify"))]
-mod notifications;
-#[cfg(feature = "spike-notify")]
-mod notify_spike;
 
 use tauri::{ActivationPolicy, RunEvent};
 
 fn main() {
     let built = tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
-        .manage(attention::Attention::default())
         .manage(panel::PanelState::default())
         .manage(panel::Revealed::default())
         .invoke_handler(tauri::generate_handler![
-            attention::get_counter,
-            attention::bump_counter,
-            attention::reset_counter,
+            commands::get_snapshot,
+            commands::stop_instance,
+            commands::extend_instance,
+            commands::keep_instance,
+            commands::adopt_instance,
+            commands::get_log,
+            commands::open_url,
             panel::panel_ready,
         ])
         .setup(|app| {
             // Menu-bar utility: no Dock icon and no application menu.
             app.set_activation_policy(ActivationPolicy::Accessory);
+            match host::start(app.handle()) {
+                Ok(handle) => {
+                    tauri::Manager::manage(app, host::CoreState(handle));
+                }
+                // The first instance keeps the menu bar; this one has nothing to add.
+                Err(host::HostError::AlreadyRunning) => std::process::exit(0),
+                Err(error) => return Err(error.into()),
+            }
             tray::create(app.handle())?;
-            #[cfg(feature = "spike-autopilot")]
-            autopilot::start(app.handle());
-            #[cfg(feature = "spike-notify")]
-            notify_spike::start(app.handle());
+            // `DevPorts --show` opens the panel at launch: handy for a first look
+            // and for scripts that cannot click the menu-bar icon.
+            if std::env::args().any(|argument| argument == "--show") {
+                panel::open(app.handle())?;
+            }
             Ok(())
         })
         .build(tauri::generate_context!());

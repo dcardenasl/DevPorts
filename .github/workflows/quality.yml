@@ -56,10 +56,21 @@ jobs:
           cargo clippy --workspace --exclude devports-app --all-targets -- -D warnings
           cargo test --workspace --exclude devports-app
 
+      - name: Interface (macOS leg: it is embedded in the app)
+        if: matrix.os == 'macos-latest'
+        run: |
+          corepack enable
+          pnpm --dir ui install --frozen-lockfile
+          pnpm --dir ui run typecheck
+          pnpm --dir ui run lint
+          pnpm --dir ui run format:check
+          pnpm --dir ui run test
+          pnpm --dir ui run build
+
       - name: Lint and test (macOS, whole workspace)
         if: matrix.os == 'macos-latest'
         run: |
-          cargo clippy --workspace --all-targets --features devports-app/spike-autopilot,devports-app/spike-notify -- -D warnings
+          cargo clippy --workspace --all-targets -- -D warnings
           cargo test --workspace
 
   dependency-security:

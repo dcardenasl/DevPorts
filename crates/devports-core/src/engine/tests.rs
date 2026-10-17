@@ -1647,3 +1647,46 @@ fn a_kept_duplicate_stops_asking_for_attention_and_the_choice_survives_a_restart
     );
     assert!(world.engine.ignore_instance("nope").is_err());
 }
+
+#[test]
+fn programs_that_ship_with_the_system_or_an_app_are_not_listed() {
+    let mut world = world();
+    let now = epoch(&world) - 10;
+    world.scan(vec![
+        proc(
+            1,
+            1,
+            now,
+            "/",
+            Some(5000),
+            &["/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"],
+        ),
+        proc(
+            2,
+            1,
+            now,
+            "/",
+            Some(5001),
+            &["/Applications/GitKraken.app/Contents/MacOS/GitKraken"],
+        ),
+        proc(3, 1, now, "/", Some(5002), &["/usr/libexec/rapportd"]),
+        proc(
+            4,
+            1,
+            now,
+            "/tmp/scratch",
+            Some(7000),
+            &["/opt/homebrew/bin/node", "server.js"],
+        ),
+    ]);
+    let all = world.engine.ls(&LsArgs {
+        all: true,
+        ..LsArgs::default()
+    });
+    let pids: Vec<Option<u32>> = all
+        .instances
+        .iter()
+        .filter_map(|view| view.pid.map(Some))
+        .collect();
+    assert_eq!(pids, vec![Some(4)]);
+}

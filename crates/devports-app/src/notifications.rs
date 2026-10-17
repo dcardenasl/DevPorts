@@ -202,6 +202,33 @@ impl Notifier {
         );
     }
 
+    /// Posts a notification without buttons; clicking it opens the panel.
+    pub fn post_plain(
+        self,
+        id: &str,
+        title: &str,
+        body: &str,
+        done: impl Fn(Option<String>) + 'static,
+    ) {
+        let content = UNMutableNotificationContent::new();
+        content.setTitle(&NSString::from_str(title));
+        content.setBody(&NSString::from_str(body));
+        let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+            &NSString::from_str(id),
+            &content,
+            None,
+        );
+        let block = RcBlock::new(move |error: *mut NSError| {
+            // SAFETY: the system passes either null or a valid `NSError` that lives
+            // for the duration of this callback.
+            let message =
+                unsafe { error.as_ref() }.map(|error| error.localizedDescription().to_string());
+            done(message);
+        });
+        UNUserNotificationCenter::currentNotificationCenter()
+            .addNotificationRequest_withCompletionHandler(&request, Some(&block));
+    }
+
     /// Posts a notification with the "Extender 30 min" button. `id` identifies it
     /// in [`Notifier::new`]'s callback; posting the same `id` again replaces it.
     pub fn post_lease_expiring(

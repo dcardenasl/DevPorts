@@ -29,7 +29,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                     crate::diagnostics::report(&error);
                 }
             }
-            QUIT_ID => app.exit(0),
+            QUIT_ID => {
+                // Closing the core's socket cleanly before the process ends.
+                if let Some(core) = tauri::Manager::try_state::<crate::host::CoreState>(app) {
+                    core.0.shutdown();
+                }
+                app.exit(0);
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

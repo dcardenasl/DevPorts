@@ -11,7 +11,8 @@ use devports_core::clock::{Clock, SystemClock};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_positioner::{Position, WindowExt};
 
-const PANEL_LABEL: &str = "panel";
+/// Label of the panel window, which the capability file and events refer to.
+pub const PANEL_LABEL: &str = "panel";
 const PANEL_WIDTH: f64 = 380.0;
 const PANEL_HEIGHT: f64 = 520.0;
 /// How long the panel waits for the page to say it has painted before showing

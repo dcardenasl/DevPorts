@@ -123,6 +123,8 @@ pub enum Notice {
         service: Option<String>,
         /// Its port.
         port: Option<u16>,
+        /// Why the test was started.
+        reason: Option<String>,
         /// When the lease ends, seconds since the epoch.
         expires_at: i64,
     },

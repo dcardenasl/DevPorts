@@ -1,0 +1,68 @@
+{
+  "revision": 1,
+  "instances": [
+    {
+      "ref": "a1b2",
+      "project": "tienda-demo",
+      "service": "api",
+      "role": "principal",
+      "state": "healthy",
+      "kind": "app",
+      "port": 8080,
+      "url": "http://localhost:8080",
+      "pid": 4121,
+      "container": null,
+      "branch": "main",
+      "worktree": null,
+      "cwd": "/work/tienda-demo/tienda-api",
+      "started_at": "2026-10-17T12:00:00Z",
+      "expires_at": null,
+      "reason": null,
+      "registered": true,
+      "launcher_chain": [],
+      "duplicate_of": null,
+      "stale": null,
+      "shared": false,
+      "compose": null,
+      "argv": [
+        "php"
+      ],
+      "image": null,
+      "ignored": false
+    }
+  ],
+  "docker_reachable": true,
+  "docker_error": null,
+  "problems": [],
+  "projects": [
+    {
+      "name": "tienda-demo",
+      "root": "/work/tienda-demo",
+      "uses": [
+        "mysql"
+      ],
+      "repos": [
+        {
+          "name": "tienda-api",
+          "path": "/work/tienda-demo/tienda-api",
+          "branch": "main"
+        }
+      ],
+      "services": [
+        {
+          "name": "api",
+          "repo": "/work/tienda-demo/tienda-api",
+          "port": 8080,
+          "kind": "app"
+        }
+      ]
+    }
+  ],
+  "attention": [
+    {
+      "kind": "duplicate",
+      "instance_ref": "a1b2"
+    }
+  ],
+  "extend_minutes": 30
+}

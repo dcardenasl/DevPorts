@@ -33,6 +33,25 @@ struct Candidate {
     view: InstanceView,
 }
 
+/// Programs that ship with macOS or live in an application bundle are not
+/// development servers (Control Center on :5000, `rapportd`, `GitKraken`, `Adobe`
+/// helpers): listing them would bury the few processes the person cares about.
+const SYSTEM_PREFIXES: [&str; 5] = [
+    "/System/",
+    "/usr/libexec/",
+    "/usr/sbin/",
+    "/Library/",
+    "/Applications/",
+];
+
+fn is_system_process(info: &ProcessInfo) -> bool {
+    info.argv.first().is_some_and(|program| {
+        SYSTEM_PREFIXES
+            .iter()
+            .any(|prefix| program.starts_with(prefix))
+    })
+}
+
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     /// Recomputes [`Engine::views`] from the registered instances, the last host
     /// scan and the last container list.
@@ -65,7 +84,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let mut chains: BTreeMap<ProcessId, Vec<ChainLink>> = BTreeMap::new();
 
         for process in &self.host {
-            if claimed_processes.contains(&process.info.id) {
+            if claimed_processes.contains(&process.info.id) || is_system_process(&process.info) {
                 continue;
             }
             let chain = self

@@ -1,0 +1,198 @@
+// What the panel shows, derived from the core's snapshot. No rules live here
+// beyond layout: which things need a decision is decided by the core
+// (`snapshot.attention`).
+
+import type {
+  AttentionItem,
+  InstanceView,
+  ProjectSummary,
+  RepoSummary,
+  ServiceSummary,
+  Snapshot,
+} from "./types";
+
+export interface ServiceNode {
+  name: string;
+  port: number | null;
+  kind: string;
+  /** The Principal, or a "down" placeholder when nothing runs. */
+  principal: InstanceView | undefined;
+  temporals: InstanceView[];
+  duplicates: InstanceView[];
+}
+
+export interface RepoNode {
+  repo: RepoSummary;
+  services: ServiceNode[];
+}
+
+export interface ProjectNode {
+  summary: ProjectSummary;
+  repos: RepoNode[];
+  serviceCount: number;
+  runningCount: number;
+}
+
+export interface SharedNode {
+  name: string;
+  principal: InstanceView;
+  users: string[];
+}
+
+export interface DuplicateGroup {
+  project: string;
+  service: string;
+  official: InstanceView | undefined;
+  duplicates: InstanceView[];
+}
+
+export interface AttentionModel {
+  hung: InstanceView[];
+  expiring: InstanceView[];
+  groups: DuplicateGroup[];
+  /** Principals shown as fixed context above the alerts. */
+  official: InstanceView[];
+}
+
+const isRunning = (view: InstanceView | undefined): boolean =>
+  view !== undefined && view.state !== "down";
+
+export function indexByRef(instances: readonly InstanceView[]): Map<string, InstanceView> {
+  return new Map(instances.map((view) => [view.ref, view]));
+}
+
+function principalOf(
+  instances: readonly InstanceView[],
+  project: string | null,
+  service: string,
+): InstanceView | undefined {
+  return instances.find(
+    (view) => view.role === "principal" && view.project === project && view.service === service,
+  );
+}
+
+export function buildProjects(snapshot: Snapshot): ProjectNode[] {
+  return snapshot.projects.map((summary) => {
+    const repos: RepoNode[] = summary.repos.map((repo) => ({
+      repo,
+      services: summary.services
+        .filter((service) => service.repo === repo.path)
+        .map((service) => serviceNode(snapshot.instances, summary.name, service)),
+    }));
+    const nodes = repos.flatMap((repo) => repo.services);
+    return {
+      summary,
+      repos,
+      serviceCount: nodes.length,
+      runningCount: nodes.filter((node) => isRunning(node.principal)).length,
+    };
+  });
+}
+
+function serviceNode(
+  instances: readonly InstanceView[],
+  project: string,
+  service: ServiceSummary,
+): ServiceNode {
+  const mine = instances.filter(
+    (view) => view.project === project && view.service === service.name,
+  );
+  return {
+    name: service.name,
+    port: service.port,
+    kind: service.kind,
+    principal: principalOf(instances, project, service.name),
+    temporals: mine.filter((view) => view.role === "temporal"),
+    duplicates: mine.filter((view) => view.role === "unregistered"),
+  };
+}
+
+export function buildShared(snapshot: Snapshot): SharedNode[] {
+  return snapshot.instances
+    .filter((view) => view.shared && view.role === "principal" && view.service !== null)
+    .map((principal) => ({
+      name: principal.service ?? "",
+      principal,
+      users: snapshot.projects
+        .filter((project) => project.uses.includes(principal.service ?? ""))
+        .map((project) => project.name),
+    }));
+}
+
+/** Things that listen on a port and belong to no declared service. */
+export function buildOrphans(snapshot: Snapshot): InstanceView[] {
+  return snapshot.instances.filter(
+    (view) => view.role === "unregistered" && view.service === null && !view.ignored,
+  );
+}
+
+export function buildAttention(snapshot: Snapshot): AttentionModel {
+  const byRef = indexByRef(snapshot.instances);
+  const pick = (kind: AttentionItem["kind"]): InstanceView[] =>
+    snapshot.attention
+      .filter((item) => item.kind === kind)
+      .flatMap((item) => byRef.get(item.instance_ref) ?? []);
+
+  const hung = pick("hung");
+  const expiring = pick("expiring");
+  const groups = new Map<string, DuplicateGroup>();
+  for (const duplicate of pick("duplicate")) {
+    const project = duplicate.project ?? "";
+    const service = duplicate.service ?? "";
+    const key = `${project}\u0000${service}`;
+    const group = groups.get(key) ?? {
+      project,
+      service,
+      official: duplicate.duplicate_of === null ? undefined : byRef.get(duplicate.duplicate_of),
+      duplicates: [],
+    };
+    group.duplicates.push(duplicate);
+    groups.set(key, group);
+  }
+
+  const official = new Map<string, InstanceView>();
+  for (const group of groups.values()) {
+    if (group.official !== undefined) official.set(group.official.ref, group.official);
+  }
+  for (const temporal of expiring) {
+    const principal =
+      temporal.service === null
+        ? undefined
+        : principalOf(snapshot.instances, temporal.project, temporal.service);
+    if (principal !== undefined && isRunning(principal)) official.set(principal.ref, principal);
+  }
+  return { hung, expiring, groups: [...groups.values()], official: [...official.values()] };
+}
+
+/** Projects that stop working when `view` is stopped. */
+export function dependentsOf(view: InstanceView, snapshot: Snapshot): string[] {
+  if (view.shared && view.service !== null) {
+    return snapshot.projects
+      .filter((project) => project.uses.includes(view.service ?? ""))
+      .map((project) => project.name);
+  }
+  if (view.kind === "data" && view.project !== null) {
+    const project = snapshot.projects.find((candidate) => candidate.name === view.project);
+    return (
+      project?.services
+        .filter((service) => service.kind !== "data" && service.name !== view.service)
+        .map((service) => `${project.name} · ${service.name}`) ?? []
+    );
+  }
+  return [];
+}
+
+/** The best command to start a service that is not running. */
+export function startCommand(project: ProjectSummary | undefined, service: string): string {
+  const where = project === undefined ? "" : `cd ${shellQuote(project.root)} && `;
+  return `${where}devports run ${service}`;
+}
+
+function shellQuote(path: string): string {
+  return /^[\w@%+=:,./-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`;
+}
+
+export function whoAsked(view: InstanceView): string | null {
+  const link = view.launcher_chain.find((candidate) => candidate.label !== null);
+  return link?.label ?? view.launcher_chain[0]?.name ?? null;
+}

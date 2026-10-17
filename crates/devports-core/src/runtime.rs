@@ -125,7 +125,7 @@ pub enum RuntimeError {
 }
 
 /// What the interface shows: the current instances and the state of the sources.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
 pub struct Snapshot {
     /// Changes with every update, so a listener can tell it apart.
     pub revision: u64,
