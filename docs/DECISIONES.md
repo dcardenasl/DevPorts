@@ -155,6 +155,12 @@ Convenciones: **Confirmada** = aprobada por David. **Derivada** = consecuencia d
 8. **Sonda de la Fase 0.** Como el CLI no puede depender del núcleo, el `ls` sin núcleo de la Fase 0 es el binario temporal `devports-probe` del crate `devports-core` (`ls` y `opens`). Se elimina en T1.10, cuando `devports ls` hable con el núcleo por el socket.
 9. **CI.** `dev-check` (ubuntu, `fmt`, `clippy -D warnings`, `test`) en cada push a `dev`. `quality` (ubuntu + macOS, más `cargo deny` y `cargo audit`) en el PR a `main`. Sin Windows (ADR-016).
 
+## ADR-026 La puerta G0 se omite: se construye de inmediato
+**Estado:** Confirmada (David, 2026-10-17).
+**Contexto:** ADR-022 pedía una semana de línea base y una semana de uso de `devports ls` antes de construir el núcleo, y paraba el proyecto si los incidentes no bajaban a la mitad. David decidió construir ya y probar la app con su interfaz.
+**Decisión:** la Fase 1 y la Fase 2 empiezan sin esperar a G0. La medición **no se cancela**: `tools/baseline.sh` y `devports-probe opens` siguen disponibles y la comparación se hace con la herramienta ya construida. El criterio de ADR-022 (incidentes a la mitad y 3 o más aperturas por día) pasa a evaluarse en la puerta G1/G2 con la app en uso real, y la regla «si no se cumple, parar y replantear» se mantiene.
+**Riesgo aceptado:** invertir las 4 a 5 semanas de construcción antes de saber si la visibilidad sola ya resuelve el dolor.
+
 ---
 
 ## Decisiones reemplazadas (no implementar)

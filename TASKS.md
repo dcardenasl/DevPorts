@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**La Fase 0 está construida y documentada** (`docs/verificacion-fase0.md`). Falta solo lo humano: **S0** (línea base, aún sin iniciar), una semana de uso de `devports-probe`, las comprobaciones manuales de la sección 3.3 del informe y la **puerta G0**. No empezar T1.1 sin la decisión escrita de David. S0 sigue pendiente de David; además David instala la sonda (ver S0). En paralelo y por David: **S0** (`./tools/baseline.sh once`, luego `start`).
+**La Fase 0 está construida** y la puerta G0 se omitió por decisión de David (ADR-026). Se construye la Fase 1 y la Fase 2 de inmediato, empezando por **T1.1**. Las comprobaciones manuales de `docs/verificacion-fase0.md` (sección 3.3) se hacen con la app ya construida.
 
 ---
 
@@ -101,13 +101,13 @@
 - [x] **T0.9 — Informe `docs/verificacion-fase0.md` (V1–V12).** *Deps:* T0.2–T0.8. Incluye la **comprobación manual de David sobre el spike de Tauri** (T0.5), que el entorno de desarrollo no pudo hacer: (1) `cargo run -p devports-app` y clic izquierdo en el ícono: el panel aparece **bajo el ícono**; (2) clic fuera del panel: se cierra; (3) clic en el ícono con el panel abierto: se cierra y **no** se reabre; (4) clic derecho: menú «Abrir panel» / «Salir»; (5) «Salir» termina el proceso; (6) **notificación (T0.6):** `cargo run -p devports-app --features spike-notify`, aceptar el aviso de permiso de notificaciones que macOS muestra la primera vez, esperar la notificación «api vence en 1 minuto» y comprobar que trae el botón «Extender 30 min»: pulsarlo escribe `notify: user performed extend` en la terminal y pulsar el cuerpo escribe `tap`. Anotar si el botón aparece directo o dentro de «Opciones». Tabla con resultado y decisión por cada V; actualizar ARQUITECTURA si algún **[P]** cambia (con ADR).
   → `docs: add phase 0 verification report`
 
-- [ ] **G0 — PUERTA FASE 0 (HUMANA, ADR-022).** (a) V1, V2, V3, V9 favorables o Plan B aceptado; (b) tras una semana usando `devports ls`: duplicados simultáneos ≤ ½ de la línea base **y** ≥3 aperturas/día laborable (`opens.log`); (c) presupuesto de reposo medido. **Si (b) falla: parar y replantear. No continuar sin decisión escrita de David.**
+- [x] **G0 — PUERTA FASE 0 (HUMANA, ADR-022). OMITIDA por decisión de David el 2026-10-17 (ADR-026): se construye de inmediato; el criterio (b) se evalúa en G1/G2 con la app en uso.** (a) V1, V2, V3, V9 favorables o Plan B aceptado; (b) tras una semana usando `devports ls`: duplicados simultáneos ≤ ½ de la línea base **y** ≥3 aperturas/día laborable (`opens.log`); (c) presupuesto de reposo medido. **Si (b) falla: parar y replantear. No continuar sin decisión escrita de David.**
 
 ---
 
 ## Fase 1 — Núcleo y CLI sin interfaz (puerta G1)
 
-- [ ] **T1.1 — `devports-proto`, servidor IPC, cliente y verificación de uid.** *Deps:* G0. *Lee:* ARQUITECTURA §10, CLI §8, NF-04.
+- [ ] **T1.1 — `devports-proto`, servidor IPC, cliente y verificación de uid.** *Deps:* T0.9 (G0 omitida, ADR-026). *Lee:* ARQUITECTURA §10, CLI §8, NF-04.
   Tipos serde versionados (`v:1`); socket 0600 en dir 0700; `LOCAL_PEERCRED`; instancia única (socket vivo ⇒ salir, huérfano ⇒ borrar); cotas (línea ≤1 MiB, timeouts, máx. conexiones); ruta ≤104 bytes con respaldo; `examples/headless.rs`. Operaciones: `ping` primero.
   *Pruebas:* I-11, longitud de ruta, línea excesiva, JSON inválido, versión desconocida.
   → `feat(proto): add ipc protocol types` · `feat(core): add unix socket server with peer credential check` · `feat(cli): add ping client`
@@ -168,7 +168,7 @@
 ## Fase 2 — App de barra (puerta G2)
 
 - [ ] **T2.0 — Cerrar los puntos abiertos de UI y extraer el sistema visual.** Decidir también las **esquinas redondeadas de 14 px** del panel: una ventana sin decoraciones es de esquinas rectas; redondearlas exige ventana transparente (API privada de macOS en Tauri) o aceptarlas rectas (T0.5). *Deps:* G1. *Lee:* UI-REFERENCIA §6-7 y capturas. 
-  Proponer a David y registrar (ADR-026): persistencia de «Ignorar» (tabla `ignored` en SQLite, por `cwd+match`), «Crear proyecto nuevo», «Marcar como legítimo», estados vacíos/error (sin proyectos, Docker apagado, núcleo reconectando), orden de tabulación/foco/VoiceOver, filtro «Alertas», modo claro (diferido). Extraer tokens y estructura de `brag-output/*/composition/index.html` a `docs/ui-referencia/tokens.md`.
+  Proponer a David y registrar (ADR-027): persistencia de «Ignorar» (tabla `ignored` en SQLite, por `cwd+match`), «Crear proyecto nuevo», «Marcar como legítimo», estados vacíos/error (sin proyectos, Docker apagado, núcleo reconectando), orden de tabulación/foco/VoiceOver, filtro «Alertas», modo claro (diferido). Extraer tokens y estructura de `brag-output/*/composition/index.html` a `docs/ui-referencia/tokens.md`.
   *Hecho cuando:* David confirma cada punto; los PNG existentes cubren los estados diseñados.
   → `docs(ui): record adr-026 ui decisions and design tokens`
 
@@ -219,7 +219,7 @@
 ---
 
 ## Decisiones y hallazgos vivos
-- ADR-023: `--replace` fuera de v1 (código 15, U-12 e I-12 retirados, no se reutilizan). ADR-024: Principal de hecho y raíz `~/developer` confirmadas. ADR-025 (T0.1) redactado; ADR-026 (T2.0) pendiente.
+- ADR-023: `--replace` fuera de v1 (código 15, U-12 e I-12 retirados, no se reutilizan). ADR-024: Principal de hecho y raíz `~/developer` confirmadas. ADR-025 (T0.1) redactado; ADR-026 (G0 omitida) registrada; ADR-027 (T2.0, decisiones de UI) pendiente.
 - Abiertos: runtime de Docker/compose (T0.4); nombre y licencia (Fase 4).
 - Hooks: tras clonar, ejecutar `bash scripts/install-git-hooks.sh` (copia `pre-commit`, `pre-push` y `commit-msg` a `.git/hooks`).
 - `brag-output/` no se versiona; el marcado exacto de las vistas vive ahí hasta T2.0.
