@@ -16,7 +16,7 @@ fn state_word(state: InstanceState) -> &'static str {
     match state {
         InstanceState::Healthy => "sana",
         InstanceState::Unhealthy => "colgada",
-        InstanceState::Down => "caída",
+        InstanceState::Down => "detenido",
         InstanceState::Starting => "iniciando",
         InstanceState::Stopping => "deteniendo",
         InstanceState::Forgotten => "olvidada",
@@ -154,6 +154,7 @@ mod tests {
             url: Some("http://localhost:8080".to_owned()),
             pid: Some(4121),
             target_identity: Some("process-fingerprint".to_owned()),
+            ports: vec![8080],
             container: None,
             branch: Some("feature/x".to_owned()),
             worktree: None,
@@ -188,6 +189,20 @@ mod tests {
         assert!(lines[2].starts_with(
             "(sin registrar) tienda-demo/api  :8080  pid 4121  duplica a la Principal"
         ));
+    }
+
+    // covers: UXR-2.3
+    #[test]
+    fn stopped_unknown_and_unhealthy_states_are_not_conflated() {
+        for (state, expected) in [
+            (InstanceState::Down, "detenido"),
+            (InstanceState::Unknown, "desconocida"),
+            (InstanceState::Unhealthy, "colgada"),
+        ] {
+            let output = instances_table(&[view(InstanceRole::Principal, state)]);
+            assert!(output.contains(expected));
+            assert!(!output.contains("sana"));
+        }
     }
 
     #[test]

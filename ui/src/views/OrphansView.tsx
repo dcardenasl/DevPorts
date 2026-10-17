@@ -6,7 +6,9 @@ import { text } from "../text";
 import { ago } from "../time";
 import { FolderIcon } from "../icons";
 import type { InstanceView } from "../types";
-import { Dot, Empty, Tag, commandLine } from "./shared-parts";
+import { InstanceDetails } from "./InstanceDetails";
+import { instanceTitle } from "../instance";
+import { Dot, Empty, Tag } from "./shared-parts";
 
 export function orphansSubtitle(actions: Actions): string {
   return text.orphans.summary(buildOrphans(actions.snapshot).length);
@@ -67,8 +69,8 @@ function OrphanCard({ view, actions }: { view: InstanceView; actions: Actions })
     <div className="card">
       <div className="row">
         <Dot kind="loose" />
-        <span className="mono grow ellipsis" title={commandLine(view.argv, view.container)}>
-          {commandLine(view.argv, view.container)}
+        <span className="mono grow ellipsis" title={instanceTitle(view)}>
+          {instanceTitle(view)}
         </span>
         <span className="mono soft">{view.port === null ? "" : `:${view.port}`}</span>
       </div>
@@ -79,6 +81,7 @@ function OrphanCard({ view, actions }: { view: InstanceView; actions: Actions })
       >
         {view.cwd ?? view.image ?? "—"} · {ago(view.started_at, actions.now)}
       </div>
+      <InstanceDetails view={view} />
       <div className="row" style={{ marginTop: 10 }}>
         {view.project !== null && <Tag tone="green">{text.orphans.seems(view.project)}</Tag>}
         <span className="grow" />

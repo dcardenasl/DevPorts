@@ -6,6 +6,8 @@ import { buildProjects, startCommand, type ProjectNode, type ServiceNode } from 
 import { text } from "../text";
 import { countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
+import { canRequestStop } from "../instance";
+import { InstanceDetails } from "./InstanceDetails";
 import { Dot, Empty, Tag, dotFor, stateLabel } from "./shared-parts";
 
 export function projectsSubtitle(actions: Actions): string {
@@ -77,7 +79,7 @@ function ProjectCard({
   actions: Actions;
   highlight: string | undefined;
 }): ReactElement {
-  const quiet = node.runningCount === 0;
+  const quiet = node.runningCount === 0 && node.unknownCount === 0;
   return (
     <section className={quiet ? "project dim-project" : "project"}>
       <button type="button" className="project-head" aria-expanded={open} onClick={onToggle}>
@@ -91,9 +93,11 @@ function ProjectCard({
           </div>
         </span>
         <span className="soft" style={{ fontSize: 12 }}>
-          {quiet
-            ? text.projects.noActive
-            : `${node.repos.length} ${node.repos.length === 1 ? "repo" : "repos"} · ${node.serviceCount} ${node.serviceCount === 1 ? "servicio" : "servicios"}`}
+          {node.runningCount === 0 && node.unknownCount > 0
+            ? text.projects.unconfirmed
+            : quiet
+              ? text.projects.noActive
+              : `${node.repos.length} ${node.repos.length === 1 ? "repo" : "repos"} · ${node.serviceCount} ${node.serviceCount === 1 ? "servicio" : "servicios"}`}
         </span>
       </button>
       {open && (
@@ -159,7 +163,6 @@ function ServiceRows({
   highlight: string | undefined;
 }): ReactElement {
   const principal = service.principal;
-  const running = principal !== undefined && principal.state !== "down";
   const ref = useRef<HTMLDivElement>(null);
   const flagged = highlight !== undefined && principal?.ref === highlight;
   useEffect(() => {
@@ -175,11 +178,15 @@ function ServiceRows({
         </span>
         <span
           className={
-            principal?.state === "unhealthy" ? "coral-text" : running ? "green-text" : "dim"
+            principal?.state === "unhealthy"
+              ? "coral-text"
+              : principal?.state === "healthy"
+                ? "green-text"
+                : "dim"
           }
           style={{ fontSize: 12 }}
         >
-          {principal === undefined ? text.projects.down : stateLabel(principal.state)}
+          {principal === undefined ? stateLabel("down") : stateLabel(principal.state)}
         </span>
         <span className="grow" />
         <span className="mono soft">
@@ -191,38 +198,42 @@ function ServiceRows({
         </span>
         <ServiceButtons node={node} service={service} actions={actions} />
       </div>
+      {principal !== undefined && <InstanceDetails view={principal} />}
       {service.temporals.map((temporal) => (
         <TemporalRow key={temporal.ref} view={temporal} actions={actions} />
       ))}
       {service.duplicates
         .filter((view) => !view.ignored)
         .map((view) => (
-          <div className="svc dup" key={view.ref}>
-            <Dot kind="coral" />
-            <span className="grow ellipsis">
-              {service.name} · <span className="coral-text">{text.projects.unregistered}</span>
-            </span>
-            <span className="mono coral-text">:{view.port}</span>
-            <button
-              type="button"
-              className="btn"
-              style={{ height: 26, padding: "0 10px" }}
-              onClick={(event) => {
-                actions.requestStop([view], event.currentTarget);
-              }}
-            >
-              {text.attention.stop}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              style={{ height: 26, padding: "0 10px" }}
-              onClick={() => {
-                actions.keep(view);
-              }}
-            >
-              {text.attention.keep}
-            </button>
+          <div key={view.ref}>
+            <div className="svc dup">
+              <Dot kind="coral" />
+              <span className="grow ellipsis">
+                {service.name} · <span className="coral-text">{text.projects.unregistered}</span>
+              </span>
+              <span className="mono coral-text">:{view.port}</span>
+              <button
+                type="button"
+                className="btn"
+                style={{ height: 26, padding: "0 10px" }}
+                onClick={(event) => {
+                  actions.requestStop([view], event.currentTarget);
+                }}
+              >
+                {text.attention.stop}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ height: 26, padding: "0 10px" }}
+                onClick={() => {
+                  actions.keep(view);
+                }}
+              >
+                {text.attention.keep}
+              </button>
+            </div>
+            <InstanceDetails view={view} />
           </div>
         ))}
     </>
@@ -239,10 +250,10 @@ function ServiceButtons({
   actions: Actions;
 }): ReactElement {
   const principal = service.principal;
-  const running = principal !== undefined && principal.state !== "down" && principal.ref !== "-";
+  const running = canRequestStop(principal);
   return (
     <span className="row" style={{ gap: 4 }}>
-      {running && principal.url !== null && (
+      {running && principal !== undefined && principal.url !== null && (
         <IconButton
           label={text.projects.open}
           onClick={() => {
@@ -262,7 +273,7 @@ function ServiceButtons({
           <CopyIcon size={14} />
         </IconButton>
       )}
-      {running && (
+      {running && principal !== undefined && (
         <IconButton
           label={`${text.projects.stop} ${service.name}`}
           danger
@@ -280,22 +291,31 @@ function ServiceButtons({
 function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }): ReactElement {
   const left = secondsUntil(view.expires_at, actions.now) ?? 0;
   return (
-    <div className="svc nested">
-      <span className="dot amber" aria-hidden="true" />
-      <span className="name" style={{ fontSize: 13 }}>
-        {text.projects.temporal}
-      </span>
-      <span className="soft grow ellipsis">{view.reason}</span>
-      <span className="mono amber-text">{countdown(left)}</span>
-      <IconButton
-        label={text.attention.terminate}
-        danger
-        onClick={(event) => {
-          actions.requestStop([view], event.currentTarget);
-        }}
-      >
-        <StopIcon size={14} />
-      </IconButton>
+    <div>
+      <div className="svc nested">
+        <Dot kind={dotFor(view.state)} />
+        <span className="name" style={{ fontSize: 13 }}>
+          {text.projects.temporal}
+        </span>
+        <span className="soft grow ellipsis">{view.reason}</span>
+        <span className="mono amber-text">
+          {view.state === "healthy" || view.state === "unhealthy"
+            ? countdown(left)
+            : stateLabel(view.state)}
+        </span>
+        {canRequestStop(view) && (
+          <IconButton
+            label={text.attention.terminate}
+            danger
+            onClick={(event) => {
+              actions.requestStop([view], event.currentTarget);
+            }}
+          >
+            <StopIcon size={14} />
+          </IconButton>
+        )}
+      </div>
+      <InstanceDetails view={view} />
     </div>
   );
 }

@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Instance diagnostics** — all instance views now expose expandable origin, identity, observed ports, working folder, launcher chain and explained Git age hints, with compact titles and masked command argument values.
+
 - **Project stop** — preview and confirm an exact list of project applications and Temporals while preserving data services, shared resources and later arrivals; each target is revalidated independently.
 
 - **Manual stop confirmation** — every stop route now shows the target identity, port and origin; shared consumers and data-container effects are explicit. Stop requests revalidate the confirmed process/container identity and port before dispatch, so a stale view cannot stop a replacement.
@@ -16,6 +18,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Safe stopping** — only registered test instances with a lease are stopped automatically, by `(pid, start)` identity, never by process group, never `docker rm`.
 
 ### Fixed
+
+- **Instance state** — the panel and CLI distinguish stopped, unhealthy and unknown instances; registered containers become unknown when Docker observation is lost while retaining their identity and duplicate-Principal protection.
 
 - **Stop results** — manual operations now wait for actual termination and retain per-target failures instead of reporting acceptance as successful completion.
 

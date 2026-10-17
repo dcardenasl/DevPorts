@@ -2,6 +2,8 @@
 // beyond layout: which things need a decision is decided by the core
 // (`snapshot.attention`).
 
+import { isActiveInstance } from "./instance";
+
 import type {
   AttentionItem,
   InstanceView,
@@ -31,6 +33,7 @@ export interface ProjectNode {
   repos: RepoNode[];
   serviceCount: number;
   runningCount: number;
+  unknownCount: number;
 }
 
 export interface SharedNode {
@@ -54,8 +57,7 @@ export interface AttentionModel {
   official: InstanceView[];
 }
 
-const isRunning = (view: InstanceView | undefined): boolean =>
-  view !== undefined && view.state !== "down";
+const isRunning = isActiveInstance;
 
 export function indexByRef(instances: readonly InstanceView[]): Map<string, InstanceView> {
   return new Map(instances.map((view) => [view.ref, view]));
@@ -84,7 +86,15 @@ export function buildProjects(snapshot: Snapshot): ProjectNode[] {
       summary,
       repos,
       serviceCount: nodes.length,
-      runningCount: nodes.filter((node) => isRunning(node.principal)).length,
+      unknownCount: snapshot.instances.filter(
+        (view) => view.project === summary.name && view.state === "unknown",
+      ).length,
+      runningCount: nodes.filter(
+        (node) =>
+          isRunning(node.principal) ||
+          node.temporals.some(isRunning) ||
+          node.duplicates.some(isRunning),
+      ).length,
     };
   });
 }

@@ -70,6 +70,10 @@ pub struct InstanceView {
     pub kind: String,
     /// Port it listens on.
     pub port: Option<u16>,
+    /// Currently observed listening ports on the host (published ports for Docker).
+    /// Empty when not observed; `port` may still describe a configured or reserved port.
+    #[serde(default)]
+    pub ports: Vec<u16>,
     /// `http://localhost:<port>`, when it has a port.
     pub url: Option<String>,
     /// Process id, for a host process.
@@ -208,6 +212,7 @@ mod tests {
             url: Some("http://localhost:8080".to_owned()),
             pid: Some(4121),
             target_identity: Some("process-fingerprint".to_owned()),
+            ports: vec![8080],
             container: None,
             branch: Some("feature/x".to_owned()),
             worktree: None,
@@ -238,6 +243,16 @@ mod tests {
         assert!(value.get("instance_ref").is_none());
         assert_eq!(value["role"], "principal");
         assert_eq!(value["state"], "healthy");
+    }
+
+    // covers: UXR-2.3
+    #[test]
+    fn older_snapshots_without_observed_ports_remain_readable() {
+        let mut value = serde_json::to_value(sample()).unwrap();
+        value.as_object_mut().unwrap().remove("ports");
+        let view: InstanceView = serde_json::from_value(value).unwrap();
+        assert!(view.ports.is_empty());
+        assert_eq!(view.port, Some(8080));
     }
 
     #[test]

@@ -125,7 +125,7 @@ Solo si `DEVPORTS_INTERACTIVE=1` **y** la entrada estándar es una terminal, un 
 | Código | Significado |
 |---|---|
 | 0 | Éxito de `--reuse` (en otros casos el proceso es reemplazado por el comando y el código es el del comando) |
-| 10 | Conflicto: ya existe una Principal sana |
+| 10 | Conflicto: ya existe una Principal (incluye referencia conocida con observación no disponible) |
 | 11 | La Principal existe pero no está sana |
 | 12 | Tope de Temporales alcanzado |
 | 13 | No hay comando que ejecutar |
@@ -149,11 +149,13 @@ Texto:
 PROYECTO     SERVICIO  ROL        ESTADO    PUERTO  PID    RAMA       VENCE   REF
 tienda-demo  api       principal  sana      8080    4121   feature/x  -       a1b2
 tienda-demo  api       temporal   sana      51234   5530   feature/x  14:50   c3d4
-tienda-demo  admin     principal  caida     8081    -      -          -       -
+tienda-demo  admin     principal  detenido  8081    -      -          -       -
 (sin registrar) tienda-demo/api  :8082  pid 6012  duplica a la Principal   e5f6
 ```
-`--json`: arreglo de objetos con `ref`, `project`, `service`, `role` (`principal`, `temporal`, `unregistered`), `state` (`healthy`, `unhealthy`, `down`), `port`, `url`, `pid`, `branch`, `worktree`, `started_at`, `expires_at` (Temporales), `registered`, `launcher_chain` (cadena de ancestros), `duplicate_of` (ref de la Principal, si aplica).
+`--json`: arreglo de objetos con `ref`, `project`, `service`, `role` (`principal`, `temporal`, `unregistered`), `state` (`healthy`, `unhealthy`, `down`, `starting`, `stopping`, `forgotten`, `unknown`), `port`, `ports` (puertos observados, publicados en el host para Docker), `url`, `pid`, `branch`, `worktree`, `started_at`, `expires_at` (Temporales), `registered`, `launcher_chain` (cadena de ancestros), `duplicate_of` (ref de la Principal, si aplica).
 **Nunca incluye `DEVPORTS_STOP_TOKEN`** **[D]**.
+
+`down` se presenta como «detenido»: indica ausencia de una instancia en marcha, sin atribuir una caída. `unhealthy` indica que dejó de responder a las comprobaciones de salud; `unknown` indica que falta observación actual (por ejemplo, Docker no responde), sin afirmar que esté sano ni detenido. `port` puede ser el puerto configurado o reservado; solo `ports` contiene listeners observados y queda vacío cuando no hay evidencia actual. Los documentos anteriores sin `ports` siguen siendo legibles. Una Principal registrada cuya observación se pierde conserva su referencia: no se registra otra por tratar `unknown` como ausencia. `--reuse` conserva esa referencia sin iniciar nada y explica que su estado actual es desconocido.
 
 ## 5. `devports stop <token>` y `devports extend <token> [--by <duración>]`
 - `stop`: detiene el Temporal cuyo token coincide. Secuencia de parada en ARQUITECTURA.md. Código 0 si se detuvo o ya no existía; 30 si el token no corresponde a ningún Temporal **[P]**.

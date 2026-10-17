@@ -33,6 +33,19 @@ describe("model", () => {
     expect(attention.hung).toHaveLength(0);
   });
 
+  // covers: UXR-2.3
+  it("keeps uncertainty separate from observed activity and counts live Temporals", () => {
+    const altered = sampleSnapshot();
+    altered.instances = altered.instances.map((view) =>
+      view.project === "tienda-demo"
+        ? { ...view, state: view.role === "temporal" ? "healthy" : "unknown" }
+        : view,
+    );
+    const project = buildProjects(altered).find((node) => node.summary.name === "tienda-demo");
+    expect(project?.runningCount).toBe(1);
+    expect(project?.unknownCount).toBe(4);
+  });
+
   it("finds shared services with the projects that use them", () => {
     const shared = buildShared(snapshot);
     expect(shared.map((node) => node.name)).toEqual(["mysql"]);

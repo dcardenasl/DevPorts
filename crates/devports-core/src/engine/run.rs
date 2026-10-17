@@ -119,10 +119,11 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 view.role == InstanceRole::Principal
                     && view.project.as_deref() == project
                     && view.service.as_deref() == Some(resolved.service.as_str())
-                    && matches!(
+                    && (matches!(
                         view.state,
                         InstanceState::Healthy | InstanceState::Unhealthy | InstanceState::Starting
-                    )
+                    ) || (view.state == InstanceState::Unknown
+                        && view.target_identity.is_some()))
             })
             .cloned();
 

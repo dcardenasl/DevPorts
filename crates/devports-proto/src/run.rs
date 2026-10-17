@@ -59,7 +59,7 @@ pub struct RunRegister {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RejectKind {
-    /// A healthy Principal already exists.
+    /// A Principal already exists, possibly without current observation.
     Conflict,
     /// The Principal exists but is not answering.
     Unhealthy,

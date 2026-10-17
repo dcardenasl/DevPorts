@@ -1179,16 +1179,35 @@ fn when_docker_is_unreachable_containers_are_unknown_not_gone() {
     )]));
     let after_bind = world.instance(Some("shop"), "cache", InstanceRole::Principal)[0].clone();
     assert_eq!(after_bind.state, InstanceState::Healthy);
+    assert_eq!(after_bind.ports, vec![6379]);
     assert_eq!(after_bind.instance_ref, accepted.instance_ref);
 
     world.engine.observe_containers(None);
     let unknown = &world.instance(Some("shop"), "cache", InstanceRole::Principal)[0];
     assert_eq!(
         unknown.state,
-        InstanceState::Healthy,
-        "unreachable is not down"
+        InstanceState::Unknown,
+        "unreachable must not claim current health or stopped state"
     );
+    assert!(unknown.ports.is_empty());
     assert!(!world.events().contains(&"process_gone".to_owned()));
+
+    let conflict = world.run(&request("cache", RunRole::Principal));
+    assert_eq!(rejected(&conflict).error, RejectKind::Conflict);
+    assert_eq!(
+        rejected(&conflict).existing.as_ref().unwrap().state,
+        InstanceState::Unknown
+    );
+    let mut reuse = request("cache", RunRole::Principal);
+    reuse.reuse = true;
+    let RunOutcome::Reused(reused) = world.run(&reuse) else {
+        panic!("known reference must be preserved without starting another container");
+    };
+    assert_eq!(reused.instance.instance_ref, accepted.instance_ref);
+    assert_eq!(reused.instance.state, InstanceState::Unknown);
+    assert!(reused.message.contains("estado desconocido"));
+    assert!(!reused.message.contains("ya corre"));
+    assert_eq!(world.engine.tracked.len(), 1);
 
     world.engine.observe_containers(Some(Vec::new()));
     assert_eq!(
@@ -1974,5 +1993,106 @@ fn project_stop_uses_only_confirmed_targets_and_revalidates_each_member() {
             .engine
             .stop_project_confirmed(&later.instance_ref, &old_membership)
             .is_err()
+    );
+}
+
+// covers: UXR-2.3
+#[test]
+fn instance_views_separate_all_observed_ports_from_a_declared_port() {
+    let mut world = world();
+    let now = epoch(&world) - 100;
+    let mut process = proc(
+        77,
+        1,
+        now,
+        "/work/shop/api",
+        Some(8080),
+        &["php", "spark", "serve"],
+    );
+    process.ports = vec![9090, 8080, 9090];
+    world.scan(vec![process]);
+    let view = world
+        .engine
+        .views()
+        .iter()
+        .find(|view| view.pid == Some(77))
+        .unwrap();
+    assert_eq!(view.ports, vec![8080, 9090]);
+    world.scan(Vec::new());
+    let down = &world.instance(Some("shop"), "api", InstanceRole::Principal)[0];
+    assert_eq!(down.state, InstanceState::Down);
+    assert_eq!(down.port, Some(8080));
+    assert!(
+        down.ports.is_empty(),
+        "a preferred port is not evidence of a listener"
+    );
+    let mut mysql = container("mysql-ports", "mysql", "mysql:8", 3306, None);
+    mysql.ports.push(PublishedPort {
+        host_port: 33060,
+        container_port: 33060,
+    });
+    world.engine.observe_containers(Some(vec![mysql]));
+    assert_eq!(
+        world.instance(None, "mysql", InstanceRole::Principal)[0].ports,
+        vec![3306, 33060]
+    );
+    world.engine.observe_containers(None);
+    let unknown = &world.instance(None, "mysql", InstanceRole::Principal)[0];
+    assert_eq!(unknown.state, InstanceState::Unknown);
+    assert!(unknown.ports.is_empty());
+}
+
+// covers: UXR-2.3
+#[test]
+fn a_registered_temporal_reports_observed_ports_instead_of_just_its_reservation() {
+    let (mut world, reference, _, port) = bound_temporal();
+    let mut process = proc(
+        700,
+        1,
+        epoch(&world),
+        "/work/shop/api",
+        Some(port),
+        &["php", "spark", "serve"],
+    );
+    process.ports.push(65534);
+    world.scan(vec![process]);
+    let view = world
+        .engine
+        .views()
+        .iter()
+        .find(|view| view.instance_ref == reference)
+        .unwrap();
+    let expected: Vec<u16> = [port, 65534]
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    assert_eq!(view.ports, expected);
+}
+
+// covers: UXR-2.3
+#[test]
+fn docker_observation_loss_does_not_claim_a_forgotten_container_is_still_alive() {
+    let mut world = world();
+    let registered = accepted(&world.run(&request("cache", RunRole::Principal))).clone();
+    let mysql = container("cache-observation", "shop-redis", "redis:7", 6379, None);
+    world.engine.observe_containers(Some(vec![mysql.clone()]));
+    world.engine.termination_finished(
+        &registered.instance_ref,
+        StopReason::PersonRequest,
+        &Terminated::StillAlive,
+    );
+    assert_eq!(
+        world.instance(Some("shop"), "cache", InstanceRole::Principal)[0].state,
+        InstanceState::Forgotten
+    );
+    world.engine.observe_containers(None);
+    let view = &world.instance(Some("shop"), "cache", InstanceRole::Principal)[0];
+    assert_eq!(view.state, InstanceState::Unknown);
+    assert!(view.ports.is_empty());
+    world.engine.observe_containers(Some(vec![mysql]));
+    assert_eq!(
+        world.instance(Some("shop"), "cache", InstanceRole::Principal)[0].state,
+        InstanceState::Forgotten
     );
 }

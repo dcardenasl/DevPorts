@@ -316,6 +316,11 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let state = match record.state {
             State::Reserved => InstanceState::Starting,
             State::Stopping => InstanceState::Stopping,
+            State::Running | State::ExpiredAlive
+                if record.container_id.is_some() && self.containers.is_none() =>
+            {
+                InstanceState::Unknown
+            }
             State::ExpiredAlive => InstanceState::Forgotten,
             State::Running if !alive => InstanceState::Down,
             State::Running if hung => InstanceState::Unhealthy,
@@ -358,6 +363,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             state,
             kind: kind.as_str().to_owned(),
             port: record.port,
+            ports: self.observed_ports(record, container),
             url: record.port.map(url),
             pid: record.pid,
             target_identity: target.as_ref().map(Target::identity),
@@ -403,6 +409,13 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             state: self.observed_state(&reference),
             kind: "app".to_owned(),
             port,
+            ports: process
+                .ports
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
             url: port.map(url),
             pid: Some(info.id.pid),
             target_identity: Some(Target::Process(info.id).identity()),
@@ -502,6 +515,12 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             }
             .to_owned(),
             port,
+            ports: ports
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
             url: port.map(url),
             pid: None,
             target_identity: Some(Target::Container(container.id.clone()).identity()),
@@ -607,6 +626,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 },
                 kind: kind.as_str().to_owned(),
                 port,
+                ports: Vec::new(),
                 url: port.map(url),
                 pid: None,
                 target_identity: None,
@@ -663,6 +683,24 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 .unwrap_or_default(),
             _ => Vec::new(),
         }
+    }
+
+    fn observed_ports(&self, record: &InstanceRecord, container: Option<&Container>) -> Vec<u16> {
+        let ports: BTreeSet<u16> =
+            if let Some(container) = container.filter(|container| container.state.is_running()) {
+                container.ports.iter().map(|port| port.host_port).collect()
+            } else {
+                self.host
+                    .iter()
+                    .find(|process| {
+                        Some(process.info.id.pid) == record.pid
+                            && Some(process.info.id.start.0) == record.pid_start
+                    })
+                    .into_iter()
+                    .flat_map(|process| process.ports.iter().copied())
+                    .collect()
+            };
+        ports.into_iter().collect()
     }
 
     /// Who started a process, nearest first, with friendly labels for known agents.

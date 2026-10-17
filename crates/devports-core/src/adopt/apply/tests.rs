@@ -17,6 +17,7 @@ fn process(cwd: &Path, port: u16, argv: &[&str]) -> InstanceView {
         url: Some(format!("http://localhost:{port}")),
         pid: Some(900),
         target_identity: Some("process-fingerprint".to_owned()),
+        ports: vec![port],
         container: None,
         branch: None,
         worktree: None,

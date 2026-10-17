@@ -5,6 +5,8 @@ import { StopIcon } from "../icons";
 import { buildShared, buildUndeclaredData } from "../model";
 import { text } from "../text";
 import { ago } from "../time";
+import { canRequestStop, stateLabel } from "../instance";
+import { InstanceDetails } from "./InstanceDetails";
 import { Dot, Empty, Tag, dotFor } from "./shared-parts";
 import { IconButton } from "./ProjectsView";
 
@@ -26,7 +28,7 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
     <>
       {nodes.map((node) => {
         const view = node.principal;
-        const running = view.state !== "down" && view.ref !== "-";
+        const running = canRequestStop(view);
         return (
           <section className="card" key={node.name}>
             <div className="row">
@@ -49,10 +51,10 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
             </div>
             <div className="soft mono" style={{ marginTop: 6, fontSize: 11 }}>
               {text.shared.docker} · {view.container ?? view.image ?? "—"}
-              {running
-                ? ` · ${ago(view.started_at, actions.now)}`
-                : ` · ${text.projects.down.toLowerCase()}`}
+              {` · ${stateLabel(view.state)}`}
+              {running ? ` · ${ago(view.started_at, actions.now)}` : ""}
             </div>
+            <InstanceDetails view={view} />
             <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
               <span className="dim" style={{ fontSize: 12 }}>
                 {text.shared.usedBy}
@@ -89,6 +91,7 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                 {text.shared.docker} · {view.image ?? "—"}
                 {view.compose === null ? "" : ` · ${view.compose}`}
               </div>
+              <InstanceDetails view={view} />
               <div className="row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
                 <button
                   type="button"

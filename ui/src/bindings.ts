@@ -77,6 +77,11 @@ export type InstanceView = {
 	kind: string,
 	/**  Port it listens on. */
 	port: number | null,
+	/**
+	 *  Currently observed listening ports on the host (published ports for Docker).
+	 *  Empty when not observed; `port` may still describe a configured or reserved port.
+	 */
+	ports?: number[],
 	/**  `http://localhost:<port>`, when it has a port. */
 	url: string | null,
 	/**  Process id, for a host process. */

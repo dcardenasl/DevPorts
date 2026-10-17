@@ -555,3 +555,44 @@ button {
   overflow-y: auto;
   overflow-wrap: anywhere;
 }
+
+.instance-details {
+  margin: 8px 0;
+  padding: 0 4px;
+  font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.instance-details summary {
+  color: var(--text-soft);
+  cursor: pointer;
+  padding: 5px 0;
+}
+.instance-details summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.instance-details dl {
+  margin: 8px 0;
+}
+.instance-details dl > div {
+  margin-block: 8px;
+}
+.instance-details dt {
+  color: var(--text-soft);
+}
+.instance-details dd {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+}
+.instance-chain {
+  padding-left: 20px;
+}
+.instance-command {
+  display: block;
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+.instance-stale {
+  color: var(--amber);
+}

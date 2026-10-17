@@ -5,7 +5,9 @@ import { buildAttention, whoAsked } from "../model";
 import { text } from "../text";
 import { ago, clock, countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
-import { Dot, commandLine } from "./shared-parts";
+import { InstanceDetails } from "./InstanceDetails";
+import { instanceTitle, stateLabel, dotFor } from "../instance";
+import { Dot } from "./shared-parts";
 
 export function attentionSubtitle(count: number): string {
   return count === 0 ? text.attention.allClear : text.attention.waiting(count);
@@ -45,15 +47,18 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
           </div>
           <div className="divided">
             {group.duplicates.map((view) => (
-              <div className="proc" key={view.ref}>
-                <span className="row">
-                  <Dot kind="coral" />
-                  <span className="mono coral-text">:{view.port ?? "—"}</span>
-                </span>
-                <span className="ellipsis soft" title={commandLine(view.argv, view.container)}>
-                  {commandLine(view.argv, view.container)}
-                </span>
-                <span className="dim">{ago(view.started_at, now)}</span>
+              <div key={view.ref}>
+                <div className="proc">
+                  <span className="row">
+                    <Dot kind="coral" />
+                    <span className="mono coral-text">:{view.port ?? "—"}</span>
+                  </span>
+                  <span className="ellipsis soft" title={instanceTitle(view)}>
+                    {instanceTitle(view)}
+                  </span>
+                  <span className="dim">{ago(view.started_at, now)}</span>
+                </div>
+                <InstanceDetails view={view} />
               </div>
             ))}
           </div>
@@ -88,10 +93,14 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
 function Official({ view, now }: { view: InstanceView; now: number }): ReactElement {
   const branch = view.branch === null ? "" : ` · ${view.branch}`;
   return (
-    <div className="card green">
+    <div
+      className={
+        view.state === "healthy" ? "card green" : view.state === "unhealthy" ? "card coral" : "card"
+      }
+    >
       <div className="row spread">
         <span className="row">
-          <Dot kind="green" />
+          <Dot kind={dotFor(view.state)} />
           <span className="name">{view.service}</span>
           <span className="soft">{view.project}</span>
         </span>
@@ -100,8 +109,9 @@ function Official({ view, now }: { view: InstanceView; now: number }): ReactElem
       <div className="soft mono" style={{ marginTop: 6 }}>
         :{view.port}
         {branch} · {text.attention.since(clock(view.started_at) || ago(view.started_at, now))} ·{" "}
-        {text.attention.healthy}
+        {stateLabel(view.state)}
       </div>
+      <InstanceDetails view={view} />
     </div>
   );
 }
@@ -116,8 +126,9 @@ function Hung({ view, actions }: { view: InstanceView; actions: Actions }): Reac
         <span className="soft">{view.project}</span>
       </div>
       <div className="soft mono ellipsis" style={{ marginTop: 4 }}>
-        :{view.port} · {commandLine(view.argv, view.container)}
+        :{view.port} · {instanceTitle(view)}
       </div>
+      <InstanceDetails view={view} />
       <div className="row" style={{ marginTop: 10 }}>
         <button
           type="button"
@@ -157,6 +168,7 @@ function Expiring({ view, actions }: { view: InstanceView; actions: Actions }): 
         :{view.port}
         {who === null ? "" : ` · ${text.attention.askedBy(who)}`}
       </div>
+      <InstanceDetails view={view} />
       <div className="bar" style={{ marginTop: 10 }} aria-hidden="true">
         <div style={{ width: `${Math.round(ratio * 100)}%` }} />
       </div>

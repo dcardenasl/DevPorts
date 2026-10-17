@@ -76,7 +76,7 @@ fn health_word(state: InstanceState) -> &'static str {
     match state {
         InstanceState::Healthy => "sana",
         InstanceState::Unhealthy => "no responde",
-        InstanceState::Down => "caída",
+        InstanceState::Down => "detenida",
         InstanceState::Starting => "arrancando",
         InstanceState::Stopping => "deteniéndose",
         InstanceState::Forgotten => "olvidada",
@@ -269,6 +269,11 @@ pub fn reuse(existing: &InstanceView) -> String {
                 .map(|name| format!("contenedor {name}"))
         })
         .unwrap_or_default();
+    if existing.state == InstanceState::Unknown {
+        return format!(
+            "devports: se conserva la referencia de {service} ({who}) en {place}; estado desconocido, sin observación actual. No se inició nada."
+        );
+    }
     match existing.pid {
         Some(pid) => format!("devports: {service} ya corre ({who}) en {place} (pid {pid})"),
         None => format!("devports: {service} ya corre ({who}) en {place}"),

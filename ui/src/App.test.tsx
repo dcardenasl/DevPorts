@@ -138,7 +138,7 @@ describe("the panel", () => {
     expect(tab(/Atención/)).toHaveTextContent("3");
     expect(screen.getByText("OFICIAL")).toBeInTheDocument();
     expect(screen.getByText("TEMPORAL POR VENCER")).toBeInTheDocument();
-    expect(screen.getByText(/0:4\d|0:5\d/)).toBeInTheDocument(); // the countdown
+    expect(screen.getByText(/^0:[45]\d$/)).toBeInTheDocument(); // the countdown
     expect(screen.getByRole("button", { name: "Detener los 2" })).toBeInTheDocument();
   });
 
@@ -197,6 +197,27 @@ describe("the panel", () => {
       expect(backend.calls.retryOperation).toEqual([["recover-me"]]);
     });
     expect(screen.getByText(/z9y8: Completado/)).toBeInTheDocument();
+  });
+
+  // covers: UXR-2.3
+  it("uses actual health in official context and preserves unknown shared states", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.instances = snapshot.instances.map((view) =>
+      view.ref === "a1b2"
+        ? { ...view, state: "unhealthy" }
+        : view.ref === "m9n0"
+          ? { ...view, state: "unknown", ports: [] }
+          : view,
+    );
+    const { user } = await open(snapshot);
+    const official = screen.getByText("OFICIAL").closest(".card");
+    expect(official?.querySelector(".soft.mono")).toHaveTextContent("Colgada · no responde");
+    expect(official?.querySelector(".soft.mono")).not.toHaveTextContent("Sana");
+    await user.click(tab(/Compartidos/));
+    expect(
+      screen.getByText(/Desconocido · sin observación actual/, { selector: ".soft.mono" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Detener mysql" })).not.toBeInTheDocument();
   });
 
   // covers: UI
