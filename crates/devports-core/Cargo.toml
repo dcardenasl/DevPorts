@@ -11,6 +11,8 @@ publish.workspace = true
 devports-proto.workspace = true
 thiserror = "2"
 jiff = "0.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde-saphyr = { version = "2.0.0", default-features = false, features = ["deserialize"] }
 
 # The macOS process adapter (`platform::macos`) is the only code that talks to
 # libproc and sysinfo, so neither is built anywhere else.
@@ -19,7 +21,9 @@ libproc = "0.14"
 sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 
 [dev-dependencies]
+proptest = "1.12.0"
 serde_json = "1"
+tempfile = "3.27.0"
 
 [lints]
 workspace = true
