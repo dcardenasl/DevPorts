@@ -561,23 +561,23 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
 Reemplazo de la presentación del panel por «el panel de sistema» ([ADR-042](docs/DECISIONES.md), [DESIGN.md](DESIGN.md), [plan](docs/plan/rediseno-visual.md)). Solo presentación: ningún texto, contrato ni flujo cambia. Mismas reglas de contexto que las tareas UXR-9 (leer `CLAUDE.md`, el plan y DESIGN.md; rama `dev`; sin push; `tools/check.sh full` y los scripts pnpm de `ui/`; cierre con `/commit-flow`).
 
-- [ ] **UXR-10.0 — Documentos del rediseño.**
+- [x] **UXR-10.0 — Documentos del rediseño.**
 
   **Dependencias:** ninguna. **Plan:** [plan](docs/plan/rediseno-visual.md). **Hecho cuando:** PRODUCT.md, DESIGN.md, ADR-042 y el plan existen y se citan entre sí. **Commits previstos:** `docs(design): record adr-042 and the system design`.
 
-- [ ] **UXR-10.1 — Sistema: tokens y componentes base.**
+- [x] **UXR-10.1 — Sistema: tokens y componentes base.**
 
   **Dependencias:** UXR-10.0. **Leer código:** `ui/src/{theme.css,styles.css,contrast.test.ts,theme.test.ts}`, `ui/src/views/shared-parts.tsx`, `docs/UI-REFERENCIA.md` §6. **Trabajo:** sustituir el conjunto de tokens por el de DESIGN.md en los dos temas (AA verificado); reescribir en `styles.css` los componentes base (`.group`, `.row`, encabezado de grupo, botón secundario/primario/destructivo, `tag` neutro, punto de estado, control segmentado, campo, pestañas) sin colores literales; retirar fundidos de entrada; test de coherencia: ningún token retirado, ningún color literal, sin clases `card green|amber|coral|blue`. **Hecho cuando:** `contrast.test.ts` y `theme.test.ts` pasan con la paleta nueva en ambos temas; la app compila y las vistas son legibles aunque aún no estén rediseñadas. **Commits:** `refactor(ui): replace the color tokens with the system palette` → `refactor(ui): rebuild the base components as groups and rows` → `test(ui): check the system tokens and the visual coherence`.
 
-- [ ] **UXR-10.2 — Vistas.**
+- [x] **UXR-10.2 — Vistas.**
 
   **Dependencias:** UXR-10.1. **Leer código:** `ui/src/views/*.tsx`, `ui/src/App.tsx`, `ui/src/StatusStrip.tsx`, `ui/src/model.ts`. **Trabajo:** Atención, Proyectos (ADR-039 intacta), Compartidos, Sin proyecto, Actividad y la franja de estado como grupos de filas; sin estilos en línea de margen o color; un punto de estado por fila; acciones con el botón único primario. **Hecho cuando:** las cinco vistas en claro y oscuro, es y en, a 380×520, sin recortes y con la misma gramática. **Commits:** `refactor(ui): lay out the views as grouped lists`.
 
-- [ ] **UXR-10.3 — Hojas y estados.**
+- [x] **UXR-10.3 — Hojas y estados.**
 
   **Dependencias:** UXR-10.1. **Leer código:** `ui/src/{Modal,AdoptSheet,ConsumersSheet,IgnoreSheets,ClassifySheet,SettingsSheet,PreferencesSection,dialogs}.tsx`. **Trabajo:** hoja con group y velo, acciones fijas, confirmaciones con relleno rojo solo en lo destructivo, formularios con el campo del sistema, aviso/vacío/cargando en texto gris. **Hecho cuando:** todas las hojas comparten componentes y se ven en ambos temas e idiomas. **Commits:** `refactor(ui): restyle the sheets and states with the system`.
 
-- [ ] **UXR-10.4 — Evidencia y cierre.**
+- [ ] **UXR-10.4 — Evidencia y cierre.** *(en curso: el registro, `UI-REFERENCIA.md` y las comprobaciones en navegador están hechos; faltan las capturas guardadas y M-17 nativo, a David)*
 
   **Dependencias:** UXR-10.2 y UXR-10.3. **Trabajo:** capturas claro/oscuro × es/en de las cinco vistas y las hojas en `docs/audits/evidencia/uxr-10/`; `UI-REFERENCIA.md` §6 con el sistema nuevo; registro en ARCHIVES, SNAPSHOT y CHANGELOG; comprobación nativa M-17 (a David). **Commits:** `docs: close uxr-10 with evidence`.
 

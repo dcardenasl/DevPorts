@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- **System look** — the panel now looks like a macOS grouped list: one rounded group per section, hairline separators, status colour only on the status dot, one accent for the primary action, SF typography and no entrance fades.
+
 ### Added
 
 - **Theme and language settings** — Settings now has Theme (System, Light, Dark) and Language (System, Español, English); each applies at once and is remembered.

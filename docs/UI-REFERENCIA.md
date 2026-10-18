@@ -3,6 +3,7 @@
 > Origen: exploración visual hecha con David el 2026-10-16 para los videos de presentación. Las capturas salen de los videos renderizados (v4, v5 y v6), así que muestran exactamente lo que se aprobó.
 > Marcas: **[Doc]** está respaldado por la documentación (`PRD.md`, `ARQUITECTURA.md` §12, `CLI.md`). **[Prop]** es una propuesta de esta exploración que la documentación no define: confirmar con David antes de implementarla.
 > Fuente de verdad ante contradicciones: `DECISIONES.md`.
+> **Estilo:** desde ADR-042 el aspecto lo manda [`DESIGN.md`](../DESIGN.md) y la sección 6. Las capturas y las descripciones de cada vista (colores, «primario coral», tarjetas) son referencia de **contenido y flujo**, no de estilo.
 > Todos los datos (proyectos, repos, puertos, horas, "QA login") son ejemplos inventados. No son datos reales de David.
 
 ---
@@ -149,56 +150,22 @@ No se crea ningún proceso; el panel resalta el servicio y la línea queda en Ac
 
 ## 6. Sistema visual
 
-### Color (dos temas, ADR-040)
-Cada token existe en los dos temas con el mismo nombre (`ui/src/theme.css`, un bloque `[data-theme]` por tema). `styles.css` no contiene colores literales. Los valores claros están calculados para AA (texto ≥ 4,5:1; foco y marcadores de estado ≥ 3:1) y los verifica `contrast.test.ts` por tema.
+### Color (dos temas, ADR-040 y ADR-042)
+El sistema visual vigente está en [`DESIGN.md`](../DESIGN.md) (tokens, tipografía, formas y componentes); lo que sigue es el resumen operativo. Cada token existe en los dos temas con el mismo nombre (`ui/src/theme.css`); `styles.css` no contiene colores literales; `contrast.test.ts` exige AA por tema (texto 4,5:1; aros y puntos 3:1).
 
-**Superficies y texto**
 | Token | Oscuro | Claro | Uso |
 |---|---|---|---|
-| `--panel` | `#171B1F` | `#F6F8FA` | Superficie del panel |
-| `--tabbar` | `#1A1E22` | `#ECEFF3` | Fondo de las pestañas |
-| `--sheet` | `#20262B` | `#FFFFFF` | Hojas y diálogos |
-| `--toast` | `#262D33` | `#FFFFFF` | Avisos flotantes |
-| `--text` | `#E8ECEF` | `#1A2128` | Texto principal |
-| `--text-soft` | `#8C979F` | `#505C66` | Texto secundario |
-| `--text-dim` | `#838E96` | `#59646E` | Rutas, horas, pestañas inactivas |
-| `--text-strong` | `#FFFFFF` | `#0D1216` | Pestaña seleccionada |
+| `--panel` | `#1C1C1E` | `#F2F2F7` | Fondo del panel y de la barra de pestañas |
+| `--group` / `--sheet` | `#2C2C2E` | `#FFFFFF` | Grupo de filas y hojas |
+| `--toast` / `--field` | `#3A3A3C` / `#1C1C1E` | `#FFFFFF` / `#F2F2F7` | Aviso flotante y campos |
+| `--text` / `--text-soft` / `--text-dim` | `#F5F5F7` / `#ACACB1` / `#A3A3A8` | `#1D1D1F` / `#636366` / `#66666B` | Texto principal, secundario y tenue |
+| `--accent` / `--accent-fill` / `--on-accent` | `#5AACFF` / `#0071E3` / `#FFFFFF` | `#0066CC` / `#0071E3` / `#FFFFFF` | Foco, enlaces y pestaña activa / botón primario |
+| `--green` / `--amber` / `--red` / `--on-red` | `#32D74B` / `#FF9F0A` / `#FF7B73` / `#1C1C1E` | `#1E7E34` / `#A15C00` / `#C4271C` / `#FFFFFF` | Estado (punto y palabra), insignia y botón destructivo de la confirmación |
+| `--line` / `--line-strong` | blanco 8 % / 16 % | `rgb(60 60 67)` 13 % / 24 % | Separador de filas / borde de campos y avisos |
+| `--hover` / `--press` / `--selected` | blanco 5 % / 10 % / `#48484A` | negro 5 % / 9 % / `#FFFFFF` | Estados de filas y botones; opción elegida |
+| `--dot-down` / `--dot-loose` / `--veil` | `#8E8E93` ×2 / negro 50 % | `#86868B` ×2 / negro 30 % | Anillos de estado y velo de hojas |
 
-**Color de estado** (el color significa estado, nunca decoración)
-| Token | Oscuro | Claro | Uso |
-|---|---|---|---|
-| `--green` | `#3DD6A0` | `#08694A` | Principal / sano, éxito, adoptar |
-| `--amber` | `#F5B544` | `#8A5600` | Temporal, cuenta regresiva |
-| `--coral` | `#FF6A55` | `#B72915` | Duplicados, colgados, detener, insignia |
-| `--blue` | `#6AA9FF` | `#1B5FC4` | Datos, información, rechazos |
-| `--on-green` | `#06241A` | `#FFFFFF` | Texto sobre relleno verde |
-| `--on-amber` | `#2B1D05` | `#FFFFFF` | Texto sobre relleno ámbar |
-| `--on-coral` | `#2B0D08` | `#FFFFFF` | Texto sobre botón coral |
-| `--on-badge` | `#1A0D0A` | `#FFFFFF` | Texto de la insignia coral |
-
-**Tintes** (el color de estado con transparencia; se derivan del color del tema)
-| Familia | Alfa | Uso |
-|---|---|---|
-| `--wash-green/amber/coral/blue` | 8 % / 8 % / 7 % / 7 % | Fondo de tarjetas de estado |
-| `--wash-coral-strong`, `--wash-amber-faint` | 10 % / 6 % | Fila resaltada, fila anidada |
-| `--edge-green/amber/coral/blue` | 35 % / 40 % / 38 % / 30 % | Borde de tarjetas de estado |
-| `--edge-green-strong`, `--edge-coral-strong` | 45 % / 50 % | Opción sugerida, aviso de error |
-| `--tint-green/amber/coral/blue` | 14 % | Fondo de etiquetas |
-| `--halo-green`, `--halo-coral` | 18 % / 20 % | Halo de 3 px del punto de estado |
-
-**Neutros** (oscuro: blanco con alfa; claro: `rgb(15 23 32)` con alfa)
-| Token | Alfa | Uso |
-|---|---|---|
-| `--ov-3`, `--ov-4`, `--ov-6`, `--ov-8`, `--ov-10` | 3, 4, 6, 8, 10 % | Repos, opciones, botones al pasar, barras, etiqueta suave |
-| `--surface` | 3,5 % | Tarjetas neutras (proyectos, compartidos, sin proyecto) |
-| `--line`, `--line-strong` | oscuro 8 % / 14 %; claro 10 % / 18 % | Bordes |
-| `--veil` | oscuro 64 %; claro 38 % | Velo bajo hojas y diálogos |
-| `--field` | oscuro negro 25 %; claro `#F1F4F6` | Fondo de campos de texto |
-| `--dot-down`, `--dot-loose` | oscuro `#5F6A71` / `#7B868D`; claro `#6B7680` / `#7D8892` | Anillo de caída / sin dueño |
-| `--pill-bg`, `--pill-fg` | oscuro `#FFFFFF` / `#101316`; claro `#1A2128` / `#FFFFFF` | Píldora de filtro activa |
-| `--hover-filter` | oscuro `brightness(1.3)`; claro `brightness(0.94)` | Etiqueta pulsable al pasar el puntero |
-
-Contrastes del tema claro (texto sobre su fondo): texto 15,3:1; suave 6,4:1; tenue 5,7:1 (5,2:1 en la barra de pestañas); verde 6,3:1, ámbar 5,8:1, coral 5,9:1, azul 5,7:1 sobre el panel; etiquetas de color sobre su tinte 4,7 a 5,1:1; blanco sobre verde 6,7:1, coral 6,3:1 y ámbar 6,2:1.
+Regla: el color significa estado y vive en **un solo canal** (el punto de la fila y, si pide acción, su palabra). Nada de fondos, bordes ni etiquetas teñidos, ni botones rellenos verde/ámbar/coral.
 
 ### Tipografía
 - Texto: sans del sistema (en el diseño original, IBM Plex Sans). Títulos 17 px semibold; nombres 13,5–15 px; texto de apoyo 11–12 px.
@@ -206,17 +173,16 @@ Contrastes del tema claro (texto sobre su fondo): texto 15,3:1; suave 6,4:1; ten
 - Etiquetas en mayúsculas (TEMPORAL POR VENCER, SIN REGISTRAR…): monoespaciada 10 px con espaciado de 0,1 em.
 
 ### Componentes
-- **Punto de estado:** 8 px. Principal sana: verde con halo de 3 px. Colgada o sin registrar: coral con halo. Temporal: anillo ámbar de 2 px. Sin dueño: anillo punteado gris. Caída: anillo gris.
-- **Botones** (altura 30 px, radio 8): primario relleno (ámbar para extender, coral para detener, verde para adoptar); secundario con borde `--line-strong`; terciario solo texto subrayado.
-- **Tarjetas:** radio 12; padding 12–14 px. **Etiquetas:** radio 4, fondo del color al 12 %. **Píldoras de filtro:** 24 px de alto.
-- **Íconos:** trazo de 1,7 px, 18 px en pestañas, 12–13 px en filas; sin emojis.
-- **Hoja y diálogo:** radio 14, fondo `--sheet`, sobre `--veil`.
+- **Grupo y fila:** una superficie redondeada (radio 10) por sección; filas de 44 px (32 compactas) separadas por una línea de 1 px que empieza donde empieza el texto; título 13/600, subtítulo 12 gris, dato en monoespaciada 12 a la derecha. Encabezado de grupo: 11/600 gris, en minúscula normal.
+- **Punto de estado:** 8 px, único portador de color: lleno = sano/Principal; anillo ámbar = vence o en transición; rojo lleno = falla o duplicado; anillo gris = caído; discontinuo = sin dueño.
+- **Botón:** secundario neutro (28 px, radio 6); un primario `--accent-fill` por grupo; destructivo en texto rojo, con relleno rojo solo en la hoja de confirmación.
+- **Etiqueta de dato:** monoespaciada 11 en cápsula neutra; la de un puerto lleva el punto de salud de quien lo ocupa.
+- **Control segmentado:** el mismo para el filtro de Actividad, el tema y el idioma.
+- **Hoja:** radio 12, velo, acciones fijas abajo; los bloques internos usan `--field`.
 
-### Movimiento (para la implementación, valores sugeridos)
-- Entrada de tarjetas y filas: desplazamiento de 16–30 px y fundido, 0,35–0,5 s, escalonado 0,25–0,35 s.
-- Cambio de pestaña: fundido de 0,3 s. Acordeón: altura en 0,7 s con curva suave.
-- Cuenta regresiva: se actualiza cada segundo. Resaltado de una fila nueva: parpadeo verde de ~0,4 s.
-- Respetar "reducir movimiento" del sistema.
+### Movimiento
+- Sin fundidos de entrada. Solo transiciones de estado de 150 ms (plegar, hover) y la cuenta regresiva, que se actualiza cada segundo.
+- Respetar «reducir movimiento» del sistema.
 
 ---
 

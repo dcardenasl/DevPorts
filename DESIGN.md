@@ -5,18 +5,18 @@ colors:
   panel-dark: "#1c1c1e"
   group-dark: "#2c2c2e"
   text-dark: "#f5f5f7"
-  text-soft-dark: "#a1a1a6"
-  text-dim-dark: "#98989d"
-  accent-dark: "#4aa3ff"
+  text-soft-dark: "#acacb1"
+  text-dim-dark: "#a3a3a8"
+  accent-dark: "#5aacff"
   accent-fill-dark: "#0071e3"
   green-dark: "#32d74b"
   amber-dark: "#ff9f0a"
-  red-dark: "#ff6961"
+  red-dark: "#ff7b73"
   panel-light: "#f2f2f7"
   group-light: "#ffffff"
   text-light: "#1d1d1f"
   text-soft-light: "#636366"
-  text-dim-light: "#6c6c70"
+  text-dim-light: "#66666b"
   accent-light: "#0066cc"
   accent-fill-light: "#0071e3"
   green-light: "#1e7e34"
@@ -111,7 +111,7 @@ Tres radios: 6 (controles, campos, botones), 10 (grupos), 12 (hojas y avisos). L
 
 - **Fila (`row`):** título 13/600 + subtítulo 12 gris + dato mono a la derecha; la fila entera es el área de pulsación cuando abre detalles. Estados: hover (overlay 6 %), foco (aro `accent` 2 px dentro), activa.
 - **Punto de estado:** único portador de color. Lleno = sano/Principal; anillo = vence o en transición; coral lleno = falla; gris = caído; discontinuo = suelto.
-- **Botón:** secundario por defecto (fondo overlay, sin borde); **primario** relleno `accent-fill` (uno por superficie); **destructivo** texto rojo sin relleno, que en la hoja de confirmación sí lleva relleno rojo. 28 px de alto, radio 6, peso 500/600.
+- **Botón:** secundario por defecto (fondo overlay, sin borde); **primario** relleno `accent-fill` (uno por grupo); **destructivo** texto rojo sin relleno, que en la hoja de confirmación sí lleva relleno rojo. 28 px de alto, radio 6, peso 500/600.
 - **Etiqueta de dato (`tag`):** texto mono gris en cápsula neutra; sin color.
 - **Control segmentado:** radios nativos con el seleccionado en `group` elevado sobre una pista neutra.
 - **Hoja:** group + velo; título 17/600; acciones fijas abajo, primaria a la derecha.
@@ -119,6 +119,6 @@ Tres radios: 6 (controles, campos, botones), 10 (grupos), 12 (hojas y avisos). L
 
 ## Do's and Don'ts
 
-- **Sí:** un único punto de color por fila; filas en grupo; encabezados de grupo en minúscula; puertos en mono; el botón primario es el acento y solo hay uno.
+- **Sí:** un único punto de color por fila; filas en grupo; encabezados de grupo en minúscula; puertos en mono; hay un botón primario por grupo, en el acento.
 - **No:** tarjetas con fondo o borde de color; mayúsculas con tracking; relleno verde/ámbar/coral en botones; más de un nivel de contenedor; fundidos de entrada; color decorativo; iconos sin significado.
 - **Tokens:** cada color vive en `theme.css` con el mismo nombre en ambos temas; `styles.css` no contiene literales; `contrast.test.ts` vigila AA por tema.
