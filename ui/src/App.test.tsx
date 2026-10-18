@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Backend } from "./api";
 import { App } from "./App";
 import { mockAdoption } from "./mock-adoption";
+import { mockConsumers } from "./mock-consumers";
 import { sampleLog, sampleSnapshot } from "./sample";
 import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
@@ -41,6 +42,12 @@ function fakeBackend(
       });
     },
   );
+  const consumers = mockConsumers(
+    () => currentSnapshot,
+    (next) => {
+      currentSnapshot = { ...next, revision: currentSnapshot.revision + 1 };
+    },
+  );
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -57,6 +64,7 @@ function fakeBackend(
       return adoption.previewAdoption(reference, target);
     },
     validateAdoption: adoption.validateAdoption,
+    sharedConsumers: consumers.sharedConsumers,
     previewProjectStop: (project) => {
       void record("previewProjectStop")(project);
       return Promise.resolve(

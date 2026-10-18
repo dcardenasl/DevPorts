@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Shared-service consumers** — the core can list which projects declare a shared service and save the association in several manifests at once: every manifest is validated before any write, each file reports its own result, and repeating a save never declares a service twice.
+
 - **Reviewed adoption** — adopting a process or container now goes destination → editable review → save in the panel, with recoverable drafts, per-field errors, typed conflicts and results that survive closing the panel; destinations the discovery cannot reach are refused with the next step.
 
 - **Adoption reviews** — the core now exposes eligible destinations, frozen previews, editable-field validation and idempotent saves with typed conflicts for the panel review workflow.

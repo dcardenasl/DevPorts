@@ -7,7 +7,11 @@ export type {
   AdoptionError,
   AdoptionOptions,
   AdoptionPreview,
+  ConsumerChoice,
+  ConsumerOptions,
   ServiceEdits,
+  UseRequest,
+  UsesError,
   AttentionItem,
   AttentionKind,
   ChainLink,
@@ -53,7 +57,7 @@ export interface PanelState {
   draft: AdoptDraft | null;
 }
 
-export type OperationKind = "stop" | "stopProject" | "extend" | "keep" | "adopt";
+export type OperationKind = "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers";
 export type OperationStatus = "queued" | "running" | "succeeded" | "partial" | "failed";
 export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed";
 export interface OperationTargetRequest {
@@ -61,6 +65,8 @@ export interface OperationTargetRequest {
   adoptTarget?: AdoptTarget;
   adoption?: { id: string; edits: import("./bindings").ServiceEdits };
   stopExpectation?: StopExpectation;
+  /** Consumer change: `reference` is the project name; `base` comes from `ConsumerChoice`. */
+  consumers?: { shared: string; include: boolean; base: string };
 }
 export interface StopExpectation {
   targetIdentity: string | null;
@@ -84,6 +90,8 @@ export interface OperationTargetResult {
   adoptTarget: AdoptTarget | null;
   adoptionReview?: string | null;
   adoptionError?: import("./bindings").AdoptionError | null;
+  consumers?: { shared: string; include: boolean } | null;
+  usesError?: import("./bindings").UsesError | null;
   stopExpectation?: StopExpectation | null;
   status: OperationTargetStatus;
   error: string | null;

@@ -5,6 +5,7 @@ import type {
   AdoptionOptions,
   AdoptionPreview,
   AdoptTarget,
+  ConsumerOptions,
   ServiceEdits,
   InstanceView,
   LogEntry,
@@ -20,6 +21,8 @@ export interface Backend {
   previewAdoption(reference: string, target: AdoptTarget): Promise<AdoptionPreview>;
   validateAdoption(id: string, edits: ServiceEdits): Promise<AdoptionPreview>;
   previewProjectStop(project: string): Promise<InstanceView[]>;
+  /** Read-only: every project and whether its manifest declares `shared`. */
+  sharedConsumers(shared: string): Promise<ConsumerOptions>;
   panelState(): Promise<PanelState>;
   savePanelState(state: PanelState): Promise<void>;
   operations(): Promise<OperationView[]>;
@@ -63,6 +66,7 @@ export function createTauriBackend(tauri: TauriGlobal): Backend {
       invoke<AdoptionPreview>("preview_adoption", { reference, target }),
     validateAdoption: (id, edits) => invoke<AdoptionPreview>("validate_adoption", { id, edits }),
     previewProjectStop: (project) => invoke<InstanceView[]>("preview_project_stop", { project }),
+    sharedConsumers: (shared) => invoke<ConsumerOptions>("shared_consumers", { shared }),
     panelState: () => invoke<PanelState>("get_panel_state"),
     savePanelState: (state) => {
       stateWrites = stateWrites

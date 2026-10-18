@@ -188,6 +188,7 @@ export const text = {
       extend: "Extender",
       keep: "Conservar",
       adopt: "Adoptar",
+      setConsumers: "Proyectos asociados",
     },
     queued: "En espera",
     running: "En curso…",

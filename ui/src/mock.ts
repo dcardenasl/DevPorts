@@ -2,6 +2,7 @@
 // actions visibly work (stopping removes a row, extending adds time).
 
 import { mockAdoption } from "./mock-adoption";
+import { mockConsumers } from "./mock-consumers";
 import { adoptionFailure, adoptionMessage } from "./adoption";
 import type { Backend } from "./api";
 import { sampleLog, sampleSnapshot } from "./sample";
@@ -36,10 +37,12 @@ export function mockBackend(): Backend {
   };
 
   const adoption = mockAdoption(() => state, publish);
+  const consumers = mockConsumers(() => state, publish);
   return {
     adoptionOptions: adoption.adoptionOptions,
     previewAdoption: adoption.previewAdoption,
     validateAdoption: adoption.validateAdoption,
+    sharedConsumers: consumers.sharedConsumers,
     snapshot: () => Promise.resolve(state),
     previewProjectStop: (project) =>
       Promise.resolve(
@@ -88,6 +91,36 @@ export function mockBackend(): Backend {
       opListeners.forEach((listener) => {
         listener(op);
       });
+      if (request.kind === "setConsumers") {
+        const first = request.targets[0]?.consumers;
+        const outcomes = consumers.apply(
+          first?.shared ?? "",
+          request.targets.map((target) => ({
+            project: target.reference,
+            include: target.consumers?.include ?? false,
+            base: target.consumers?.base ?? "",
+          })),
+        );
+        request.targets.forEach((target, index) => {
+          const result = op.targets.find((item) => item.reference === target.reference);
+          const outcome = outcomes[index];
+          if (result === undefined || outcome === undefined) return;
+          result.consumers = target.consumers
+            ? { shared: target.consumers.shared, include: target.consumers.include }
+            : null;
+          result.status = outcome.ok ? "succeeded" : "failed";
+          if (!outcome.ok) {
+            result.usesError = outcome.error;
+            result.error = JSON.stringify(outcome.error);
+          }
+        });
+        op.status = outcomes.every((outcome) => outcome.ok) ? "succeeded" : "failed";
+        op.revision++;
+        opListeners.forEach((listener) => {
+          listener(op);
+        });
+        return op;
+      }
       for (const target of request.targets) {
         const ref = target.reference;
         try {
