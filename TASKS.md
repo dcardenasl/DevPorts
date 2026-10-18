@@ -383,6 +383,130 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
   **Entrega (2026-10-18):** cabecera en una fila con chips de puertos, repo único fusionado, fila de servicio como disparador de detalles, pie único, varias tarjetas abiertas con estado manual recordado y «Plegar/Abrir todo». UI 115/115 y `tools/check.sh full` verdes. Verificado en la app nativa a 380×520 ([captura](docs/audits/evidencia/uxr-8/proyectos-380x520.png)).
 
+### Tema e idioma
+
+Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja y notificaciones. Diseño completo, hallazgos y riesgos: [docs/plan/tema-e-idioma.md](docs/plan/tema-e-idioma.md) (el «plan»). Decisiones de David [C]: es + en; alcance panel + bandeja + notificaciones (CLI, `--json`, goldens y `docs/` siguen en español); preferencias en tabla SQLite `preferences`. Siete tareas de sesión; cada una se puede ejecutar en un chat distinto con «Ejecuta UXR-9.N de TASKS.md».
+
+**Contexto obligatorio de cada sesión UXR-9.x:**
+1. Leer `CLAUDE.md`, este bloque, la ficha elegida y el [plan](docs/plan/tema-e-idioma.md) (la primera vez completo; después, su sección enlazada). Desde UXR-9.0 en adelante, ADR-040 y ADR-041 de `docs/DECISIONES.md` son la autoridad.
+2. Verificar `git branch --show-current` = `dev`, `git status` y `git log --oneline | head -15`. No incluir ni reescribir `.devports.yml` no versionado. Sin push, publicación ni release.
+3. Leer en `ARCHIVES.md` la entrega real de cada dependencia (archivos, contrato, pruebas); no asumir implementación por existir el plan.
+4. Trabajar solo la tarea indicada. Cero `unwrap`/`expect`/`panic`, cero `any`, sin `TODO` sueltos; `ui/src/bindings.ts` solo se regenera (`UPDATE_BINDINGS=1 cargo test -p devports-core --features bindings --test bindings`). Código, comentarios, commits y CHANGELOG en inglés; docs en español.
+5. Verificar con `tools/check.sh full` y, en `ui/`, `pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test && pnpm run build`. Cada prueba nueva lleva `// covers: ID` (ids en [PRUEBAS.md](docs/PRUEBAS.md) §2/§4; los `UXR-9.x` se anotan como en UXR-7.1). El panel nativo no es controlable por el agente: dejar la comprobación nativa a David, sin afirmar que un mock equivale a Tauri; no tocar los servicios reales de David.
+6. Cerrar con **`/commit-flow`** usando los commits previstos de la ficha (una línea, inglés, imperativo, sin cuerpo ni trailers, archivos nombrados, `git diff --cached --stat` antes, hook fallido → arreglar y commit nuevo). CHANGELOG `[Unreleased]` solo para `feat`. Registrar la entrega en `ARCHIVES.md` y actualizar `SNAPSHOT.md` y la ficha (`[x]` + **Entrega**).
+
+- [ ] **UXR-9.0 — Registrar las decisiones de tema e idioma (ADR-040, ADR-041).**
+
+  **Dependencias:** ninguna. **Plan:** [Contexto, Diseño B y C](docs/plan/tema-e-idioma.md#contexto). **Contexto:** ADR-025.6 y .7, NF-10, `UI-REFERENCIA.md` L14/L152/L191.
+
+  **Leer código:** `docs/DECISIONES.md` (formato de ADR-038/039), `docs/PRD.md` (NF-10), `docs/PRUEBAS.md` §2 y §4, `docs/UI-REFERENCIA.md` §6–7, `tools/check_matrix.py`.
+
+  **Trabajo de esta sesión:** Solo documentación. ADR-040 (tema: tres preferencias, resolución síncrona por URL + `boot.js`, `data-theme` explícito, tokens por tema, sin `light-dark()`/`color-mix`, AA por tema) y ADR-041 (idioma: es + en, catálogo tipado sin librería, `Intl`, núcleo envía datos tipados, texto en español de CLI/`--json` intacto, preferencias en SQLite `preferences`, regla de respaldo de locale: `es*`→es, `en*`→en, otro→en). Enmendar NF-10 («texto en español para personas en CLI y `--json`; panel, bandeja y notificaciones según preferencia») y ADR-025.6; añadir NF-11 (tema e idioma) y su fila en PRUEBAS §4. En `UI-REFERENCIA.md` §6 diseñar la **paleta clara** (tabla de tokens por tema con valores y pares de contraste previstos) y retirar «modo claro no diseñado». Actualizar CLAUDE.md «Idioma» si cambia el alcance.
+
+  **Hecho cuando:** ADR-040/041 numerados y marcados **[C]**/[D] según corresponda; NF-11 y su fila de matriz; paleta clara con todos los tokens del plan (incluidos `--tint-*`, `--wash-*`, `--on-*`); sin contradicciones entre docs; `python3 tools/check_matrix.py` verde.
+
+  **Verificación:** `tools/check.sh full` (solo debe cambiar la matriz si se añaden IDs); revisión manual de enlaces.
+
+  **Commits previstos:** `docs(adr): record adr-040 and adr-041 for theme and language`.
+
+  **Entrega a la próxima sesión:** ADR y paleta citados por número/sección en ARCHIVES para UXR-9.1 y 9.2.
+
+- [ ] **UXR-9.1 — Preferencias persistentes (proto, núcleo y comandos).**
+
+  **Dependencias:** UXR-9.0. **Plan:** [Diseño A](docs/plan/tema-e-idioma.md#a-preferencias-fuente-única). **Contexto:** ADR-040/041, reglas 1, 6, 8 y 10 de CLAUDE.md.
+
+  **Leer código:** `crates/devports-proto/src/{lib,views}.rs`; `crates/devports-core/src/{store,runtime}.rs` y `engine/` (cómo el actor atiende mensajes, p. ej. `ignored`/`classifications`); `crates/devports-core/tests/{bindings,architecture}.rs`; `crates/devports-app/src/{commands,main}.rs`; `ui/src/{api,types}.ts`, `mock*.ts`.
+
+  **Trabajo de esta sesión:** Tipos `Preferences`/`ThemePreference`/`LanguagePreference` en proto (specta). Migración 4 `preferences` en `store.rs` (CHECK por clave, defaults `system`, valor desconocido → `system` sin fallar el arranque, tests de migración desde la 3). Mensajes `get/set_preferences` del actor. Comandos Tauri `get_preferences`/`set_preferences` (no en el socket) con copia en el shell para abrir el panel sin I/O; el hook de reconstruir bandeja queda como punto de extensión que llena UXR-9.5 (sin código muerto: en esta tarea solo se guarda y se devuelve). `Backend.preferences()/setPreferences()` en `api.ts` y `mock-preferences.ts`. Regenerar bindings.
+
+  **Hecho cuando:** las preferencias sobreviven a reiniciar el núcleo; una base con migración 3 migra a 4 sin pérdida; un valor corrupto devuelve `system`; el socket no expone nada nuevo; test de arquitectura verde; bindings sin deriva.
+
+  **Verificación:** `tools/check.sh full`; pruebas de núcleo/app/UI con `// covers:`; `pnpm` completo.
+
+  **Commits previstos:** `feat(proto): add the preferences types` → `feat(core): store preferences in sqlite with migration 4` → `feat(app): add the preferences commands`.
+
+  **Entrega a la próxima sesión:** firmas exactas de los comandos y tipos en ARCHIVES (las consumen 9.2, 9.3, 9.5 y 9.6).
+
+- [ ] **UXR-9.2 — Tema claro/oscuro/sistema sin parpadeo.**
+
+  **Dependencias:** UXR-9.1 (tipos y copia en el shell). **Plan:** [Diseño B](docs/plan/tema-e-idioma.md#b-tema). **Contexto:** ADR-040, ADR-017 (webview efímero), ADR-025.5 (ventana opaca, esquinas nativas), UXR-7.1 (contraste AA).
+
+  **Leer código:** `ui/src/{styles.css,contrast.test.ts,main.tsx,hooks.ts}`, `ui/index.html`, `ui/vite.config.ts`, `ui/eslint.config.js`; `crates/devports-app/src/panel.rs` (URL `?tab=`, `reveal`, `REVEAL_FALLBACK`), `window_style.rs` (no se modifica); `docs/UI-REFERENCIA.md` §6 (paleta de UXR-9.0).
+
+  **Trabajo de esta sesión:** Crear `ui/src/theme.css` con los dos bloques `[data-theme]` y mover **todos** los colores literales de `styles.css` (≈39) a tokens semánticos; `styles.css` solo usa `var(--…)`. `ui/public/boot.js` síncrono (CSP `script-src 'self'`) y `ui/src/theme.ts` (`resolveTheme`, `applyTheme`, listener `matchMedia` solo con preferencia = sistema). `panel.rs` añade `theme` (y deja `lang` listo para 9.3) al URL desde la copia del shell y llama a `set_theme(None|Light|Dark)` en la ventana. `contrast.test.ts` parametrizado por tema (21 pares, texto-sobre-relleno desde tokens, AA ≥ 4.5; foco/bordes ≥ 3:1). Tests: sin `#hex`/`rgb(` fuera de `theme.css`; ambos temas definen el mismo conjunto de tokens; `boot.js` en jsdom (con y sin parámetros, valor inválido → sistema). Sin selector en Ajustes todavía (UXR-9.6): el tema se prueba con el parámetro y el mock.
+
+  **Hecho cuando:** ambos temas pasan AA; el panel nativo abre ya en el tema correcto sin fotograma equivocado (comprobación nativa a David, con la ventana a alfa 0 hasta `panel_ready`); cambiar la apariencia de macOS con el panel abierto actualiza el tema si la preferencia es sistema; capturas claro/oscuro de las cinco pestañas y de las hojas en el navegador de desarrollo.
+
+  **Verificación:** `tools/check.sh full`; `pnpm` completo; capturas con `preview_start`; `tools/install.sh` y revisión nativa por David.
+
+  **Commits previstos:** `refactor(ui): move every color into theme tokens` → `feat(ui): resolve light and dark themes before first paint` → `test(ui): check contrast for both themes`.
+
+  **Entrega a la próxima sesión:** lista final de tokens, `applyTheme`/`resolveTheme` y cómo fija el tema una prueba; evidencia en `docs/audits/evidencia/uxr-9/`.
+
+- [ ] **UXR-9.3 — Catálogo i18n tipado del panel (es + en).**
+
+  **Dependencias:** UXR-9.1. **Plan:** [Diseño C](docs/plan/tema-e-idioma.md#c-i18n-del-panel-sin-librería-catálogo-tipado-coherente-con-textts). **Contexto:** ADR-041, regla 10 (cero `any`, `strict`).
+
+  **Leer código:** `ui/src/text.ts` (todo), `time.ts`, `settings.ts`, `adoption.ts`, `consumers.ts`, `App.tsx` (L267, 324, 340, 407, 585), `views/ActivityView.tsx`, los 16 importadores de `text` (`grep -rn 'from "./text"' ui/src`), `ui/src/App.test.tsx` (helper `fakeBackend`/render), `ui/eslint.config.js`, `ui/index.html`, `ui/src/mock*.ts` y `sample.ts`.
+
+  **Trabajo de esta sesión:** Crear `ui/src/i18n/{es,en,locale,format,provider}`: `es.ts` movido desde `text.ts` (tipo `Catalog = typeof es`), `en.ts: Catalog` completo y natural, `resolveLocale`, envoltorios `Intl` (plural, relativo, hora, número, lista) en lugar de `plural()`, ternarios `count === 1` y `toLocaleTimeString("es")`; `I18nProvider`/`useI18n()`; sustituir `import { text }` en los 16 archivos; mover a catálogo los literales sueltos (`settings.ts`, `adoption.ts`, 3 `aria-label`, `"Falló"`); `lang` del documento sincronizado; eliminar `text.ts`. Lenguaje inicial desde `?lang=` (con `navigator.language` de respaldo en desarrollo). Regla ESLint `no-restricted-syntax` (JSXText y `aria-label|title|placeholder|alt` con literal). Pruebas: paridad es↔en (claves y aridad), plurales/fechas en ambos locales, `resolveLocale`, helper de render fijado a `es` para la suite actual y una suite de humo en `en` por vista. Los textos que llegan del núcleo (Actividad, errores) quedan para UXR-9.4: en esta tarea se muestran como hoy.
+
+  **Hecho cuando:** `grep` no encuentra español fuera de `i18n/es.ts` y los mocks/`sample.ts`; typecheck falla si falta una clave en `en`; las 115 pruebas existentes pasan sin reescribir sus consultas; cada pestaña se ve completa en `en`.
+
+  **Verificación:** `pnpm` completo; `tools/check.sh full`; capturas es/en de cada pestaña en el navegador de desarrollo.
+
+  **Commits previstos:** `refactor(ui): replace the text module with a typed catalog` → `feat(ui): add the english catalog and intl formatting`.
+
+  **Entrega a la próxima sesión:** API de `useI18n`, cómo añadir un idioma y qué textos del núcleo siguen en español (insumo de 9.4).
+
+- [ ] **UXR-9.4 — Texto del núcleo como datos tipados (Actividad y errores).**
+
+  **Dependencias:** UXR-9.3. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041; CLI.md y los goldens **no cambian**.
+
+  **Leer código:** `crates/devports-core/src/messages.rs` (`event_summary`, `event_topics`, `messages/tests.rs`), `crates/devports-proto/src/views.rs` (`LogEntry`), `settings.rs`, `adopt/{review,apply}.rs`, `uses.rs`, `engine/actions.rs` (`ActionError`), `crates/devports-app/src/{commands,operations}.rs`, `crates/devports-core/tests/bindings.rs`, `crates/devports-cli/tests/golden/`, `ui/src/views/ActivityView.tsx`, `ui/src/settings.ts`, `ui/src/adoption.ts`, `ui/src/i18n/`.
+
+  **Trabajo de esta sesión:** `LogEntry.facts` tipado (`#[serde(default)]`) derivado del payload; `summary` se conserva para CLI/socket y como respaldo de `kind` desconocido. Variantes/razones tipadas con parámetros en `SettingsError`, `RootProblem`, `ScanFolders.reason`, `AdoptionDestination.reason`, `AdoptionPreview.warnings`, `UsesError`, `AdoptionError`; el detalle de SO/archivo viaja como `detail`. `CommandError { code, … }` único para los `Result<_, String>` de `commands.rs`; `ActionError` serializable. El panel mapea todo a `t.*` (`t.activity.event[kind](facts)`, errores por código) en es y en. Test de guardia: tipos exportados sin texto libre salvo `detail`/nombres de usuario. Goldens y `--json` byte a byte iguales.
+
+  **Hecho cuando:** con el panel en `en` no queda texto en español procedente del núcleo salvo `detail` técnico; `tools/check.sh full` con los goldens sin tocar; bindings regenerados sin deriva; un núcleo con `kind` nuevo no rompe el panel.
+
+  **Verificación:** `tools/check.sh full`; `pnpm` completo; recorrido en `en` de Actividad, Ajustes (carpetas inválidas, `documentChanged`), adopción y consumidores con mocks.
+
+  **Commits previstos:** `refactor(core): send typed facts and error codes to the panel` → `refactor(ui): render core events from typed facts`.
+
+  **Entrega a la próxima sesión:** lista de tipos/códigos y el patrón para añadir un evento o error nuevo.
+
+- [ ] **UXR-9.5 — Bandeja y notificaciones localizadas.**
+
+  **Dependencias:** UXR-9.1. **Plan:** [Diseño E](docs/plan/tema-e-idioma.md#e-bandeja-y-notificaciones-rust-devports-app). **Contexto:** ADR-041, ADR-014 (notificaciones), ADR-025.3 y .7 (`unsafe` solo en tres archivos).
+
+  **Leer código:** `crates/devports-app/src/{tray,notifications,host,integration,commands,main}.rs`, `Cargo.toml` de la app y `deny.toml`, `crates/devports-core/tests/architecture.rs`.
+
+  **Trabajo de esta sesión:** `crates/devports-app/src/i18n.rs` con `Locale {Es, En}`, `resolve(pref, system)` vía `sys-locale` (sin `unsafe`; `cargo deny` verde) y catálogo por `match` exhaustivo (`enum Msg`) para el menú de la bandeja y su tooltip, los diálogos de `tray.rs`/`integration::tell`, los textos de `host.rs` y el título de «Extender 30 min». `set_preferences` reconstruye el menú y vuelve a registrar la categoría de notificación (idempotente) con el idioma nuevo. Sin archivos `unsafe` nuevos.
+
+  **Hecho cuando:** cambiar el idioma actualiza la bandeja sin reiniciar; una notificación de vencimiento sale en el idioma elegido con su botón; añadir una variante a `Msg` sin traducirla no compila; pruebas de `resolve` (es-MX, en-GB, fr → respaldo, sistema vacío).
+
+  **Verificación:** `tools/check.sh full` (incl. `cargo deny` y el test de `unsafe`); comprobación nativa de bandeja y una notificación por David en ambos idiomas.
+
+  **Commits previstos:** `feat(app): localize the tray and notifications`.
+
+  **Entrega a la próxima sesión:** cómo se reconstruye la bandeja y dónde añadir un `Msg`.
+
+- [ ] **UXR-9.6 — Ajustes de apariencia e idioma y cierre.**
+
+  **Dependencias:** UXR-9.2, 9.3, 9.4 y 9.5. **Plan:** [Diseño F](docs/plan/tema-e-idioma.md#f-ui-de-ajustes) y Verificación global. **Contexto:** ADR-035/036 (el borrador de carpetas no cambia).
+
+  **Leer código:** `ui/src/SettingsSheet.tsx`, `settings.ts`, `ui/src/hooks.ts`, `ui/src/App.tsx`, `ui/src/theme.ts`, `ui/src/i18n/`, `ui/src/api.ts`, `ui/src/App.test.tsx` (pruebas de Ajustes).
+
+  **Trabajo de esta sesión:** Secciones «Apariencia» e «Idioma» al inicio de `SettingsSheet`: dos grupos de radio accesibles (Sistema/Claro/Oscuro; Sistema/Español/English con autónimos). Aplicación inmediata (sin operación ni vista previa) mediante `setPreferences`, actualización de `theme`/`lang` en vivo, reversión y aviso si falla el guardado; teclado y VoiceOver (`role="radiogroup"`). Recorrido completo y evidencia (capturas claro/oscuro × es/en de las cinco pestañas y las hojas; comprobación nativa por David). Cierre: ARCHIVES, SNAPSHOT, CHANGELOG `[Unreleased]` (`feat`), informe `docs/audits/2026-10-18-uxr-9.md`, `UI-REFERENCIA.md` y README al día.
+
+  **Hecho cuando:** el cambio persiste tras cerrar y reabrir el panel y tras reiniciar la app; sin parpadeo; pruebas de la hoja (cambio, fallo con reversión, foco/teclado) con `// covers:`; todas las verificaciones del plan verdes; pendientes humanos (verificación nativa) documentados sin marcarlos aprobados.
+
+  **Verificación:** `tools/check.sh full`; `pnpm` completo; `tools/install.sh` y recorrido nativo por David.
+
+  **Commits previstos:** `feat(ui): add appearance and language to settings` → `docs: close uxr-9 with evidence`.
+
+  **Entrega a la próxima sesión:** informe enlazado desde TASKS/SNAPSHOT; sin release ni push sin orden de David.
+
 ### Inicio de una sesión dedicada
 
 Indicar «Ejecuta UXR-3.1 de TASKS.md, siguiendo sus dependencias, contexto y registro de entrega» basta para elegir una unidad. Sustituir el ID por la tarea deseada; no es necesario recuperar este chat. La sesión lee la ficha y sus fuentes antes de actuar. El orden sugerido es el de las fichas, saltando solo tareas bloqueadas por evidencia externa; no ejecutar una tarea sin sus dependencias técnicas.

@@ -25,6 +25,7 @@ App de barra de menús para macOS que mantiene el orden de los servidores de des
 | `docs/PRUEBAS.md` | Escribir pruebas; matriz requisito→prueba |
 | `docs/ROADMAP.md` | Fases y puertas |
 | `docs/UI-REFERENCIA.md` + `docs/ui-referencia/` | Construir el panel (capturas y tokens) |
+| `docs/plan/tema-e-idioma.md` | Tema claro/oscuro e i18n (UXR-9.x): diseño y riesgos |
 | `ARCHIVES.md` | Evidencia de tareas cerradas |
 | `SNAPSHOT.md` / `ASSET.md` | Estado de la última sesión / ficha del asset (actualizar al cerrar sesión) |
 | Plan rector | `~/.claude/plans/analiza-la-documentaci-n-referencias-enchanted-hummingbird.md` (razonamiento; `TASKS.md` manda) |
