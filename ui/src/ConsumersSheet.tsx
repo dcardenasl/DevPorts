@@ -225,7 +225,7 @@ export function ConsumersSheet({
             const rows = changes.filter((item) => item.include === include);
             return rows.length === 0 ? null : (
               <section key={String(include)}>
-                <div className="eyebrow">{include ? t.add : t.remove}</div>
+                <div className="label soft">{include ? t.add : t.remove}</div>
                 <ul className="consumers">
                   {rows.map((row) => (
                     <li key={row.project}>
@@ -327,7 +327,7 @@ export function ConsumersSheet({
         {!sent && options !== undefined && options.defined && !reviewing && (
           <button
             type="button"
-            className="btn primary-green"
+            className="btn primary"
             disabled={changes.length === 0}
             onClick={() => {
               change({ ...draft, reviewing: true });
@@ -339,7 +339,7 @@ export function ConsumersSheet({
         {reviewing && (
           <button
             type="button"
-            className="btn primary-green"
+            className="btn primary"
             disabled={busy}
             onClick={() => {
               void save();

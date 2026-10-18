@@ -4,6 +4,7 @@ import type { Link } from "./connection";
 import { useI18n } from "./i18n/provider";
 import { dockerProblemText, problemText } from "./reasons";
 import { agoFrom } from "./time";
+import { Dot } from "./views/shared-parts";
 import type { Snapshot } from "./types";
 
 /** Longest docker error shown; the full text can carry local paths. */
@@ -39,34 +40,45 @@ export function StatusStrip({
   return (
     <>
       {(link.phase === "reconnecting" || link.phase === "failed") && (
-        <div className="card coral" role={link.phase === "failed" ? "alert" : "status"}>
-          <div className="soft">
-            {link.phase === "failed"
-              ? t.lost(since)
-              : t.reconnecting(link.attempt, link.attempts, since)}
+        <section className="group" role={link.phase === "failed" ? "alert" : "status"}>
+          <div className="item">
+            <Dot kind="red" />
+            <div className="item-main">
+              <div className="item-sub">
+                {link.phase === "failed"
+                  ? t.lost(since)
+                  : t.reconnecting(link.attempt, link.attempts, since)}
+              </div>
+            </div>
           </div>
-          <div className="row" style={{ marginTop: 8, justifyContent: "flex-end" }}>
+          <div className="item-actions">
             <button type="button" className="btn" onClick={onRetry}>
               {link.phase === "failed" ? t.retry : t.retryNow}
             </button>
           </div>
-        </div>
+        </section>
       )}
       {dockerDown && (
-        <div className="card blue" role="status">
-          <div className="eyebrow blue-text">{text.status.dockerDown}</div>
-          <div className="soft">{text.status.dockerDownBody}</div>
-          {snapshot.docker_error !== null && (
-            <div className="soft mono" style={{ marginTop: 4, fontSize: 11 }}>
-              {shortReason(dockerProblemText(snapshot.docker_error, text))}
+        <section className="group" role="status">
+          <div className="item">
+            <Dot kind="down" />
+            <div className="item-main">
+              <div className="item-title">{text.status.dockerDown}</div>
+              <div className="item-sub">{text.status.dockerDownBody}</div>
+              {snapshot.docker_error !== null && (
+                <div className="item-sub mono">
+                  {shortReason(dockerProblemText(snapshot.docker_error, text))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        </section>
       )}
       {warnings > 0 && (
-        <div className="card blue" role="status">
-          <div className="row">
-            <span className="soft grow">{t.problems(warnings)}</span>
+        <section className="group" role="status">
+          <div className="item">
+            <Dot kind="amber" />
+            <span className="grow">{t.problems(warnings)}</span>
             <button
               type="button"
               className="btn"
@@ -77,7 +89,7 @@ export function StatusStrip({
               {t.details}
             </button>
           </div>
-        </div>
+        </section>
       )}
     </>
   );
@@ -95,7 +107,7 @@ export function StatusDetails({
   const t = text.link;
   return (
     <section className="stack" aria-label={t.state}>
-      <div className="eyebrow">{t.state}</div>
+      <div className="label soft">{t.state}</div>
       <dl className="adoption-location">
         <dt>{t.core}</dt>
         <dd>
@@ -112,7 +124,7 @@ export function StatusDetails({
             : t.dockerDown(shortReason(dockerProblemText(snapshot.docker_error, text)))}
         </dd>
       </dl>
-      <div className="eyebrow">{t.problemsTitle}</div>
+      <div className="label soft">{t.problemsTitle}</div>
       {snapshot.problems.length === 0 ? (
         <p className="soft">{t.noProblems}</p>
       ) : (

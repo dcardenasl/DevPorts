@@ -6,7 +6,7 @@ import { useI18n } from "../i18n/provider";
 import { eventSentence } from "../events";
 import { clock } from "../time";
 import type { LogEntry, LogTopic } from "../types";
-import { Empty } from "./shared-parts";
+import { Empty, Section } from "./shared-parts";
 
 type Filter = "all" | "rejections" | "temporals" | "alerts";
 
@@ -71,10 +71,10 @@ function label(entry: LogEntry, text: Catalog): Label {
 }
 
 const TONE_CLASS: Record<Label["tone"], string> = {
-  green: "green-text",
-  amber: "amber-text",
-  coral: "coral-text",
-  blue: "blue-text",
+  green: "is-green",
+  amber: "is-amber",
+  coral: "is-red",
+  blue: "soft",
   soft: "dim",
 };
 
@@ -176,35 +176,35 @@ export function ActivityView({
         ))}
       </div>
       {error !== null && (
-        <div className="card coral" role="alert">
-          <div className="soft">
-            {entries === null ? text.activity.loadFailed : text.activity.staleFailed}
+        <section className="group" role="alert">
+          <div className="item-note">
+            <div className="is-red">
+              {entries === null ? text.activity.loadFailed : text.activity.staleFailed}
+            </div>
+            <div className="mono">{failureText(error.cause, text)}</div>
           </div>
-          <div className="soft mono" style={{ marginTop: 4, fontSize: 11 }}>
-            {failureText(error.cause, text)}
-          </div>
-          <div className="row" style={{ marginTop: 8, justifyContent: "flex-end" }}>
+          <div className="item-actions">
             <button type="button" className="btn" onClick={retry}>
               {text.activity.retry}
             </button>
           </div>
-        </div>
+        </section>
       )}
       {entries === null && error === null && <p role="status">{text.activity.loading}</p>}
       {entries !== null && (
         <>
-          <div className="soft" style={{ fontSize: 12 }}>
+          <p className="section-note">
             {text.activity.window} ·{" "}
             {filter === "all"
               ? text.activity.summary(total)
               : text.activity.of(shown.length, total)}
-          </div>
+          </p>
           {total === 0 ? (
             <Empty title={text.activity.noneWindow} body={text.activity.noneWindowBody} />
           ) : shown.length === 0 ? (
-            <div className="card">
-              <div className="soft">{text.activity.noMatch(total)}</div>
-              <div className="row" style={{ marginTop: 8, justifyContent: "flex-end" }}>
+            <Section>
+              <div className="item-note">{text.activity.noMatch(total)}</div>
+              <div className="item-actions">
                 <button
                   type="button"
                   className="btn"
@@ -215,20 +215,20 @@ export function ActivityView({
                   {text.activity.showAll}
                 </button>
               </div>
-            </div>
+            </Section>
           ) : (
-            <div className="divided">
+            <section className="group">
               {shown.map((entry, index) => {
                 const tag = label(entry, text);
                 return (
                   <div className="log-row" key={`${entry.at}-${index}`}>
                     <span className="mono dim">{clock(entry.at, locale)}</span>
-                    <span className={`eyebrow ${TONE_CLASS[tag.tone]}`}>{tag.word}</span>
+                    <span className={`label sentence ${TONE_CLASS[tag.tone]}`}>{tag.word}</span>
                     <span>{eventSentence(entry, text, locale)}</span>
                   </div>
                 );
               })}
-            </div>
+            </section>
           )}
         </>
       )}

@@ -66,49 +66,51 @@ const THEMES: Theme[] = ["dark", "light"];
 function pairs(theme: Theme): { text: [string, Rgb, Rgb][]; ui: [string, Rgb, Rgb][] } {
   const solid = (name: string): Rgb => over(parse(token(theme, name)), [0, 0, 0]);
   const panel = solid("panel");
+  const group = solid("group");
   const sheet = solid("sheet");
-  const tabbar = solid("tabbar");
   const rgbaOver = (name: string, base: Rgb): Rgb => over(parse(token(theme, name)), base);
+  const hoverOnGroup = rgbaOver("hover", group);
+  const pressOnGroup = rgbaOver("press", group);
+  const hoverOnPanel = rgbaOver("hover", panel);
+  const text: [string, Rgb, Rgb][] = [];
+  for (const [surface, background] of [
+    ["panel", panel],
+    ["group", group],
+    ["sheet", sheet],
+    ["a hovered row", hoverOnGroup],
+  ] as const) {
+    text.push(
+      [`text on ${surface}`, solid("text"), background],
+      [`soft text on ${surface}`, solid("text-soft"), background],
+      [`dim text on ${surface}`, solid("text-dim"), background],
+      [`accent on ${surface}`, solid("accent"), background],
+      [`green on ${surface}`, solid("green"), background],
+      [`amber on ${surface}`, solid("amber"), background],
+      [`red on ${surface}`, solid("red"), background],
+    );
+  }
+  text.push(
+    ["text on a pressed row", solid("text"), pressOnGroup],
+    ["soft text on a pressed row", solid("text-soft"), pressOnGroup],
+    ["soft text on the segmented track", solid("text-soft"), hoverOnPanel],
+    ["text on the selected segment", solid("text"), solid("selected")],
+    ["text on a field", solid("text"), solid("field")],
+    ["soft text on a field", solid("text-soft"), solid("field")],
+    ["text on a toast", solid("text"), solid("toast")],
+    ["primary button text", solid("on-accent"), solid("accent-fill")],
+    ["badge and destructive button text", solid("on-red"), solid("red")],
+    ["soft text on the panel's hover", solid("text-soft"), hoverOnPanel],
+  );
   return {
-    text: [
-      ["text on panel", solid("text"), panel],
-      ["text on sheet", solid("text"), sheet],
-      ["soft text on panel", solid("text-soft"), panel],
-      ["soft text on sheet", solid("text-soft"), sheet],
-      ["soft text on a card", solid("text-soft"), rgbaOver("surface", panel)],
-      ["dim text on panel", solid("text-dim"), panel],
-      ["dim text on the tab bar", solid("text-dim"), tabbar],
-      ["selected tab on the tab bar", solid("text-strong"), tabbar],
-      ["green on panel", solid("green"), panel],
-      ["amber on panel", solid("amber"), panel],
-      ["coral on panel", solid("coral"), panel],
-      ["blue on panel", solid("blue"), panel],
-      ["blue on sheet", solid("blue"), sheet],
-      ["coral on sheet (errors)", solid("coral"), sheet],
-      ["primary green button text", solid("on-green"), solid("green")],
-      ["primary amber button text", solid("on-amber"), solid("amber")],
-      ["primary coral button text", solid("on-coral"), solid("coral")],
-      ["badge text on coral", solid("on-badge"), solid("coral")],
-      ["blue tag", solid("blue"), rgbaOver("tint-blue", panel)],
-      ["green tag", solid("green"), rgbaOver("tint-green", panel)],
-      ["amber tag", solid("amber"), rgbaOver("tint-amber", panel)],
-      ["coral tag", solid("coral"), rgbaOver("tint-coral", panel)],
-      ["soft tag", solid("text-soft"), rgbaOver("ov-8", panel)],
-      ["green on its card", solid("green"), rgbaOver("wash-green", panel)],
-      ["amber on its card", solid("amber"), rgbaOver("wash-amber", panel)],
-      ["coral on its card", solid("coral"), rgbaOver("wash-coral", panel)],
-      ["blue on its card", solid("blue"), rgbaOver("wash-blue", panel)],
-      ["active filter pill", solid("pill-fg"), solid("pill-bg")],
-      ["text in a field", solid("text"), solid("field")],
-      ["text in a toast", solid("text"), solid("toast")],
-    ],
+    text,
     // Not text: what must still be told apart from the surface it sits on (3:1).
     ui: [
-      ["focus ring on panel", solid("blue"), panel],
-      ["focus ring on sheet", solid("blue"), sheet],
-      ["unhealthy ring", solid("dot-down"), panel],
-      ["ownerless ring", solid("dot-loose"), panel],
-      ["active filter pill on panel", solid("pill-bg"), panel],
+      ["focus ring on panel", solid("accent"), panel],
+      ["focus ring on group", solid("accent"), group],
+      ["focus ring on sheet", solid("accent"), sheet],
+      ["unhealthy ring on group", solid("dot-down"), group],
+      ["ownerless ring on group", solid("dot-loose"), group],
+      ["unhealthy ring on panel", solid("dot-down"), panel],
     ],
   };
 }

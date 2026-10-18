@@ -6,12 +6,12 @@ export function stateLabel(state: InstanceState, text: Catalog): string {
   return text.instance.states[state];
 }
 
-export function dotFor(state: InstanceState): "green" | "coral" | "amber" | "down" | "loose" {
+export function dotFor(state: InstanceState): "green" | "red" | "amber" | "down" | "loose" {
   switch (state) {
     case "healthy":
       return "green";
     case "unhealthy":
-      return "coral";
+      return "red";
     case "starting":
     case "stopping":
     case "forgotten":

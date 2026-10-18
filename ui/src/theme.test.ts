@@ -139,7 +139,7 @@ describe("the stylesheets", () => {
     [...css.matchAll(/(--[a-z0-9-]+):/g)].map((match) => match[1] ?? "").sort();
 
   it("define the very same tokens in both themes", () => {
-    expect(names(dark).length).toBeGreaterThan(40);
+    expect(names(dark).length).toBeGreaterThan(20);
     expect(names(light)).toEqual(names(dark));
   });
 
@@ -154,8 +154,41 @@ describe("the stylesheets", () => {
   });
 
   it("only use tokens that exist", () => {
-    const defined = new Set([...names(dark), "--font", "--mono"]);
+    const defined = new Set([...names(dark), "--font", "--mono", "--inset"]);
     const used = [...styles.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1] ?? "");
     expect(used.filter((name) => !defined.has(name))).toEqual([]);
+  });
+});
+
+// covers: UXR-10.1
+describe("the visual system stays whole (ADR-042)", () => {
+  const sources = import.meta.glob("./**/*.tsx", { query: "?raw", import: "default", eager: true });
+  const files = Object.entries(sources).filter(([name]) => !name.includes(".test."));
+
+  it("has no card, state-coloured button or capital label left in a component", () => {
+    const retired = [
+      /className="card/,
+      /primary-(green|coral|amber)/,
+      /(green|coral|amber|blue)-text/,
+      /className="[^"]*\beyebrow\b/,
+      /\bkind="coral"/,
+      /<Tag\s+tone=/,
+    ];
+    for (const [name, source] of files)
+      for (const pattern of retired)
+        expect(source, `${name} ${String(pattern)}`).not.toMatch(pattern);
+  });
+
+  it("styles nothing inline but the width of a progress bar", () => {
+    for (const [name, source] of files) {
+      const inline = [...source.matchAll(/style=\{\{([^}]*)\}\}/g)].map((m) => m[1]);
+      const unexpected = inline.filter((value) => !/^\s*width:\s*`\$\{/.test(value ?? ""));
+      expect(unexpected, name).toEqual([]);
+    }
+  });
+
+  it("keeps status colour out of surfaces: no wash, edge, tint or halo, in either file", () => {
+    expect(themeCss).not.toMatch(/--(wash|edge|tint|halo)-/);
+    expect(styles).not.toMatch(/--(wash|edge|tint|halo)-/);
   });
 });

@@ -76,7 +76,7 @@ export function ClassifySheet({
           {classification?.origin ? ` · ${t.origin(classification.origin)}` : ""}
         </p>
         <fieldset className="choices">
-          <legend className="eyebrow">{t.choose}</legend>
+          <legend className="label soft">{t.choose}</legend>
           {options.map(([value, caption], index) => (
             <label key={value} className="consumer">
               <input
@@ -93,7 +93,7 @@ export function ClassifySheet({
           ))}
         </fieldset>
         <p className="soft">{t.scope}</p>
-        <div className="eyebrow">{t.evidence}</div>
+        <div className="label soft">{t.evidence}</div>
         {classification === undefined || classification.signals.length === 0 ? (
           <p className="soft">{t.noEvidence}</p>
         ) : (
@@ -116,7 +116,7 @@ export function ClassifySheet({
         </button>
         <button
           type="button"
-          className="btn primary-green"
+          className="btn primary"
           disabled={rule === undefined}
           onClick={() => {
             onSave(choice === "auto" ? null : choice);

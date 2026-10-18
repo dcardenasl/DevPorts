@@ -48,26 +48,26 @@ export function ConfirmStop({
       returnFocusTo={returnFocusTo}
       initialFocusRef={cancelRef}
       icon={
-        <span className="coral-text">
+        <span className="is-red">
           <WarningIcon size={22} />
         </span>
       }
     >
-      <div className="stack stop-targets" style={{ marginTop: 8 }}>
+      <div className="stack stop-targets">
         {views.map((view) => {
           const targetName = instanceTitle(view, text);
           const consumers = affectedNames.size > 0 && (view.shared || view.kind === "data");
           return (
-            <section className="card coral" key={view.ref}>
+            <section className="well" key={view.ref}>
               <div className="name">{targetName}</div>
               <div className="soft">
                 {text.confirm.identity(view)} · {text.confirm.port(view.port)}
               </div>
               <div className="soft">{text.confirm.origin(view)}</div>
               {consumers && (
-                <div style={{ marginTop: 6 }}>
-                  <div className="eyebrow coral-text">{text.confirm.affects}</div>
-                  <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                <div className="affected">
+                  <div className="label is-red">{text.confirm.affects}</div>
+                  <ul>
                     {affected.map((entry) => (
                       <li key={entry}>{entry}</li>
                     ))}
@@ -78,11 +78,11 @@ export function ConfirmStop({
           );
         })}
       </div>
-      <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+      <div className="row end sheet-actions">
         <button type="button" className="btn" onClick={onCancel} ref={cancelRef}>
           {text.confirm.cancel}
         </button>
-        <button type="button" className="btn primary-coral" onClick={onConfirm}>
+        <button type="button" className="btn danger-fill" onClick={onConfirm}>
           {project !== undefined
             ? text.confirm.stopGroup
             : views.length === 1

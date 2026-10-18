@@ -26,7 +26,7 @@ import { countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
 import { canRequestStop, instanceTitle } from "../instance";
 import { InstanceFacts } from "./InstanceDetails";
-import { Dot, Empty, Tag, dotFor, stateLabel } from "./shared-parts";
+import { Dot, Empty, PortChip, Tag, dotFor, stateLabel } from "./shared-parts";
 
 /** Smooth scrolling is motion: it is skipped when the person asked for less. */
 function prefersReducedMotion(): boolean {
@@ -133,28 +133,26 @@ function ProjectCard({
     .filter((part) => part !== null && part.length > 0)
     .join(" · ");
   return (
-    <section className={quiet ? "project dim-project" : "project"}>
-      <button type="button" className="project-head" aria-expanded={open} onClick={onToggle}>
+    <section className={quiet ? "group quiet" : "group"}>
+      <button type="button" className="item" aria-expanded={open} onClick={onToggle}>
         <span className={open ? "chev open" : "chev"}>
           <ChevronIcon size={16} />
         </span>
-        <span className="name ellipsis" style={{ flex: "0 1 auto" }}>
-          {node.summary.name}
-        </span>
-        <span className="where dim mono ellipsis" style={{ fontSize: 11 }}>
-          {place}
+        <span className="item-main">
+          <span className="item-title">
+            <span className="ellipsis">{node.summary.name}</span>
+          </span>
+          <span className="item-sub mono ellipsis">{place}</span>
         </span>
         {ports.length > 0 ? (
-          <span className="ports">
+          <span className="item-end">
             {ports.slice(0, CHIPS_SHOWN).map((chip) => (
-              <Tag key={chip.port} tone={chip.tone}>
-                :{chip.port}
-              </Tag>
+              <PortChip key={chip.port} port={chip.port} tone={chip.tone} />
             ))}
             {ports.length > CHIPS_SHOWN && <Tag>+{ports.length - CHIPS_SHOWN}</Tag>}
           </span>
         ) : (
-          <span className="soft" style={{ fontSize: 12 }}>
+          <span className="soft item-end">
             {node.unknownCount > 0 ? text.projects.unconfirmed : text.projects.noActive}
           </span>
         )}
@@ -164,9 +162,9 @@ function ProjectCard({
           {node.repos.map((repo) => (
             <div key={repo.repo.path}>
               {single === undefined && repo.services.length !== 1 && (
-                <div className="repo">
+                <div className="item compact">
                   <FolderIcon size={14} />
-                  <span className="mono grow ellipsis">{repo.repo.name}</span>
+                  <span className="mono grow ellipsis soft">{repo.repo.name}</span>
                   {repo.repo.branch !== null && <Tag>{repo.repo.branch}</Tag>}
                 </div>
               )}
@@ -182,15 +180,15 @@ function ProjectCard({
               ))}
             </div>
           ))}
-          <div className="project-foot">
+          <div className="item compact">
             <LinkIcon size={14} />
-            <span className="uses-list">
-              <span>{text.projects.uses}</span>
+            <span className="grow row wrap">
+              <span className="soft">{text.projects.uses}</span>
               {node.summary.uses.map((name) => (
                 <button
                   key={name}
                   type="button"
-                  className="tag blue"
+                  className="tag"
                   aria-label={text.consumers.manageFor(name)}
                   onClick={(event) => {
                     actions.manageConsumers(name, event.currentTarget, node.summary.name);
@@ -215,9 +213,11 @@ function ProjectCard({
                   </button>
                 ))}
             </span>
+          </div>
+          <div className="item-actions">
             <button
               type="button"
-              className="btn"
+              className="btn danger"
               disabled={actions.preparingProjectStop}
               onClick={(event) => {
                 actions.requestProjectStop(node.summary.name, event.currentTarget);
@@ -265,14 +265,14 @@ function ServiceRows({
   return (
     <>
       {principal === undefined ? (
-        <div className="svc" ref={ref}>
-          <span className="svc-main">{summary}</span>
+        <div className="item indent" ref={ref}>
+          <span className="item-line">{summary}</span>
           {buttons}
         </div>
       ) : (
         <DetailedRow
           view={principal}
-          className={flagged ? "svc highlight" : "svc"}
+          className={flagged ? "item indent flagged" : "item indent"}
           rowRef={ref}
           main={summary}
           side={buttons}
@@ -282,15 +282,14 @@ function ServiceRows({
         <TemporalRow key={temporal.ref} view={temporal} actions={actions} />
       ))}
       {duplicates.length > 0 && (
-        <div className="svc dup">
-          <span className="grow ellipsis coral-text">
+        <div className="item compact indent">
+          <span className="grow ellipsis label is-red">
             {text.projects.duplicatesOf(duplicates.length)}
           </span>
           {duplicates.length > 1 && (
             <button
               type="button"
-              className="btn"
-              style={{ height: 26, padding: "0 10px" }}
+              className="btn danger"
               onClick={(event) => {
                 actions.requestStop(duplicates, event.currentTarget);
               }}
@@ -304,19 +303,18 @@ function ServiceRows({
         <DetailedRow
           key={view.ref}
           view={view}
-          className="svc dup"
+          className="item indent"
           main={
             <>
-              <Dot kind="coral" />
-              <span className="mono coral-text grow">:{view.port}</span>
+              <Dot kind="red" />
+              <span className="mono grow">:{view.port}</span>
             </>
           }
           side={
             <>
               <button
                 type="button"
-                className="btn"
-                style={{ height: 26, padding: "0 10px" }}
+                className="btn danger"
                 onClick={(event) => {
                   actions.requestStop([view], event.currentTarget);
                 }}
@@ -326,7 +324,6 @@ function ServiceRows({
               <button
                 type="button"
                 className="btn"
-                style={{ height: 26, padding: "0 10px" }}
                 onClick={() => {
                   actions.keep(view);
                 }}
@@ -363,7 +360,7 @@ function DetailedRow({
       <div className={className} ref={rowRef}>
         <button
           type="button"
-          className="svc-main"
+          className="item-line"
           aria-expanded={open}
           aria-controls={factsId}
           aria-label={text.instance.detailsIdentity(instanceTitle(view, text), view.ref)}
@@ -376,7 +373,7 @@ function DetailedRow({
         {side}
       </div>
       {open && (
-        <div className="svc-facts" id={factsId}>
+        <div className="item-detail" id={factsId}>
           <InstanceFacts view={view} />
         </div>
       )}
@@ -397,20 +394,9 @@ function ServiceSummary({
   return (
     <>
       <Dot kind={principal === undefined ? "down" : dotFor(principal.state)} />
-      <span className="name ellipsis" style={{ fontSize: 14 }}>
-        {service.name}
-      </span>
+      <span className="name ellipsis">{service.name}</span>
       {branch !== null && <Tag>{branch}</Tag>}
-      <span
-        className={
-          principal?.state === "unhealthy"
-            ? "coral-text"
-            : principal?.state === "healthy"
-              ? "green-text"
-              : "dim"
-        }
-        style={{ fontSize: 12 }}
-      >
+      <span className={principal?.state === "unhealthy" ? "is-red" : "soft"}>
         {principal === undefined ? stateLabel("down", text) : stateLabel(principal.state, text)}
       </span>
       <span className="grow" />
@@ -432,7 +418,7 @@ function ServiceButtons({
   const principal = service.principal;
   const running = canRequestStop(principal);
   return (
-    <span className="row" style={{ gap: 4 }}>
+    <span className="item-end tight">
       {running && principal !== undefined && principal.url !== null && (
         <IconButton
           label={text.projects.open}
@@ -474,15 +460,13 @@ function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }
   return (
     <DetailedRow
       view={view}
-      className="svc nested"
+      className="item indent"
       main={
         <>
           <Dot kind={dotFor(view.state)} />
-          <span className="name" style={{ fontSize: 13 }}>
-            {text.projects.temporal}
-          </span>
+          <span className="name">{text.projects.temporal}</span>
           <span className="soft grow ellipsis">{view.reason}</span>
-          <span className="mono amber-text">
+          <span className="data is-amber">
             {view.state === "healthy" || view.state === "unhealthy"
               ? countdown(left)
               : stateLabel(view.state, text)}

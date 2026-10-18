@@ -8,7 +8,7 @@ import { ago, clock, countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
 import { InstanceDetails } from "./InstanceDetails";
 import { instanceTitle, stateLabel, dotFor } from "../instance";
-import { Dot } from "./shared-parts";
+import { Dot, Section } from "./shared-parts";
 
 export function attentionSubtitle(count: number, text: Catalog): string {
   return count === 0 ? text.attention.allClear : text.attention.waiting(count);
@@ -23,15 +23,15 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
   return (
     <>
       {empty ? (
-        <div className="card green">
-          <div className="row">
+        <Section>
+          <div className="item">
             <Dot kind="green" />
-            <div>
-              <div className="name">{text.attention.allClear}</div>
-              <div className="soft">{text.attention.allClearBody}</div>
+            <div className="item-main">
+              <div className="item-title">{text.attention.allClear}</div>
+              <div className="item-sub">{text.attention.allClearBody}</div>
             </div>
           </div>
-        </div>
+        </Section>
       ) : (
         model.official.map((view) => <Official key={view.ref} view={view} now={now} />)
       )}
@@ -43,31 +43,30 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
         <Expiring key={view.ref} view={view} actions={actions} />
       ))}
       {model.groups.map((group) => (
-        <div className="card coral" key={`${group.project}/${group.service}`}>
-          <div className="eyebrow coral-text">
-            {text.attention.duplicates(group.duplicates.length, group.service)}
-          </div>
-          <div className="divided">
-            {group.duplicates.map((view) => (
-              <div key={view.ref}>
-                <div className="proc">
-                  <span className="row">
-                    <Dot kind="coral" />
-                    <span className="mono coral-text">:{view.port ?? "—"}</span>
-                  </span>
-                  <span className="ellipsis soft" title={instanceTitle(view, text)}>
+        <Section
+          key={`${group.project}/${group.service}`}
+          title={text.attention.duplicates(group.duplicates.length, group.service)}
+          tone="red"
+        >
+          {group.duplicates.map((view) => (
+            <div key={view.ref}>
+              <div className="item">
+                <Dot kind="red" />
+                <div className="item-main">
+                  <div className="item-title mono">:{view.port ?? "—"}</div>
+                  <div className="item-sub ellipsis" title={instanceTitle(view, text)}>
                     {instanceTitle(view, text)}
-                  </span>
-                  <span className="dim">{ago(view.started_at, now, locale)}</span>
+                  </div>
                 </div>
-                <InstanceDetails view={view} />
+                <span className="dim">{ago(view.started_at, now, locale)}</span>
               </div>
-            ))}
-          </div>
-          <div className="row" style={{ marginTop: 8 }}>
+              <InstanceDetails view={view} />
+            </div>
+          ))}
+          <div className="item-actions">
             <button
               type="button"
-              className="btn primary-coral"
+              className="btn danger"
               onClick={(event) => {
                 actions.requestStop(group.duplicates, event.currentTarget);
               }}
@@ -86,7 +85,7 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
               {text.attention.keep}
             </button>
           </div>
-        </div>
+        </Section>
       ))}
     </>
   );
@@ -96,48 +95,50 @@ function Official({ view, now }: { view: InstanceView; now: number }): ReactElem
   const { text, locale } = useI18n();
   const branch = view.branch === null ? "" : ` · ${view.branch}`;
   return (
-    <div
-      className={
-        view.state === "healthy" ? "card green" : view.state === "unhealthy" ? "card coral" : "card"
-      }
-    >
-      <div className="row spread">
-        <span className="row">
-          <Dot kind={dotFor(view.state)} />
-          <span className="name">{view.service}</span>
-          <span className="soft">{view.project}</span>
-        </span>
-        <span className="eyebrow green-text">{text.attention.official}</span>
-      </div>
-      <div className="soft mono" style={{ marginTop: 6 }}>
-        :{view.port}
-        {branch} ·{" "}
-        {text.attention.since(clock(view.started_at, locale) || ago(view.started_at, now, locale))}{" "}
-        · {stateLabel(view.state, text)}
+    <Section title={text.attention.official}>
+      <div className="item">
+        <Dot kind={dotFor(view.state)} />
+        <div className="item-main">
+          <div className="item-title">
+            <span>{view.service}</span>
+            <span className="soft">{view.project}</span>
+          </div>
+          <div className="item-sub mono">
+            :{view.port}
+            {branch} ·{" "}
+            {text.attention.since(
+              clock(view.started_at, locale) || ago(view.started_at, now, locale),
+            )}{" "}
+            · {stateLabel(view.state, text)}
+          </div>
+        </div>
       </div>
       <InstanceDetails view={view} />
-    </div>
+    </Section>
   );
 }
 
 function Hung({ view, actions }: { view: InstanceView; actions: Actions }): ReactElement {
   const { text } = useI18n();
   return (
-    <div className="card coral">
-      <div className="eyebrow coral-text">{text.attention.hung}</div>
-      <div className="row" style={{ marginTop: 6 }}>
-        <Dot kind="coral" />
-        <span className="name">{view.service}</span>
-        <span className="soft">{view.project}</span>
-      </div>
-      <div className="soft mono ellipsis" style={{ marginTop: 4 }}>
-        :{view.port} · {instanceTitle(view, text)}
+    <Section title={text.attention.hung} tone="red">
+      <div className="item">
+        <Dot kind="red" />
+        <div className="item-main">
+          <div className="item-title">
+            <span>{view.service}</span>
+            <span className="soft">{view.project}</span>
+          </div>
+          <div className="item-sub mono ellipsis">
+            :{view.port} · {instanceTitle(view, text)}
+          </div>
+        </div>
       </div>
       <InstanceDetails view={view} />
-      <div className="row" style={{ marginTop: 10 }}>
+      <div className="item-actions">
         <button
           type="button"
-          className="btn primary-coral"
+          className="btn primary"
           onClick={() => {
             actions.showInProjects(view.ref);
           }}
@@ -145,7 +146,7 @@ function Hung({ view, actions }: { view: InstanceView; actions: Actions }): Reac
           {text.attention.seeInProjects}
         </button>
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -159,29 +160,31 @@ function Expiring({ view, actions }: { view: InstanceView; actions: Actions }): 
   const ratio = Math.min(1, left / total);
   const who = whoAsked(view);
   return (
-    <div className="card amber">
-      <div className="row spread">
-        <span className="eyebrow amber-text">{text.attention.expiring}</span>
-        <span className="mono amber-text" style={{ fontSize: 16 }}>
-          {countdown(left)}
-        </span>
-      </div>
-      <div className="row" style={{ marginTop: 6 }}>
-        <span className="name">{view.service}</span>
-        <span className="soft">{view.reason}</span>
-      </div>
-      <div className="soft mono" style={{ marginTop: 4 }}>
-        :{view.port}
-        {who === null ? "" : ` · ${text.attention.askedBy(who)}`}
+    <Section title={text.attention.expiring} tone="amber">
+      <div className="item">
+        <Dot kind="amber" />
+        <div className="item-main">
+          <div className="item-title">
+            <span>{view.service}</span>
+            <span className="soft">{view.reason}</span>
+          </div>
+          <div className="item-sub mono">
+            :{view.port}
+            {who === null ? "" : ` · ${text.attention.askedBy(who)}`}
+          </div>
+        </div>
+        <span className="data is-amber">{countdown(left)}</span>
       </div>
       <InstanceDetails view={view} />
-      <div className="bar" style={{ marginTop: 10 }} aria-hidden="true">
-        <div style={{ width: `${Math.round(ratio * 100)}%` }} />
+      <div className="item compact">
+        <div className="bar grow" aria-hidden="true">
+          <div style={{ width: `${Math.round(ratio * 100)}%` }} />
+        </div>
       </div>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="item-actions">
         <button
           type="button"
-          className="btn primary-amber"
+          className="btn primary"
           onClick={() => {
             actions.extend(view);
           }}
@@ -198,6 +201,6 @@ function Expiring({ view, actions }: { view: InstanceView; actions: Actions }): 
           {text.attention.terminate}
         </button>
       </div>
-    </div>
+    </Section>
   );
 }

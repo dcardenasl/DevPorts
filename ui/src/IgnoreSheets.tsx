@@ -92,7 +92,7 @@ export function IgnoreConfirm({
       )}
       {rule !== undefined && (
         <div className="stack">
-          <div className="eyebrow">{t.criterion}</div>
+          <div className="label soft">{t.criterion}</div>
           <Criterion rule={rule} />
           <p className="soft">{rule.kind === "container" ? t.containerScope : t.scope}</p>
           <p className="soft">{t.restore}</p>
@@ -104,7 +104,7 @@ export function IgnoreConfirm({
         </button>
         <button
           type="button"
-          className="btn primary-green"
+          className="btn primary"
           disabled={rule === undefined}
           onClick={onConfirm}
         >
@@ -190,7 +190,7 @@ export function IgnoredList({
       {rules !== undefined && rules.length > 0 && (
         <ul className="consumers ignored-rules" aria-label={t.listTitle}>
           {rules.map((rule) => (
-            <li key={rule.id} className="card">
+            <li key={rule.id} className="well">
               {rule.kind === "unknown" ? (
                 <p className="soft">{t.unknown}</p>
               ) : (
@@ -206,7 +206,7 @@ export function IgnoredList({
                   {t.since} {rule.createdAt}
                 </p>
               )}
-              <div className="row" style={{ justifyContent: "flex-end" }}>
+              <div className="row end">
                 <button
                   type="button"
                   className="btn"

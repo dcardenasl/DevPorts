@@ -253,7 +253,7 @@ export function SettingsSheet({
 
       {!sent && folders !== undefined && !reviewing && (
         <div className="stack">
-          <h3 className="eyebrow soft">{t.title}</h3>
+          <h3 className="label soft">{t.title}</h3>
           <p className="soft">{t.description}</p>
           {folders.fromDefaults && <p className="soft">{t.fromDefaults}</p>}
           <ul className="consumers" aria-label={t.title}>
@@ -366,7 +366,7 @@ export function SettingsSheet({
           ).map(([title, names]) =>
             names.length === 0 ? null : (
               <section key={title}>
-                <div className="eyebrow">{title}</div>
+                <div className="label soft">{title}</div>
                 <ul className="consumers">
                   {names.map((name) => (
                     <li key={name} className="name">
@@ -464,7 +464,7 @@ export function SettingsSheet({
         {!sent && folders !== undefined && editable && !reviewing && (
           <button
             type="button"
-            className="btn primary-green"
+            className="btn primary"
             disabled={busy || !changed}
             onClick={() => {
               void review();
@@ -476,7 +476,7 @@ export function SettingsSheet({
         {reviewing && (
           <button
             type="button"
-            className="btn primary-green"
+            className="btn primary"
             disabled={busy || preview === undefined || preview.unchanged}
             onClick={() => {
               void save();

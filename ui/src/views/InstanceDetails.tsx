@@ -12,7 +12,7 @@ export function InstanceDetails({ view }: { view: InstanceView }): ReactElement 
     <details className="instance-details">
       <summary aria-label={text.instance.detailsIdentity(instanceTitle(view, text), view.ref)}>
         {text.instance.details(instanceTitle(view, text))}
-        {view.stale !== null && <span className="amber-text"> · {text.instance.stale}</span>}
+        {view.stale !== null && <span className="is-amber"> · {text.instance.stale}</span>}
       </summary>
       <InstanceFacts view={view} />
     </details>

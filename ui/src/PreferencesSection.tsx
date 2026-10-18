@@ -24,7 +24,7 @@ function Choice<T extends string>({
 }): ReactElement {
   return (
     <fieldset className="choice">
-      <legend className="eyebrow soft">{legend}</legend>
+      <legend className="label soft">{legend}</legend>
       <div className="choice-group">
         {values.map((option) => (
           <label key={option} className={option === value ? "segment on" : "segment"}>

@@ -283,12 +283,12 @@ describe("the panel", () => {
           : view,
     );
     const { user } = await open(snapshot);
-    const official = screen.getByText("OFICIAL").closest(".card");
-    expect(official?.querySelector(".soft.mono")).toHaveTextContent("Colgada · no responde");
-    expect(official?.querySelector(".soft.mono")).not.toHaveTextContent("Sana");
+    const official = screen.getByText("OFICIAL").closest(".section");
+    expect(official?.querySelector(".item-sub.mono")).toHaveTextContent("Colgada · no responde");
+    expect(official?.querySelector(".item-sub.mono")).not.toHaveTextContent("Sana");
     await user.click(tab(/Compartidos/));
     expect(
-      screen.getByText(/Desconocido · sin observación actual/, { selector: ".soft.mono" }),
+      screen.getByText(/Desconocido · sin observación actual/, { selector: ".item-sub.mono" }),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Detener mysql" })).not.toBeInTheDocument();
   });
@@ -1232,7 +1232,9 @@ describe("the panel", () => {
     expect(screen.getByText("php-fpm", { selector: ".tag" })).toBeInTheDocument();
     expect(screen.getByText(/No es un hecho|una pista, no un hecho/)).toBeInTheDocument();
     // Folding or classifying hides nothing: the same safe actions are on the card.
-    const card = screen.getByText("php-fpm", { selector: ".tag" }).closest(".card") as HTMLElement;
+    const card = screen
+      .getByText("php-fpm", { selector: ".tag" })
+      .closest(".group > div") as HTMLElement;
     expect(within(card).getByRole("button", { name: "Detener" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Ignorar" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Adoptar" })).toBeInTheDocument();

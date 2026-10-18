@@ -307,7 +307,7 @@ export function AdoptSheet({
                   change({ ...draft, name: event.target.value });
                 }}
               />
-              <button type="submit" className="btn primary-green" disabled={busy}>
+              <button type="submit" className="btn primary" disabled={busy}>
                 {t.continue}
               </button>
             </form>
@@ -395,7 +395,7 @@ export function AdoptSheet({
                 <p className="form-error">{adoptionMessage(displayedFailure, text)}</p>
               )}
               {operationId === undefined && !needsNewReview(displayedFailure) && (
-                <button type="submit" className="btn primary-green" disabled={locked}>
+                <button type="submit" className="btn primary" disabled={locked}>
                   {busy ? t.saving : t.save}
                 </button>
               )}
@@ -465,7 +465,7 @@ export function AdoptSheet({
               ) ? (
                 <button
                   type="button"
-                  className="btn primary-green"
+                  className="btn primary"
                   onClick={() => {
                     if (targetResult.result)
                       onNavigate(

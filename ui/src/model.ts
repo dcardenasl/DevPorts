@@ -120,7 +120,7 @@ function serviceNode(
 
 export interface PortChip {
   port: number;
-  tone: "green" | "coral" | "amber";
+  tone: "green" | "red" | "amber";
 }
 
 /** Ports a project occupies right now, ascending, with the health of whoever holds them. */
@@ -138,7 +138,7 @@ export function occupiedPorts(node: ProjectNode): PortChip[] {
       chips.set(
         view.port,
         duplicate || view.state === "unhealthy"
-          ? "coral"
+          ? "red"
           : view.state === "healthy"
             ? "green"
             : "amber",

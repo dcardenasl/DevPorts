@@ -10,7 +10,7 @@ import { useI18n } from "../i18n/provider";
 import { ago } from "../time";
 import { canRequestStop, stateLabel } from "../instance";
 import { InstanceDetails } from "./InstanceDetails";
-import { Dot, Empty, Tag, dotFor } from "./shared-parts";
+import { Dot, Empty, Section, Tag, dotFor } from "./shared-parts";
 import { IconButton } from "./ProjectsView";
 
 export function sharedSubtitle(actions: Actions, text: Catalog): string {
@@ -35,47 +35,48 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
         const running = canRequestStop(view);
         const summary = actions.snapshot.shared.find((item) => item.name === node.name);
         return (
-          <section className="card" key={node.name}>
-            <div className="row">
+          <Section key={node.name}>
+            <div className="item">
               <Dot kind={dotFor(view.state)} />
-              <span className="name">{node.name}</span>
-              {view.kind === "data" && <Tag tone="blue">{text.shared.data}</Tag>}
-              <span className="grow" />
-              <span className="mono soft">{view.port === null ? "" : `:${view.port}`}</span>
-              {running && (
-                <IconButton
-                  label={`${text.projects.stop} ${node.name}`}
-                  danger
-                  onClick={(event) => {
-                    actions.requestStop([view], event.currentTarget);
-                  }}
-                >
-                  <StopIcon size={14} />
-                </IconButton>
-              )}
-            </div>
-            <div className="soft mono" style={{ marginTop: 6, fontSize: 11 }}>
-              {text.shared.docker} · {view.container ?? view.image ?? "—"}
-              {` · ${stateLabel(view.state, text)}`}
-              {running ? ` · ${ago(view.started_at, actions.now, locale)}` : ""}
+              <div className="item-main">
+                <div className="item-title">
+                  <span>{node.name}</span>
+                  {view.kind === "data" && <Tag>{text.shared.data}</Tag>}
+                </div>
+                <div className="item-sub mono">
+                  {text.shared.docker} · {view.container ?? view.image ?? "—"}
+                  {` · ${stateLabel(view.state, text)}`}
+                  {running ? ` · ${ago(view.started_at, actions.now, locale)}` : ""}
+                </div>
+              </div>
+              <span className="item-end">
+                <span className="data soft">{view.port === null ? "" : `:${view.port}`}</span>
+                {running && (
+                  <IconButton
+                    label={`${text.projects.stop} ${node.name}`}
+                    danger
+                    onClick={(event) => {
+                      actions.requestStop([view], event.currentTarget);
+                    }}
+                  >
+                    <StopIcon size={14} />
+                  </IconButton>
+                )}
+              </span>
             </div>
             <InstanceDetails view={view} />
-            <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
-              <span className="dim" style={{ fontSize: 12 }}>
-                {text.consumers.associated}
-              </span>
-              {node.users.length === 0 ? (
-                <span className="dim" style={{ fontSize: 12 }}>
-                  {text.consumers.nobody}
-                </span>
-              ) : (
-                node.users.map((name) => <Tag key={name}>{name}</Tag>)
-              )}
+            <div className="item-note">
+              <div className="row wrap">
+                <span>{text.consumers.associated}</span>
+                {node.users.length === 0 ? (
+                  <span>{text.consumers.nobody}</span>
+                ) : (
+                  node.users.map((name) => <Tag key={name}>{name}</Tag>)
+                )}
+              </div>
+              <div className="dim">{text.consumers.declaredOnly}</div>
             </div>
-            <div className="soft" style={{ marginTop: 4, fontSize: 11 }}>
-              {text.consumers.declaredOnly}
-            </div>
-            <div className="row" style={{ marginTop: 8, justifyContent: "flex-end" }}>
+            <div className="item-actions">
               <ResourceButtons node={node} summary={summary} actions={actions} />
               <button
                 type="button"
@@ -88,54 +89,56 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                 {text.consumers.manage}
               </button>
             </div>
-          </section>
+          </Section>
         );
       })}
       {undeclared.length > 0 && (
-        <>
-          <div className="eyebrow dim" style={{ marginTop: 4 }}>
-            {text.shared.undeclared}
+        <section className="section">
+          <h2 className="section-title sentence">{text.shared.undeclared}</h2>
+          <p className="section-note">{text.shared.undeclaredBody}</p>
+          <div className="group">
+            {undeclared.map((view) => (
+              <div key={view.ref}>
+                <div className="item">
+                  <Dot kind="loose" />
+                  <div className="item-main">
+                    <div className="item-title">
+                      <span>{view.container}</span>
+                      <Tag>{text.shared.data}</Tag>
+                    </div>
+                    <div className="item-sub mono">
+                      {text.shared.docker} · {view.image ?? "—"}
+                      {view.compose === null ? "" : ` · ${view.compose}`}
+                    </div>
+                  </div>
+                  <span className="data soft">{view.port === null ? "" : `:${view.port}`}</span>
+                </div>
+                <InstanceDetails view={view} />
+                <div className="item-actions">
+                  <span className="grow" />
+                  <button
+                    type="button"
+                    className="btn danger"
+                    onClick={(event) => {
+                      actions.requestStop([view], event.currentTarget);
+                    }}
+                  >
+                    {text.projects.stop}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={(event) => {
+                      actions.declareShared(view, event.currentTarget);
+                    }}
+                  >
+                    {text.shared.declare}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="soft" style={{ fontSize: 12 }}>
-            {text.shared.undeclaredBody}
-          </div>
-          {undeclared.map((view) => (
-            <section className="card" key={view.ref}>
-              <div className="row">
-                <Dot kind="loose" />
-                <span className="name">{view.container}</span>
-                <Tag tone="blue">{text.shared.data}</Tag>
-                <span className="grow" />
-                <span className="mono soft">{view.port === null ? "" : `:${view.port}`}</span>
-              </div>
-              <div className="soft mono" style={{ marginTop: 6, fontSize: 11 }}>
-                {text.shared.docker} · {view.image ?? "—"}
-                {view.compose === null ? "" : ` · ${view.compose}`}
-              </div>
-              <InstanceDetails view={view} />
-              <div className="row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={(event) => {
-                    actions.requestStop([view], event.currentTarget);
-                  }}
-                >
-                  {text.projects.stop}
-                </button>
-                <button
-                  type="button"
-                  className="btn primary-green"
-                  onClick={(event) => {
-                    actions.declareShared(view, event.currentTarget);
-                  }}
-                >
-                  {text.shared.declare}
-                </button>
-              </div>
-            </section>
-          ))}
-        </>
+        </section>
       )}
     </>
   );
@@ -159,9 +162,7 @@ function ResourceButtons({
   if (state === "down") {
     const start = summary?.start ?? null;
     return start === null ? (
-      <span className="soft grow" style={{ fontSize: 11 }}>
-        {text.consumers.noStart}
-      </span>
+      <span className="soft grow">{text.consumers.noStart}</span>
     ) : (
       <button
         type="button"

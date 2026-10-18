@@ -306,19 +306,17 @@ function Panel({
         title={APP_NAME}
         subtitle={text.link.cannotConnect}
         body={
-          <div className="card coral" role="alert">
-            <p className="soft">{text.link.cannotConnectBody}</p>
-            {link.error !== null && (
-              <p className="soft mono" style={{ fontSize: 11 }}>
-                {shortReason(link.error)}
-              </p>
-            )}
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button type="button" className="btn primary-green" onClick={retryConnection}>
+          <section className="group" role="alert">
+            <div className="item-note">
+              <p>{text.link.cannotConnectBody}</p>
+              {link.error !== null && <p className="mono">{shortReason(link.error)}</p>}
+            </div>
+            <div className="item-actions">
+              <button type="button" className="btn primary" onClick={retryConnection}>
                 {text.link.retry}
               </button>
             </div>
-          </div>
+          </section>
         }
       />
     ) : (
@@ -360,42 +358,50 @@ function Panel({
         onDetails={actions.openSettings}
       />
       {operations.length > 0 && (
-        <section className="card" aria-label={text.a11y.operations}>
-          <div className="eyebrow">{text.operations.title}</div>
-          {operations.slice(0, 5).map((operation) => (
-            <div key={operation.id} className="soft" style={{ marginTop: 8 }}>
-              <strong>{text.operations.kind[operation.kind]}</strong>
-              {operation.targets.map((target) => (
-                <div key={target.reference} role={target.status === "failed" ? "alert" : "status"}>
-                  {targetLabel(target, snapshot.instances, text)}:{" "}
-                  {target.status === "queued"
-                    ? text.operations.queued
-                    : target.status === "running"
-                      ? text.operations.running
-                      : target.status === "succeeded"
-                        ? target.result
-                          ? text.operations.adopted(target.result.project, target.result.service)
-                          : text.operations.succeeded
-                        : operationFailureText(target, text)}
-                </div>
-              ))}
-              {(operation.status === "failed" || operation.status === "partial") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void retryOperation(operation.id);
-                  }}
-                >
-                  {text.operations.retry}
-                </button>
-              )}
-            </div>
-          ))}
+        <section className="section" aria-label={text.a11y.operations}>
+          <h2 className="section-title">{text.operations.title}</h2>
+          <div className="group">
+            {operations.slice(0, 5).map((operation) => (
+              <div key={operation.id} className="item-note">
+                <strong>{text.operations.kind[operation.kind]}</strong>
+                {operation.targets.map((target) => (
+                  <div
+                    key={target.reference}
+                    role={target.status === "failed" ? "alert" : "status"}
+                  >
+                    {targetLabel(target, snapshot.instances, text)}:{" "}
+                    {target.status === "queued"
+                      ? text.operations.queued
+                      : target.status === "running"
+                        ? text.operations.running
+                        : target.status === "succeeded"
+                          ? target.result
+                            ? text.operations.adopted(target.result.project, target.result.service)
+                            : text.operations.succeeded
+                          : operationFailureText(target, text)}
+                  </div>
+                ))}
+                {(operation.status === "failed" || operation.status === "partial") && (
+                  <div>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        void retryOperation(operation.id);
+                      }}
+                    >
+                      {text.operations.retry}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
       )}
       {(missingDraft ||
         (panelState.draft !== null && !draftTargetExists(panelState.draft, snapshot))) && (
-        <p className="card blue" role="status">
+        <p className="section-note" role="status">
           {text.status.draftGone}
         </p>
       )}
