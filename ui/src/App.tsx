@@ -23,6 +23,7 @@ import {
 } from "./icons";
 import { buildOrphans, dependentsOf, draftTargetExists } from "./model";
 import { text } from "./text";
+import { targetLabel } from "./instance";
 import type { AdoptDraft, InstanceView, PanelState, PanelTab, StopExpectation } from "./types";
 import { ActivityView, activitySubtitle, type ActivityStatus } from "./views/ActivityView";
 import { AttentionView, attentionSubtitle } from "./views/AttentionView";
@@ -320,7 +321,7 @@ export function App(): ReactElement {
               <strong>{text.operations.kind[operation.kind]}</strong>
               {operation.targets.map((target) => (
                 <div key={target.reference} role={target.status === "failed" ? "alert" : "status"}>
-                  {target.reference}:{" "}
+                  {targetLabel(target, snapshot.instances)}:{" "}
                   {target.status === "queued"
                     ? text.operations.queued
                     : target.status === "running"

@@ -128,6 +128,7 @@ export const text = {
     preparingStop: "Preparando lista…",
     nothingToStop: "No hay aplicaciones activas que se puedan detener en este proyecto.",
     unregistered: "sin registrar",
+    duplicatesOf: (count: number) => `${count} sin registrar`,
   },
   shared: {
     title: "Compartidos",

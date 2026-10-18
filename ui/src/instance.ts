@@ -1,6 +1,6 @@
 // Presentation only: lifecycle and process facts always come from the core.
 import { text } from "./text";
-import type { InstanceState, InstanceView } from "./types";
+import type { InstanceState, InstanceView, OperationTargetResult } from "./types";
 
 export function stateLabel(state: InstanceState): string {
   return text.instance.states[state];
@@ -74,4 +74,18 @@ export function commandLine(argv: readonly string[]): string {
       return text.instance.hidden;
     }),
   ].join(" ");
+}
+
+/** What an operation result calls its target: the service and port, not an opaque reference. */
+export function targetLabel(
+  target: OperationTargetResult,
+  instances: readonly InstanceView[],
+): string {
+  const expected = target.stopExpectation;
+  const live = instances.find((view) => view.ref === target.reference);
+  const name =
+    expected?.service ?? expected?.container ?? (live === undefined ? null : instanceTitle(live));
+  if (name === null) return target.reference;
+  const port = expected?.port ?? live?.port ?? null;
+  return port === null ? name : `${name} (:${port})`;
 }

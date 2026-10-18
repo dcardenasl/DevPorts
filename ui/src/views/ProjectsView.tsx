@@ -6,6 +6,7 @@ import {
   useState,
   type MouseEvent,
   type ReactElement,
+  type RefObject,
 } from "react";
 
 import type { Actions } from "../actions";
@@ -23,7 +24,7 @@ import { text } from "../text";
 import { countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
 import { canRequestStop, instanceTitle } from "../instance";
-import { InstanceDetails, InstanceFacts } from "./InstanceDetails";
+import { InstanceFacts } from "./InstanceDetails";
 import { Dot, Empty, Tag, dotFor, stateLabel } from "./shared-parts";
 
 /** Smooth scrolling is motion: it is skipped when the person asked for less. */
@@ -120,7 +121,12 @@ function ProjectCard({
   const quiet = node.runningCount === 0 && node.unknownCount === 0;
   const ports = occupiedPorts(node);
   const single = node.repos.length === 1 ? node.repos[0]?.repo : undefined;
-  const place = [shortPath(node.summary.root), single?.branch ?? null]
+  // One branch for every repo is said once, in the header; several are told apart per row.
+  const branches = new Set(
+    node.repos.flatMap((repo) => (repo.repo.branch === null ? [] : [repo.repo.branch])),
+  );
+  const sharedBranch = branches.size === 1 ? ([...branches][0] ?? null) : null;
+  const place = [shortPath(node.summary.root), sharedBranch]
     .filter((part) => part !== null && part.length > 0)
     .join(" · ");
   return (
@@ -154,7 +160,7 @@ function ProjectCard({
         <>
           {node.repos.map((repo) => (
             <div key={repo.repo.path}>
-              {single === undefined && (
+              {single === undefined && repo.services.length !== 1 && (
                 <div className="repo">
                   <FolderIcon size={14} />
                   <span className="mono grow ellipsis">{repo.repo.name}</span>
@@ -166,6 +172,7 @@ function ProjectCard({
                   key={service.name}
                   node={node}
                   service={service}
+                  branch={branches.size > 1 && repo.services.length === 1 ? repo.repo.branch : null}
                   actions={actions}
                   highlight={highlight}
                 />
@@ -227,18 +234,18 @@ function ProjectCard({
 function ServiceRows({
   node,
   service,
+  branch,
   actions,
   highlight,
 }: {
   node: ProjectNode;
   service: ServiceNode;
+  branch: string | null;
   actions: Actions;
   highlight: string | undefined;
 }): ReactElement {
   const principal = service.principal;
   const ref = useRef<HTMLDivElement>(null);
-  const factsId = useId();
-  const [showFacts, setShowFacts] = useState(false);
   const flagged = highlight !== undefined && principal?.ref === highlight;
   useEffect(() => {
     if (flagged)
@@ -247,48 +254,61 @@ function ServiceRows({
         behavior: prefersReducedMotion() ? "auto" : "smooth",
       });
   }, [flagged]);
+  const duplicates = service.duplicates.filter((view) => !view.ignored);
+  const summary = <ServiceSummary service={service} branch={branch} />;
+  const buttons = <ServiceButtons node={node} service={service} actions={actions} />;
 
   return (
     <>
-      <div className={flagged ? "svc highlight" : "svc"} ref={ref}>
-        {principal === undefined ? (
-          <span className="svc-main">
-            <ServiceSummary service={service} />
-          </span>
-        ) : (
-          <button
-            type="button"
-            className="svc-main"
-            aria-expanded={showFacts}
-            aria-controls={factsId}
-            aria-label={text.instance.detailsIdentity(instanceTitle(principal), principal.ref)}
-            onClick={() => {
-              setShowFacts(!showFacts);
-            }}
-          >
-            <ServiceSummary service={service} />
-          </button>
-        )}
-        <ServiceButtons node={node} service={service} actions={actions} />
-      </div>
-      {principal !== undefined && showFacts && (
-        <div className="svc-facts" id={factsId}>
-          <InstanceFacts view={principal} />
+      {principal === undefined ? (
+        <div className="svc" ref={ref}>
+          <span className="svc-main">{summary}</span>
+          {buttons}
         </div>
+      ) : (
+        <DetailedRow
+          view={principal}
+          className={flagged ? "svc highlight" : "svc"}
+          rowRef={ref}
+          main={summary}
+          side={buttons}
+        />
       )}
       {service.temporals.map((temporal) => (
         <TemporalRow key={temporal.ref} view={temporal} actions={actions} />
       ))}
-      {service.duplicates
-        .filter((view) => !view.ignored)
-        .map((view) => (
-          <div key={view.ref}>
-            <div className="svc dup">
+      {duplicates.length > 0 && (
+        <div className="svc dup">
+          <span className="grow ellipsis coral-text">
+            {text.projects.duplicatesOf(duplicates.length)}
+          </span>
+          {duplicates.length > 1 && (
+            <button
+              type="button"
+              className="btn"
+              style={{ height: 26, padding: "0 10px" }}
+              onClick={(event) => {
+                actions.requestStop(duplicates, event.currentTarget);
+              }}
+            >
+              {text.attention.stopAll(duplicates.length)}
+            </button>
+          )}
+        </div>
+      )}
+      {duplicates.map((view) => (
+        <DetailedRow
+          key={view.ref}
+          view={view}
+          className="svc dup"
+          main={
+            <>
               <Dot kind="coral" />
-              <span className="grow ellipsis">
-                {service.name} · <span className="coral-text">{text.projects.unregistered}</span>
-              </span>
-              <span className="mono coral-text">:{view.port}</span>
+              <span className="mono coral-text grow">:{view.port}</span>
+            </>
+          }
+          side={
+            <>
               <button
                 type="button"
                 className="btn"
@@ -309,15 +329,63 @@ function ServiceRows({
               >
                 {text.attention.keep}
               </button>
-            </div>
-            <InstanceDetails view={view} />
-          </div>
-        ))}
+            </>
+          }
+        />
+      ))}
     </>
   );
 }
 
-function ServiceSummary({ service }: { service: ServiceNode }): ReactElement {
+/** A row whose left part opens the instance's details below it; the actions stay apart. */
+function DetailedRow({
+  view,
+  className,
+  rowRef,
+  main,
+  side,
+}: {
+  view: InstanceView;
+  className: string;
+  rowRef?: RefObject<HTMLDivElement | null>;
+  main: ReactElement;
+  side: ReactElement;
+}): ReactElement {
+  const factsId = useId();
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <div className={className} ref={rowRef}>
+        <button
+          type="button"
+          className="svc-main"
+          aria-expanded={open}
+          aria-controls={factsId}
+          aria-label={text.instance.detailsIdentity(instanceTitle(view), view.ref)}
+          onClick={() => {
+            setOpen(!open);
+          }}
+        >
+          {main}
+        </button>
+        {side}
+      </div>
+      {open && (
+        <div className="svc-facts" id={factsId}>
+          <InstanceFacts view={view} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServiceSummary({
+  service,
+  branch,
+}: {
+  service: ServiceNode;
+  branch: string | null;
+}): ReactElement {
   const principal = service.principal;
   const port = principal?.port ?? service.port;
   return (
@@ -326,6 +394,7 @@ function ServiceSummary({ service }: { service: ServiceNode }): ReactElement {
       <span className="name ellipsis" style={{ fontSize: 14 }}>
         {service.name}
       </span>
+      {branch !== null && <Tag>{branch}</Tag>}
       <span
         className={
           principal?.state === "unhealthy"
@@ -395,19 +464,25 @@ function ServiceButtons({
 function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }): ReactElement {
   const left = secondsUntil(view.expires_at, actions.now) ?? 0;
   return (
-    <div>
-      <div className="svc nested">
-        <Dot kind={dotFor(view.state)} />
-        <span className="name" style={{ fontSize: 13 }}>
-          {text.projects.temporal}
-        </span>
-        <span className="soft grow ellipsis">{view.reason}</span>
-        <span className="mono amber-text">
-          {view.state === "healthy" || view.state === "unhealthy"
-            ? countdown(left)
-            : stateLabel(view.state)}
-        </span>
-        {canRequestStop(view) && (
+    <DetailedRow
+      view={view}
+      className="svc nested"
+      main={
+        <>
+          <Dot kind={dotFor(view.state)} />
+          <span className="name" style={{ fontSize: 13 }}>
+            {text.projects.temporal}
+          </span>
+          <span className="soft grow ellipsis">{view.reason}</span>
+          <span className="mono amber-text">
+            {view.state === "healthy" || view.state === "unhealthy"
+              ? countdown(left)
+              : stateLabel(view.state)}
+          </span>
+        </>
+      }
+      side={
+        canRequestStop(view) ? (
           <IconButton
             label={text.attention.terminate}
             danger
@@ -417,10 +492,11 @@ function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }
           >
             <StopIcon size={14} />
           </IconButton>
-        )}
-      </div>
-      <InstanceDetails view={view} />
-    </div>
+        ) : (
+          <></>
+        )
+      }
+    />
   );
 }
 

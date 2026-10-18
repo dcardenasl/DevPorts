@@ -127,12 +127,21 @@ export interface PortChip {
 export function occupiedPorts(node: ProjectNode): PortChip[] {
   const chips = new Map<number, PortChip["tone"]>();
   for (const service of node.repos.flatMap((repo) => repo.services)) {
-    const holders = [service.principal, ...service.temporals, ...service.duplicates];
-    for (const view of holders) {
+    const holders: [InstanceView | undefined, boolean][] = [
+      [service.principal, false],
+      ...service.temporals.map((view): [InstanceView, boolean] => [view, false]),
+      ...service.duplicates.map((view): [InstanceView, boolean] => [view, true]),
+    ];
+    for (const [view, duplicate] of holders) {
       if (view === undefined || view.port === null || !isRunning(view) || view.ignored) continue;
+      // A duplicate is coral whatever its health: it is the thing to deal with.
       chips.set(
         view.port,
-        view.state === "healthy" ? "green" : view.state === "unhealthy" ? "coral" : "amber",
+        duplicate || view.state === "unhealthy"
+          ? "coral"
+          : view.state === "healthy"
+            ? "green"
+            : "amber",
       );
     }
   }

@@ -249,7 +249,7 @@ describe("the panel", () => {
     await waitFor(() => {
       expect(backend.calls.retryOperation).toEqual([["recover-me"]]);
     });
-    expect(screen.getByText(/z9y8: Completado/)).toBeInTheDocument();
+    expect(screen.getByText(/python3 \(:\d+\): Completado/)).toBeInTheDocument();
   });
 
   // covers: UXR-2.3
@@ -288,17 +288,18 @@ describe("the panel", () => {
     const quiet = screen.getByRole("button", { name: /ci4-kickstart/ });
     expect(active).toHaveAttribute("aria-expanded", "true");
     expect(quiet).toHaveAttribute("aria-expanded", "false");
-    // Name and folder share the header row; two repos keep a light repo subheader.
+    // Name and folder share the header row; a repo with one service has no subheader of
+    // its own: its branch rides in the service row.
     expect(active).toHaveTextContent("tienda-demo");
     expect(active).toHaveTextContent("work/tienda-demo");
-    expect(screen.getByText("tienda-api")).toBeInTheDocument();
-    expect(screen.getByText("tienda-admin")).toBeInTheDocument();
+    expect(screen.queryByText("tienda-api")).not.toBeInTheDocument();
+    expect(screen.getByText("develop")).toBeInTheDocument();
     expect(screen.getByText("Usa")).toBeInTheDocument();
     expect(screen.getByText("QA login")).toBeInTheDocument();
     // Folding keeps the occupied ports visible in the header.
     await user.click(active);
     expect(active).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("tienda-api")).not.toBeInTheDocument();
+    expect(screen.queryByText("develop")).not.toBeInTheDocument();
     expect(active).toHaveTextContent(":8080");
     expect(quiet).toHaveTextContent("sin servicios activos");
   });
@@ -329,10 +330,21 @@ describe("the panel", () => {
   });
 
   // covers: UI
+  it("lists duplicates compactly and stops them all from the project", async () => {
+    const { user } = await open();
+    await user.click(tab(/Proyectos/));
+    expect(screen.getByText("2 sin registrar")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Detener los 2" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getAllByText("api")).toHaveLength(2);
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+  });
+
+  // covers: UI
   it("opens a service's details from its own row", async () => {
     const { user } = await open();
     await user.click(tab(/Proyectos/));
-    const row = screen.getByRole("button", { name: /Detalles de api · ref/ });
+    const row = screen.getByRole("button", { name: /Detalles de api · ref a1b2/ });
     expect(row).toHaveAttribute("aria-expanded", "false");
     await user.click(row);
     expect(row).toHaveAttribute("aria-expanded", "true");
@@ -499,8 +511,8 @@ describe("the panel", () => {
     state.current = backend;
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByText(/a1b2: Completado/)).toBeInTheDocument();
-    expect(screen.getByText(/c3d4: La instancia cambió/)).toBeInTheDocument();
+    expect(await screen.findByText(/api \(:8080\): Completado/)).toBeInTheDocument();
+    expect(screen.getByText(/api \(:52814\): La instancia cambió/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Reintentar fallidos" }));
     await waitFor(() => {
       expect(backend.calls.retryOperation).toEqual([["project-partial"]]);
