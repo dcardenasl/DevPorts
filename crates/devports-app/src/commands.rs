@@ -74,6 +74,14 @@ pub async fn validate_adoption(
 }
 
 #[tauri::command]
+pub async fn shared_consumers(
+    core: State<'_, CoreState>,
+    shared: String,
+) -> Result<devports_core::uses::ConsumerOptions, devports_core::uses::UsesError> {
+    core.0.shared_consumers(&shared).await
+}
+
+#[tauri::command]
 pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
     state.get()
 }

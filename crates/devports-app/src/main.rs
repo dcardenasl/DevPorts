@@ -32,6 +32,7 @@ fn main() {
             commands::adoption_options,
             commands::preview_adoption,
             commands::validate_adoption,
+            commands::shared_consumers,
             commands::get_panel_state,
             commands::set_panel_state,
             commands::get_operations,
