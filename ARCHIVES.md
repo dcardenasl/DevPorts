@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-5.2 — Agrupar auxiliares sin ocultarlos automáticamente · 2026-10-18
+- **Commits de implementación:** ver `git log` (`feat(core)` clasificación y correcciones, `feat(ui)` grupos y hoja Reclasificar).
+- **Resultado:** *Sin proyecto* en tres grupos (servidores, sin clasificar y auxiliares plegado), origen visible sin argv completo, corrección de clasificación con alcance exacto y restablecer; plegar o clasificar no ignora, adopta ni detiene y las acciones siguen disponibles.
+- **Archivos/contratos:** `classify.rs`, `Engine::{classifications, set_classification, rule_preview}`, `Snapshot.classifications`, `runtime/rules.rs`, tabla `classifications` (migración 3), `OperationKind::Classify`, `ClassifySheet.tsx`, `mock-classify.ts`, `groupOrphans`; ADR-038.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 59/59 Vitest y build. Fixture anonimizado de la auditoría; persistencia con almacén en disco propio.
+- **Evidencia nativa vs simulada:** actor y almacén reales con ProcessSource falso y UI con backend simulado; sin procesos reales del usuario, Tauri/WebKit/VoiceOver ni navegador (UXR-7.x). [Informe](docs/audits/2026-10-18-uxr-5-2.md).
+- **Limpieza:** sin procesos ni servicios reales; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-6.x no depende de esto. UXR-7.1 revisa la accesibilidad de las hojas (ignorar, ver ignorados, reclasificar) y del grupo plegable; UXR-7.2 valida con un auxiliar real sin pararlo.
+
 ## UXR-5.1 — Hacer ignorados explícitos y restaurables · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(core)` regla exacta y restauración, `feat(app)` operación `restore`, `feat(ui)` Ignorar y Ver ignorados).
 - **Resultado:** Ignorar separado de Adoptar con la regla exacta visible antes de guardar; «Ver ignorados → Restaurar» con reglas vivas, huérfanas, anteriores e ilegibles; clave con argumentos como lista y contenedores por contexto; reglas antiguas conservadas sin ampliarse.

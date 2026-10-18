@@ -260,3 +260,12 @@ Fecha: 2026-10-18. **Estado: Derivada** de ADR-032 y D9; no cambia la decisión 
 **Compatibilidad:** las reglas de versiones anteriores (`process:` y `container:`) se reconocen con su clave original y coinciden exactamente como antes: no se reescriben ni se amplían, se listan como «regla anterior» (con el comando aproximado para mostrar) y se restauran igual. Una clave que esta versión no sabe leer se lista y se puede restaurar. Restaurar es idempotente y solo quita esa regla; no inicia, detiene ni adopta nada. Identificador de regla: los primeros 32 caracteres hexadecimales del SHA-256 de su clave.
 
 **Límites:** el contexto de Docker se conoce al conectar con el motor; sin conexión, una regla `v2:` de contenedor no coincide hasta saberlo, mientras que las anteriores siguen coincidiendo como siempre. Los argumentos del comando están guardados tal cual en SQLite (como antes) y la interfaz los muestra con los valores ocultos.
+
+## ADR-038 Clasificación orientativa de procesos sueltos
+Fecha: 2026-10-18. **Estado: Derivada** de ADR-033 y D10; no cambia la decisión de producto.
+
+**Decisión:** el núcleo clasifica cada proceso suelto del host en `project`, `auxiliary` o `unclassified` y publica la clase con sus **señales** en el snapshot. Solo clasifica la evidencia explícita; sin evidencia queda `unclassified`. Señales: `homebrewDaemon` (ejecutable bajo un prefijo de Homebrew **y** nombre de una lista cerrada de demonios; un `node` de Homebrew no cuenta), `editorExtension` (ruta o argumento dentro de la carpeta de extensiones de VS Code, Cursor, Windsurf o JetBrains), `knownProject` y `gitWorktree`. Las señales de herramienta tienen prioridad sobre las de carpeta, y las de carpeta se muestran igualmente. Contenedores y procesos ignorados no se clasifican.
+
+**Corrección:** la persona puede listar un proceso en otro grupo o volver a la clasificación automática. Se guarda en SQLite (tabla `classifications`, migración 3) bajo el **mismo criterio exacto** que una regla de ignorados (ADR-037: carpeta + argumentos, o contenedor + contexto), con tope de 256 correcciones. Es independiente de ignorar: no oculta, adopta, detiene ni reinicia, y no hay lectura de la clase en la política de parada (ARQUITECTURA §8 sigue mandando). La clase solo decide en qué grupo del panel se lista.
+
+**Límites:** los marcadores y la lista de demonios son una heurística pequeña y revisable; añadir una señal exige una prueba con un caso anonimizado. La clasificación no se ofrece por CLI.

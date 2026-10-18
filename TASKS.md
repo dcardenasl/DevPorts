@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** UXR-1 a UXR-4 y UXR-5.1 completados; continuar UXR-5.2 (auxiliares agrupados sin ocultarlos), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
+**Siguiente trabajo de corrección:** UXR-1 a UXR-5 completados; continuar UXR-6.1 (carpetas de exploración en el panel), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -271,7 +271,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-5-2"></a>
 
-- [ ] **UXR-5.2 — Agrupar auxiliares sin ocultarlos automáticamente.**
+- [x] **UXR-5.2 — Agrupar auxiliares sin ocultarlos automáticamente.**
+
+  **Entrega:** [señales, incertidumbre y correcciones](docs/audits/2026-10-18-uxr-5-2.md), ADR-038. Grupo plegado con origen, clasificación orientativa corregible con alcance exacto; sin ocultar, ignorar ni parar. UI 59/59 y controles completos verdes.
 
   **Dependencias:** UXR-5.1 y UXR-2.3. **Plan:** [grupo UXR-5](docs/audits/2026-10-17-ui-ux-plan.md#uxr-5). **Contexto:** UX-07; D10; ADR-033.
 
