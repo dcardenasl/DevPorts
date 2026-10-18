@@ -77,7 +77,7 @@ trait Clock { fn now(&self) -> Instant; }   // reloj inyectable para pruebas de 
 - Un proceso que vive menos de ~1,5 s no se observa; es irrelevante para servidores de desarrollo **[C]**.
 
 ### Contenedores **[C]** (ADR-012)
-- Arranque: `docker context inspect` para obtener el endpoint activo (Docker Desktop, OrbStack, Colima). Lista inicial de contenedores y luego **stream de eventos** (`start`, `die`, `stop`, `destroy`). Reintento con espera creciente si el daemon no responde; mientras tanto, los contenedores se muestran como "desconocido", no como caídos.
+- Arranque: `docker context inspect` para obtener el endpoint activo (Docker Desktop, OrbStack, Colima). Lista inicial de contenedores y luego **stream de eventos** (`start`, `die`, `stop`, `destroy`). Reintento con espera creciente si el daemon no responde; mientras tanto, los contenedores se muestran como "desconocido", no como caídos. El panel solo avisa de que Docker no responde si alguna de esas instancias "desconocidas" existe, es decir, si algo declarado depende de Docker; quien no lo usa no ve aviso (ADR-043). Primera apertura: sin configuración previa la app lee los procesos que escuchan puertos y consulta Docker; un MySQL de Docker aparece "sin proyecto" hasta declararlo en `shared.yml` o adoptarlo, y uno de Homebrew o nativo aparece como posible herramienta de apoyo y nunca depende de Docker.
 - Proyecto de un contenedor: etiquetas de compose, o `docker:` del manifiesto.
 - Acción única: `stop` (timeout 10 s) **[C]**.
 

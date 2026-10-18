@@ -623,15 +623,15 @@ Origen: pregunta de David del 2026-10-18: quien no usa Docker (o lo tiene apagad
 
   **Dependencias:** ninguna. **Hecho cuando:** `docs/plan/docker-opcional.md`, ADR-043 y estas fichas existen y se citan entre sí. **Commits:** `docs: plan the optional docker notice`.
 
-- [ ] **UXR-12.1 — La franja de Docker solo aparece si algo la necesita.**
+- [x] **UXR-12.1 — La franja de Docker solo aparece si algo la necesita.**
 
   **Dependencias:** UXR-12.0. **Leer código:** `ui/src/StatusStrip.tsx` (`dockerDown`), `ui/src/model.ts`, `ui/src/types.ts` (`InstanceState` incluye `"unknown"`), `crates/devports-core/src/engine/views.rs` (líneas ~310–325 y ~620–630: `unknown` solo por contenedor declarado con Docker inalcanzable), `ui/src/App.test.tsx` (prueba «says Docker is unreachable on every tab…»), `ui/src/sample.ts`. **Trabajo:** función pura `dockerAffected(snapshot): number` en `model.ts` (cuenta instancias con `state === "unknown"`). `StatusStrip` muestra la franja de Docker solo si `!docker_reachable && docker_error !== null && dockerAffected > 0`; el texto del cuerpo pasa a decir cuántos servicios afecta (clave nueva con plural en ambos catálogos, p. ej. «1 servicio no se puede comprobar» / «3 servicios no se pueden comprobar») antes de la frase actual. **Hecho cuando:** con `docker_error` y sin instancias `unknown` no hay franja en ninguna pestaña; con una instancia `unknown` aparece con el conteo; al volver `docker_reachable` desaparece; pruebas de `dockerAffected` (0, 1, varias, otros estados no cuentan) y de las tres situaciones en `App.test.tsx`. **Commits:** `fix(ui): show the docker notice only when a declared service needs it`.
 
-- [ ] **UXR-12.2 — Configuración dice la verdad sobre Docker.**
+- [x] **UXR-12.2 — Configuración dice la verdad sobre Docker.**
 
   **Dependencias:** UXR-12.1. **Leer código:** `ui/src/StatusStrip.tsx` (`StatusDetails`), `ui/src/i18n/{es,en}.ts` (`link.dockerOk`, `link.dockerDown`). **Trabajo:** con Docker sin responder y `dockerAffected === 0`, la línea «Docker» de la sección de estado dice una frase neutra («No responde · ningún servicio declarado lo usa» / «Not responding · no declared service uses it»), sin el motivo técnico en rojo; con servicios afectados conserva «No responde: motivo». **Hecho cuando:** las dos variantes se ven en es y en; pruebas que fijan ambas. **Commits:** `fix(ui): say in settings that docker is simply not in use`.
 
-- [ ] **UXR-12.3 — Verificación nativa, primera apertura y cierre.**
+- [x] **UXR-12.3 — Verificación nativa, primera apertura y cierre.**
 
   **Dependencias:** UXR-12.1 y 12.2. **Trabajo:** `pnpm` completo y `tools/check.sh full`; reinstalar con `tools/install.sh` y comprobar en la app nativa (ver `memory` «native-panel-access»; clic real con CGEvent en el icono) con Docker apagado y servicios `unknown` declarados (franja con conteo) y, con una copia temporal de la configuración propia, sin ninguno (sin franja); restaurar lo tocado. Capturas en `docs/audits/evidencia/uxr-12/`. Documentar en `docs/PRD.md` o `docs/ARQUITECTURA.md` (donde se describe el panel) la regla de ADR-043 y el comportamiento de primera apertura del plan. Registro en ARCHIVES, SNAPSHOT y CHANGELOG (`fix`). **Commits:** `docs: close uxr-12 with evidence`.
 

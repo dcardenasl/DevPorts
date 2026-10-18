@@ -3,6 +3,13 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-12 — Docker es opcional · 2026-10-18
+- **Commits:** `docs: plan the optional docker notice`, `fix(ui): show the docker notice only when a declared service needs it`, `docs: close uxr-12 with evidence`.
+- **Resultado:** la franja «Docker no responde» solo aparece si `dockerAffected(snapshot) > 0` (instancias `unknown`, que el núcleo produce solo para servicios de contenedor declarados con Docker inalcanzable) y ahora dice cuántos servicios afecta; Configuración dice «No responde · ningún servicio declarado lo usa» cuando nada lo usa. Plan y alternativas descartadas en `docs/plan/docker-opcional.md`; ADR-043; `ARQUITECTURA.md` describe la regla y la primera apertura.
+- **Contrato:** ninguno de Rust ni de bindings; nueva `dockerAffected` en `model.ts`; `status.dockerDownBody` pasa a función del conteo y `link.dockerUnused` es clave nueva (es/en).
+- **Verificación:** `pnpm` typecheck, lint, format:check y test en verde (17 archivos, 304 pruebas); pruebas nuevas: `dockerAffected` (0, 1, todas), sin franja en las cinco pestañas con Docker caído y nada declarado, Configuración neutra, franja con conteo y recuperación al volver Docker. **Nativo:** app reinstalada; con Docker apagado y mysql/phpmyadmin declarados la franja dice «2 services use Docker…» (`docs/audits/evidencia/uxr-12/shared.png`).
+- **Pendiente:** el caso «sin servicios declarados» y la línea de Configuración solo están comprobados con pruebas automatizadas, no en la app nativa, porque exigiría quitar servicios reales de David. `tools/check.sh full` no se ejecutó (sin cambios de Rust).
+
 ## UXR-11 — Pulido tras el uso real del panel · 2026-10-18
 - **Commits:** `docs: add the uxr-11 panel polish tasks`, `fix(ui): compact the docker strip and retire finished operations`, `fix(ui): keep service rows, times, paths and tab focus stable`.
 - **Resultado:** H1 la franja de Docker pasa de ~230 px a una fila con botón «Ver detalle»; el error técnico vive solo en Ajustes. H2 `useOperations` expone `visible`: el historial inicial exitoso nunca se muestra, un éxito en vivo dura `RECENT_SUCCESS_MS` (6 s) y lo pendiente o fallido sigue hasta resolverse; sin temporizadores tras desmontar. H3 la fila compartida usa dos líneas estables y `instance.states.unknown` queda en «Sin confirmar» / «Not confirmed». H4 la hora de Actividad no se parte (`max-content`, `nowrap`). H5 la ruta del proyecto lleva `title` con la raíz completa y la rama no se encoge; `shortPath` pasa a `model.ts` con prueba. H6 el foco de las pestañas es redondeado y queda dentro.
