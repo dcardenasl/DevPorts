@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-4.1 — Guardar consumidores compartidos por proyecto · 2026-10-17
+- **Commits de implementación:** ver `git log` (`feat(core)` edición de `uses`, `feat(app)` operación y comando, `feat(ui)` contrato y mock).
+- **Resultado:** consulta de consumidores y guardado por lote con prevalidación total (cero escrituras ante un error conocido), resultado independiente por archivo, reintento idempotente de pendientes y recarga del catálogo. Cero consumidores válido; quitar no detiene ni borra.
+- **Archivos/contratos:** `uses.rs`, `runtime/uses.rs` (`shared_consumers`, `set_shared_consumers`), `OperationKind::SetConsumers` con `consumers`/`usesError`, comando `shared_consumers`, bindings (`ConsumerOptions`, `UseRequest`, `UsesError`), `Backend.sharedConsumers`, `mock-consumers.ts`. Sin nuevos métodos del socket.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 47/47 Vitest y build. Núcleo con fallo inyectado tras el primer éxito, editor externo, solo lectura, formas no editables y actor real que relee YAML/snapshot.
+- **Evidencia nativa vs simulada:** archivos reales en TempDir y actor con ProcessSource falso; sin Tauri/WebKit/VoiceOver (UXR-7.2). [Informe](docs/audits/2026-10-17-uxr-4-1.md).
+- **Limpieza:** sin procesos ni servicios reales; `.devports.yml` local no versionado intacto; sin push.
+- **Entrega siguiente:** UXR-4.2 construye la selección/edición sobre `sharedConsumers` + `setConsumers`; declarar primero el recurso y asociar después.
+
 ## UXR-3.2 — Completar adopción revisada desde el panel · 2026-10-17
 - **Commits de implementación:** ver `git log` (`feat(core)` alcance de exploración, `feat(app)` operación revisada, `feat(ui)` hoja de adopción).
 - **Resultado:** destino → revisión editable → Guardar, siempre con revisión previa (también compartidos); borrador recuperable, errores junto al campo, conflictos tipados y resultado recuperable tras cerrar el panel sin reenviar. Éxito muestra el destino devuelto y enlaza a su tarjeta. El núcleo rechaza raíces que la exploración no alcanza.
