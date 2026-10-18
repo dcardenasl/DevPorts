@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import type { Link } from "./connection";
 import { useI18n } from "./i18n/provider";
 import { dockerProblemText, problemText } from "./reasons";
+import { dockerAffected } from "./model";
 import { agoFrom } from "./time";
 import { Dot } from "./views/shared-parts";
 import type { Snapshot } from "./types";
@@ -34,7 +35,8 @@ export function StatusStrip({
   const { text, locale } = useI18n();
   const t = text.link;
   const since = agoFrom(link.receivedAt, now, locale);
-  const dockerDown = !snapshot.docker_reachable && snapshot.docker_error !== null;
+  const affected = dockerAffected(snapshot);
+  const dockerDown = !snapshot.docker_reachable && snapshot.docker_error !== null && affected > 0;
   const warnings = snapshot.problems.length;
   if (link.phase === "ready" && !dockerDown && warnings === 0) return null;
   return (
@@ -64,7 +66,7 @@ export function StatusStrip({
             <Dot kind="down" />
             <div className="item-main">
               <div className="item-title">{text.status.dockerDown}</div>
-              <div className="item-sub">{text.status.dockerDownBody}</div>
+              <div className="item-sub">{text.status.dockerDownBody(affected)}</div>
             </div>
             <button
               type="button"
@@ -125,7 +127,9 @@ export function StatusDetails({
         <dd>
           {snapshot.docker_reachable || snapshot.docker_error === null
             ? t.dockerOk
-            : t.dockerDown(shortReason(dockerProblemText(snapshot.docker_error, text)))}
+            : dockerAffected(snapshot) === 0
+              ? t.dockerUnused
+              : t.dockerDown(shortReason(dockerProblemText(snapshot.docker_error, text)))}
         </dd>
       </dl>
       <div className="label soft">{t.problemsTitle}</div>

@@ -289,3 +289,12 @@ export function shortPath(path: string): string {
   const parts = path.split("/").filter((part) => part.length > 0);
   return parts.slice(-2).join("/");
 }
+
+/**
+ * How many services declared in a container cannot be checked because Docker does not
+ * answer. The core reports such a service as `unknown` and nothing else, so zero means
+ * nothing the person declared depends on Docker (ADR-043).
+ */
+export function dockerAffected(snapshot: Snapshot): number {
+  return snapshot.instances.filter((view) => view.state === "unknown").length;
+}

@@ -32,7 +32,11 @@ function fakeBackend(
   initialState?: PanelState,
   initialOperations: OperationView[] = [],
   savedPreferences?: Preferences,
-): Backend & { calls: Record<string, unknown[][]>; getPersisted: () => PanelState } {
+): Backend & {
+  calls: Record<string, unknown[][]>;
+  getPersisted: () => PanelState;
+  publishSnapshot: (next: Snapshot) => void;
+} {
   const calls: Record<string, unknown[][]> = {};
   let persisted: PanelState = initialState ?? {
     version: 3,
@@ -67,6 +71,7 @@ function fakeBackend(
   return {
     calls,
     getPersisted: () => persisted,
+    publishSnapshot: publish,
     snapshot: () => Promise.resolve(currentSnapshot),
     adoptionOptions: adoption.adoptionOptions,
     previewAdoption: (reference, target) => {
@@ -1533,10 +1538,63 @@ describe("the panel", () => {
       code: "unreachable",
       detail: "no se pudo conectar con /var/run/docker.sock",
     };
+    const mysql = snapshot.instances.find((view) => view.service === "mysql" && view.shared);
+    if (mysql) mysql.state = "unknown";
     const { user } = await open(snapshot);
+    expect(screen.getByText(/1 servicio usa Docker y no se puede comprobar/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Ver detalle" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/no se pudo conectar/)).toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-12.1, UXR-12.2
+  it("says nothing about Docker when no declared service uses it, and says why in Configuración", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.docker_reachable = false;
+    snapshot.docker_error = {
+      code: "unreachable",
+      detail: "no se pudo conectar con /var/run/docker.sock",
+    };
+    snapshot.instances = snapshot.instances.map((view) =>
+      view.state === "unknown" ? { ...view, state: "down" } : view,
+    );
+    const { user } = await open(snapshot);
+    for (const name of [/Atención/, /Proyectos/, /Compartidos/, /Sin proyecto/, /Actividad/]) {
+      await user.click(tab(name));
+      expect(screen.queryByText("Docker no responde")).toBeNull();
+    }
+    await user.click(screen.getByRole("button", { name: "Configuración" }));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("No responde · ningún servicio declarado lo usa"),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/no se pudo conectar/)).toBeNull();
+  });
+
+  // covers: UI, UXR-12.1
+  it("shows the Docker notice once a declared service becomes unknown and drops it when Docker answers", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.docker_reachable = false;
+    snapshot.docker_error = { code: "connectionLost" };
+    snapshot.instances = snapshot.instances.map((view) =>
+      view.service === "mysql" && view.shared ? { ...view, state: "unknown" } : view,
+    );
+    const { backend } = await open(snapshot);
+    expect(screen.getByText("Docker no responde")).toBeInTheDocument();
+    await act(async () => {
+      backend.publishSnapshot({
+        ...snapshot,
+        docker_reachable: true,
+        docker_error: null,
+        instances: snapshot.instances.map((view) =>
+          view.state === "unknown" ? { ...view, state: "healthy" } : view,
+        ),
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Docker no responde")).toBeNull();
+    });
   });
 
   // covers: UI, UXR-6.2

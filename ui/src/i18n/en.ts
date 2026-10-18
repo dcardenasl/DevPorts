@@ -462,8 +462,8 @@ export const en: Catalog = {
   },
   status: {
     dockerDown: "Docker is not responding",
-    dockerDownBody:
-      "Containers show as “not confirmed”, not as stopped. Open Docker Desktop: DevPorts checks again on its own.",
+    dockerDownBody: (services: number) =>
+      `${pick(services, "1 service uses Docker and cannot be checked", `${services} services use Docker and cannot be checked`)}. Containers show as “not confirmed”, not as stopped. Open Docker Desktop: DevPorts checks again on its own.`,
     draftGone:
       "The process of this draft is no longer available. The form was discarded; no action was taken.",
     problems: "Core warnings",
@@ -498,6 +498,7 @@ export const en: Catalog = {
     coreLost: "No connection",
     dockerOk: "Responding",
     dockerDown: (reason: string) => `Not responding: ${reason}`,
+    dockerUnused: "Not responding · no declared service uses it",
     noProblems: "No configuration or manifest warnings.",
     problemsTitle: "Warnings",
   },

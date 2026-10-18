@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dockerAffected,
   shortPath,
   buildAttention,
   buildOrphans,
@@ -80,5 +81,20 @@ describe("shortPath", () => {
     expect(shortPath("/work/app/")).toBe("work/app");
     expect(shortPath("/solo")).toBe("solo");
     expect(shortPath("")).toBe("");
+  });
+});
+
+describe("dockerAffected", () => {
+  // covers: UXR-12.1
+  it("counts only the services the core could not check because Docker does not answer", () => {
+    const snapshot = sampleSnapshot();
+    const none = snapshot.instances.map((view) => ({ ...view, state: "down" as const }));
+    expect(dockerAffected({ ...snapshot, instances: none })).toBe(0);
+    const [first, second, ...rest] = none;
+    if (first === undefined || second === undefined) throw new Error("the sample has instances");
+    const one = [{ ...first, state: "unknown" as const }, second, ...rest];
+    expect(dockerAffected({ ...snapshot, instances: one })).toBe(1);
+    const two = one.map((view) => ({ ...view, state: "unknown" as const }));
+    expect(dockerAffected({ ...snapshot, instances: two })).toBe(two.length);
   });
 });

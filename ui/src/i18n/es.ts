@@ -476,8 +476,8 @@ export const es = {
   },
   status: {
     dockerDown: "Docker no responde",
-    dockerDownBody:
-      "Los contenedores aparecen como «sin confirmar», no como detenidos. Abre Docker Desktop: DevPorts vuelve a comprobarlo solo.",
+    dockerDownBody: (services: number) =>
+      `${pick(services, "1 servicio usa Docker y no se puede comprobar", `${services} servicios usan Docker y no se pueden comprobar`)}. Los contenedores aparecen como «sin confirmar», no como detenidos. Abre Docker Desktop: DevPorts vuelve a comprobarlo solo.`,
     draftGone:
       "El proceso de este borrador ya no está disponible. Se descartó el formulario; no se realizó ninguna acción.",
     problems: "Avisos del núcleo",
@@ -512,6 +512,7 @@ export const es = {
     coreLost: "Sin conexión",
     dockerOk: "Responde",
     dockerDown: (reason: string) => `No responde: ${reason}`,
+    dockerUnused: "No responde · ningún servicio declarado lo usa",
     noProblems: "Sin avisos de configuración ni de manifiestos.",
     problemsTitle: "Avisos",
   },
