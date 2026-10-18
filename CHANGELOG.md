@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Theme and language settings** — Settings now has Theme (System, Light, Dark) and Language (System, Español, English); each applies at once and is remembered.
+
 - **Localized menu bar and notifications** — the menu bar menu, its dialogs and the expiry and duplicate notifications are written in the language in force (Spanish or English, following the system by default).
 
 - **English panel** — the panel speaks Spanish or English (every screen, plurals, times and error messages from the panel itself); by default it follows the system languages, live. Messages from Settings, adoption and the core's warnings are still written by the core in Spanish.

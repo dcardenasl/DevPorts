@@ -3,6 +3,12 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.6 — Ajustes de apariencia e idioma y cierre de UXR-9 · 2026-10-18
+- **Resultado:** la hoja Configuración tiene «Tema» (Sistema/Claro/Oscuro) e «Idioma» (Sistema/Español/English) como radios nativos, debajo de las carpetas; se aplican al instante y se guardan por `set_preferences`; si falla se vuelve a lo confirmado y se avisa. Informe: [docs/audits/2026-10-18-uxr-9.md](docs/audits/2026-10-18-uxr-9.md).
+- **Contrato:** `usePreferences(api, theme, onLanguage)` en `hooks.ts` (carga lo guardado al conectar, aplica el cambio de inmediato, solo cuenta el resultado del último cambio, vuelve a `confirmed` si falla); `App` guarda el idioma y monta `I18nProvider`; `PreferencesSection.tsx`; catálogos `preferences.*` y `settings.sheetTitle`; CSS `.choice`/`.segment`. La hoja titula «Configuración» y la lista de carpetas lleva su propio encabezado.
+- **Verificación:** `tools/check.sh full` verde; UI typecheck, lint, format, build y 231/231 pruebas (4 nuevas: cambio y guardado, valor guardado manda sobre el URL, fallo con reversión, radios nativos). Revisión visual en el navegador de desarrollo.
+- **Pendiente:** M-16 nativo (a David) y UXR-9.7/9.8.
+
 ## UXR-9.4 — Actividad como datos tipados · 2026-10-18
 - **Resultado:** las entradas de Actividad se escriben en el panel en el idioma en vigor a partir de `LogEntry.facts`; `summary` (español) queda para el CLI y como respaldo de un `kind` desconocido. El resto del texto del núcleo se reparte en UXR-9.7 (errores y razones) y UXR-9.8 (avisos, `stale`, `docker_error`); el alcance se acotó porque son ~90 frases en 14 archivos con sus pruebas y goldens, y merecen su propia verificación.
 - **Contrato:** proto `LogFacts {port, reason, launcher, existing_url, expires_at}` (ISO 8601) y `LogEntry.facts` (`#[serde(default)]`); core `messages::event_facts` y `Details` (una sola lectura del payload para frase y datos); `docs/CLI.md` §6 documenta el campo opcional nuevo. UI: `ui/src/events.ts` (`eventSentence`), `activity.events` y `activity.unnamedService` en los catálogos (una entrada por `kind` conocido: el compilador exige las dos), `sample.ts` con `facts`.

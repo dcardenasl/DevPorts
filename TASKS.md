@@ -503,7 +503,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** cómo se reconstruye la bandeja y dónde añadir un `Msg`.
 
-- [ ] **UXR-9.6 — Ajustes de apariencia e idioma y cierre.**
+- [x] **UXR-9.6 — Ajustes de apariencia e idioma y cierre.**
 
   **Dependencias:** UXR-9.2, 9.3, 9.4 y 9.5 (9.7 y 9.8 no la bloquean). **Plan:** [Diseño F](docs/plan/tema-e-idioma.md#f-ui-de-ajustes) y Verificación global. **Contexto:** ADR-035/036 (el borrador de carpetas no cambia).
 
@@ -516,6 +516,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `tools/check.sh full`; `pnpm` completo; `tools/install.sh` y recorrido nativo por David.
 
   **Commits previstos:** `feat(ui): add appearance and language to settings` → `docs: close uxr-9 with evidence`.
+
+  **Entrega (2026-10-18):** [informe](docs/audits/2026-10-18-uxr-9.md) y [ARCHIVES](ARCHIVES.md) «UXR-9.6». Queda la comprobación nativa M-16 (a David) y las tareas UXR-9.7 y 9.8.
 
   **Entrega a la próxima sesión:** informe enlazado desde TASKS/SNAPSHOT; sin release ni push sin orden de David.
 

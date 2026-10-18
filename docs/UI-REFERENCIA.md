@@ -221,7 +221,7 @@ Contrastes del tema claro (texto sobre su fondo): texto 15,3:1; suave 6,4:1; ten
 ---
 
 ## 7. Qué falta o queda abierto
-- **Modo claro:** diseñado en la sección 6 (ADR-040). Falta la comprobación nativa (M-16).
+- **Modo claro:** diseñado en la sección 6 (ADR-040) y selector en Configuración. Falta la comprobación nativa (M-16).
 - **Notificaciones del sistema** (vencimiento en 1 min con "Extender 30 min", y duplicado): diseñadas en el lienzo "Dirección visual", no en estas capturas.
 - **Menú contextual del ícono**, preferencias, arranque al iniciar sesión: sin diseño.
 - **"Marcar como legítimo", "Crear un proyecto nuevo" e "Ignorar":** solo están como opciones; falta el detalle de cada una (nombre del proyecto, persistencia de lo ignorado).
