@@ -3,11 +3,12 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
-## UXR-0 — Segundo intento de acceso nativo (parcial, sigue abierta) · 2026-10-18
+## UXR-0 — Acceso nativo al panel (cerrada) · 2026-10-18
 - **Resultado:** versión actual instalada y funcionando (autorizado); base real migrada a v3; CLI y núcleo del paquete verificados (`topics` en `log`, 11 instancias en `ls`); reposo dentro del presupuesto (22–23 MB, 0,60 % CPU con el panel cerrado). **No se pudo recorrer el panel**: Computer Use no encuentra DevPorts (app *accessory* fuera del inventario) y System Events devuelve `-1719`; localhost denegado en el navegador integrado.
 - **Archivos:** solo documentación ([informe](docs/audits/2026-10-18-uxr-0.md)); copias de la app y la base anteriores en el directorio temporal de la sesión.
 - **Limpieza / recursos:** no se creó ningún recurso nuevo, ni se detuvo, adoptó, ignoró o reclasificó nada del usuario; no se dieron permisos del sistema.
-- **Pendiente exacto:** abrir el panel nativo (permiso de Accesibilidad o a mano) y recorrer los escenarios de UXR-7.1 con recursos propios. UXR-0 y UXR-7.2 permanecen `[ ]`.
+- **Tercer intento (con Accesibilidad concedida por David):** panel nativo abierto y recorrido (5 pestañas, hojas de ignorar, Configuración y Gestionar proyectos, solo lectura y cancelando); capturas en `docs/audits/evidencia/uxr-0/`. Dos defectos reales encontrados y corregidos (php-fpm de Homebrew no clasificado por su título de proceso; botón «Adoptar» fuera del panel en tarjetas auxiliares) y verificados nativamente; un tercero menor (foco inicial de Configuración) corregido y cubierto por prueba. Método reproducible en el informe.
+- **Pendiente:** los casos con recursos desechables que **escriben** pasan a UXR-7.2 (tocan `config.yml`, la base y manifiestos del usuario).
 
 ## UXR-7.1 — Cerrar accesibilidad y densidad del panel · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(ui)` accesibilidad y densidad).

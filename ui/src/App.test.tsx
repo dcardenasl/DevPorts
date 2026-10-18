@@ -1208,6 +1208,9 @@ describe("the panel", () => {
     const dialog = screen.getByRole("dialog");
     const first = await within(dialog).findByLabelText("Carpeta 1");
     expect(first).toHaveValue("~/developer");
+    await waitFor(() => {
+      expect(first).toHaveFocus();
+    });
     expect(within(dialog).getByText(/existe · 2 proyectos/)).toBeInTheDocument();
     expect(within(dialog).getByText(/no borra archivos ni detiene procesos/)).toBeInTheDocument();
     expect(within(dialog).getByText("/Users/demo/.config/devports/config.yml")).toBeInTheDocument();

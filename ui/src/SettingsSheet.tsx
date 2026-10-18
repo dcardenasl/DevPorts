@@ -98,6 +98,12 @@ export function SettingsSheet({
   }, [folders]);
 
   const reviewing = draft.reviewing && !sent;
+  // The folder rows exist only once the file is read: put the cursor in the first one then
+  // (seen on the native panel, where focus stayed on the title).
+  const listed = folders !== undefined && !sent && !reviewing && started;
+  useEffect(() => {
+    if (listed) firstRef.current?.focus();
+  }, [listed]);
   // Restoring at the review step reads the effect again; it never saves.
   const restorePreview = useEffectEvent((isActive: () => boolean) => {
     if (!reviewing || preview !== undefined || !folders) return;
