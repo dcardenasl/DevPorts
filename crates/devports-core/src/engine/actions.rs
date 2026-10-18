@@ -106,6 +106,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                         &payload,
                     ),
                     topics: messages::event_topics(&event.kind, &payload),
+                    facts: messages::event_facts(&payload),
                     kind: event.kind,
                     project: event.project,
                     service: event.service,

@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use devports_proto::run::{Alternative, AlternativeKind, RejectKind};
-use devports_proto::views::{InstanceRole, InstanceState, InstanceView, LogTopic};
+use devports_proto::views::{InstanceRole, InstanceState, InstanceView, LogFacts, LogTopic};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 use serde_json::Value;
@@ -307,14 +307,54 @@ pub fn event_topics(kind: &str, payload: &Value) -> Vec<LogTopic> {
     topics
 }
 
-/// One line of the activity log, from the stored kind and details.
+/// What an event's stored details say, read once: the sentence and the facts both come from
+/// here, so they can never disagree about a key.
+struct Details<'a> {
+    port: Option<u16>,
+    reason: Option<&'a str>,
+    launcher: Option<&'a str>,
+    existing_url: Option<&'a str>,
+    expires_at: Option<i64>,
+}
+
+impl<'a> Details<'a> {
+    fn read(payload: &'a Value) -> Self {
+        let text = |key: &str| payload.get(key).and_then(Value::as_str);
+        Self {
+            port: payload
+                .get("port")
+                .and_then(Value::as_i64)
+                .and_then(|port| u16::try_from(port).ok()),
+            reason: text("reason"),
+            launcher: text("launcher"),
+            existing_url: text("existing_url"),
+            expires_at: payload.get("expires_at").and_then(Value::as_i64),
+        }
+    }
+}
+
+/// What the interface needs to write an event's sentence itself, from its stored details.
+#[must_use]
+pub fn event_facts(payload: &Value) -> LogFacts {
+    let details = Details::read(payload);
+    LogFacts {
+        port: details.port,
+        reason: details.reason.map(str::to_owned),
+        launcher: details.launcher.map(str::to_owned),
+        existing_url: details.existing_url.map(str::to_owned),
+        expires_at: details.expires_at.map(iso),
+    }
+}
+
+/// One line of the activity log, in Spanish: what the CLI prints. The panel writes its own
+/// from [`event_facts`] in the language in force.
 #[must_use]
 pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> String {
     let service = service.unwrap_or("un servicio");
+    let details = Details::read(payload);
     let text = |key: &str| payload.get(key).and_then(Value::as_str);
-    let number = |key: &str| payload.get(key).and_then(Value::as_i64);
-    let port = number("port").map(|port| format!(":{port}"));
-    let by = text("launcher").map_or_else(
+    let port = details.port.map(|port| format!(":{port}"));
+    let by = details.launcher.map_or_else(
         || "un proceso".to_owned(),
         |label| format!("un agente ({label})"),
     );
@@ -324,7 +364,7 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
             Some("temporal") => format!(
                 "Prueba de {service} {} para «{}»",
                 port.unwrap_or_default(),
-                text("reason").unwrap_or("sin motivo")
+                details.reason.unwrap_or("sin motivo")
             ),
             _ => format!(
                 "{service} registrada como Principal {}",
@@ -333,7 +373,9 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
         },
         "run_rejected" => format!(
             "{by} intentó levantar otra instancia de {service}; la Principal sigue {}",
-            text("existing_url").map_or_else(String::new, |url| format!("en {url}"))
+            details
+                .existing_url
+                .map_or_else(String::new, |url| format!("en {url}"))
         ),
         "reuse" => format!("{by} reutilizó la Principal de {service}"),
         "reservation_released" => {
@@ -345,7 +387,9 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
         ),
         "port_stolen" => format!(
             "Otro proceso tomó el puerto {} reservado para {service}",
-            number("port").map_or_else(|| "?".to_owned(), |port| port.to_string())
+            details
+                .port
+                .map_or_else(|| "?".to_owned(), |port| port.to_string())
         ),
         "lease_warned" => format!(
             "La prueba de {service} {} vence en 1 minuto",
@@ -354,7 +398,9 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
         "lease_extended" => format!(
             "La prueba de {service} {} se extendió; vence {}",
             port.unwrap_or_default(),
-            number("expires_at").map_or_else(|| "más tarde".to_owned(), clock)
+            details
+                .expires_at
+                .map_or_else(|| "más tarde".to_owned(), clock)
         ),
         "lease_expired" => format!(
             "La prueba de {service} {} venció y se detuvo",

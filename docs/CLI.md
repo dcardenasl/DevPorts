@@ -173,7 +173,7 @@ Muestra el registro de actividad (ADR-014): lanzamientos, rechazos con su motivo
 14:49 api  aviso       el temporal :51234 vence en 1 minuto
 14:50 api  vencido     temporal :51234 detenido
 ```
-`--json` añade a cada entrada `topics` (`temporal`, `alert`, `rejection`, vacío si es solo contabilidad); es un campo nuevo y opcional, el resto del contrato no cambia. Si el registro no se puede leer, el núcleo contesta `unavailable` y el comando falla: nunca imprime «No hay actividad» en su lugar.
+`--json` añade a cada entrada `topics` (`temporal`, `alert`, `rejection`, vacío si es solo contabilidad); es un campo nuevo y opcional, el resto del contrato no cambia. Añade también `facts` (`port`, `reason`, `launcher`, `existing_url`, `expires_at` en ISO 8601; cada uno `null` si el evento no lo lleva): los datos con los que la app escribe la frase en su idioma; `summary` sigue siendo la frase en español. Si el registro no se puede leer, el núcleo contesta `unavailable` y el comando falla: nunca imprime «No hay actividad» en su lugar.
 
 ## 7. `devports adopt [carpeta]`
 Solo lectura: imprime la propuesta de manifiesto (MANIFIESTO.md sección 8) para la carpeta (por defecto, la actual). **No escribe archivos**: escribir un manifiesto es una acción de la persona, desde la app **[D]**. Motivo: "adoptar" podría legitimar duplicados, así que no queda al alcance de un agente.

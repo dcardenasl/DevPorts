@@ -314,10 +314,15 @@ export type LogEntry = {
 	project: string | null,
 	/**  Service it concerns. */
 	service: string | null,
-	/**  A sentence for people, already in the user's language. */
+	/**
+	 *  A sentence for people, in Spanish: what the CLI prints, and what the panel shows only
+	 *  for an event kind it does not know.
+	 */
 	summary: string,
 	/**  The themes it belongs to; empty for plain bookkeeping. Absent in older cores. */
 	topics?: LogTopic[],
+	/**  What the event carries, for writing its sentence. Absent in older cores. */
+	facts?: LogFacts,
 };
 
 /**  Why the activity log could not be read. */
@@ -328,6 +333,24 @@ export type LogError =
 message: string } |
 /**  The core is shutting down. */
 { code: "closing" };
+
+/**
+ *  The details of an event, so the interface can write its sentence in the language in force
+ *  (ADR-041) instead of showing the one the core wrote. Whatever an event does not carry is
+ *  absent.
+ */
+export type LogFacts = {
+	/**  The port involved. */
+	port: number | null,
+	/**  Why a temporary instance was started. */
+	reason: string | null,
+	/**  The agent that launched it, as the `known_agents` table names it. */
+	launcher: string | null,
+	/**  Where the Principal that refused a launch is running. */
+	existing_url: string | null,
+	/**  When a lease ends, ISO 8601 with offset. */
+	expires_at: string | null,
+};
 
 /**
  *  A theme an activity entry belongs to, so a view filters on a field instead of reading

@@ -207,6 +207,24 @@ pub enum LogTopic {
     Rejection,
 }
 
+/// The details of an event, so the interface can write its sentence in the language in force
+/// (ADR-041) instead of showing the one the core wrote. Whatever an event does not carry is
+/// absent.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct LogFacts {
+    /// The port involved.
+    pub port: Option<u16>,
+    /// Why a temporary instance was started.
+    pub reason: Option<String>,
+    /// The agent that launched it, as the `known_agents` table names it.
+    pub launcher: Option<String>,
+    /// Where the Principal that refused a launch is running.
+    pub existing_url: Option<String>,
+    /// When a lease ends, ISO 8601 with offset.
+    pub expires_at: Option<String>,
+}
+
 /// One line of the activity log.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -219,11 +237,15 @@ pub struct LogEntry {
     pub project: Option<String>,
     /// Service it concerns.
     pub service: Option<String>,
-    /// A sentence for people, already in the user's language.
+    /// A sentence for people, in Spanish: what the CLI prints, and what the panel shows only
+    /// for an event kind it does not know.
     pub summary: String,
     /// The themes it belongs to; empty for plain bookkeeping. Absent in older cores.
     #[serde(default)]
     pub topics: Vec<LogTopic>,
+    /// What the event carries, for writing its sentence. Absent in older cores.
+    #[serde(default)]
+    pub facts: LogFacts,
 }
 
 #[cfg(test)]

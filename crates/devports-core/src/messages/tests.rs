@@ -1,6 +1,6 @@
 //! Golden tests of the wording (`CLI.md`, sections 3 and 6).
 
-use devports_proto::views::{InstanceRole, InstanceState, InstanceView};
+use devports_proto::views::{InstanceRole, InstanceState, InstanceView, LogFacts};
 use serde_json::json;
 
 use super::*;
@@ -225,6 +225,31 @@ fn the_log_lines_read_like_the_documented_ones() {
         event_summary("something_new", None, &json!({})),
         "something new"
     );
+}
+
+// covers: UXR-9.4
+#[test]
+fn an_events_facts_are_what_its_sentence_is_written_from() {
+    let facts = event_facts(&json!({
+        "role": "temporal",
+        "port": 51234,
+        "reason": "QA login",
+        "launcher": "Cursor > zsh",
+        "existing_url": "http://localhost:8080",
+        "expires_at": 1_700_001_800,
+    }));
+    assert_eq!(facts.port, Some(51234));
+    assert_eq!(facts.reason.as_deref(), Some("QA login"));
+    assert_eq!(facts.launcher.as_deref(), Some("Cursor > zsh"));
+    assert_eq!(facts.existing_url.as_deref(), Some("http://localhost:8080"));
+    assert_eq!(
+        facts.expires_at.as_deref(),
+        Some(iso(1_700_001_800).as_str())
+    );
+    // Nothing the event does not carry is invented, and a port out of range is no port.
+    assert_eq!(event_facts(&json!({})), LogFacts::default());
+    assert_eq!(event_facts(&json!({"port": 70_000})).port, None);
+    assert_eq!(event_facts(&json!({"port": "80"})).port, None);
 }
 
 #[test]

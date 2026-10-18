@@ -225,6 +225,7 @@ mod tests {
             service: Some("api".to_owned()),
             summary: "un agente intentó levantar otra instancia".to_owned(),
             topics: vec![devports_proto::views::LogTopic::Rejection],
+            facts: devports_proto::views::LogFacts::default(),
         }]);
         assert_eq!(
             text,

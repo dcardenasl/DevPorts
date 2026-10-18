@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 pub use preferences::{LanguagePreference, Preferences, ThemePreference};
 pub use run::{RunOutcome, RunRegister};
-pub use views::{InstanceView, LogEntry};
+pub use views::{InstanceView, LogEntry, LogFacts};
 
 /// Version of the line-delimited JSON protocol, carried in the `v` field of
 /// every request and response. A peer that receives another value answers with

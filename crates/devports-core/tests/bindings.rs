@@ -7,7 +7,7 @@
 #![allow(clippy::expect_used)]
 
 use devports_core::runtime::Snapshot;
-use devports_proto::views::{InstanceView, LogEntry};
+use devports_proto::views::{InstanceView, LogEntry, LogFacts};
 use specta::Types;
 use specta_typescript::Typescript;
 
@@ -32,7 +32,8 @@ fn generated() -> String {
         .register::<devports_core::classify::ProcessClass>()
         .register::<devports_proto::Preferences>()
         .register::<InstanceView>()
-        .register::<LogEntry>();
+        .register::<LogEntry>()
+        .register::<LogFacts>();
     let body = Typescript::default()
         .export(&types, specta_serde::Format)
         .expect("the types can be exported");
