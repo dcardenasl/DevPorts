@@ -105,17 +105,39 @@ pub enum PanelDraft {
         #[serde(default)]
         operation_id: Option<String>,
     },
+    /// The scan-folder list being edited. Holds only the text typed: the files, their
+    /// version and the effect on discovery are read again on restore.
+    Settings {
+        /// The folders as typed, in order.
+        roots: Vec<String>,
+        /// Whether the person is looking at the effect review.
+        reviewing: bool,
+        /// Operation key sent for this list, used only to query its result on restore.
+        #[serde(default)]
+        operation_id: Option<String>,
+    },
 }
 
 /// Most projects a consumers draft may name, matching one operation's capacity.
 const MAX_DRAFT_PROJECTS: usize = 64;
 /// Longest project or shared-service name (`^[a-z0-9][a-z0-9-]{0,62}$`).
 const MAX_NAME_BYTES: usize = 63;
+/// Longest folder text a settings draft may hold.
+const MAX_ROOT_BYTES: usize = 1024;
 
 impl PanelDraft {
     fn is_bounded(&self) -> bool {
         match self {
             Self::Adopt { .. } => true,
+            Self::Settings {
+                roots,
+                operation_id,
+                ..
+            } => {
+                roots.len() <= devports_core::settings::MAX_ROOTS
+                    && roots.iter().all(|root| root.len() <= MAX_ROOT_BYTES)
+                    && operation_id.as_ref().is_none_or(|id| id.len() <= 64)
+            }
             Self::Consumers {
                 shared,
                 selected,
@@ -276,6 +298,36 @@ mod tests {
             state,
             "a rejected draft keeps the previous state"
         );
+    }
+
+    #[test]
+    fn settings_draft_round_trips_and_is_bounded() {
+        let state = PanelState {
+            draft: Some(PanelDraft::Settings {
+                roots: vec!["~/developer".to_owned(), "/Volumes/work".to_owned()],
+                reviewing: true,
+                operation_id: None,
+            }),
+            ..PanelState::default()
+        };
+        let encoded = serde_json::to_string(&state).expect("serialize");
+        assert!(encoded.contains("\"kind\":\"settings\""));
+        assert_eq!(
+            serde_json::from_str::<PanelState>(&encoded).expect("deserialize"),
+            state
+        );
+        let store = PanelStateStore::default();
+        assert_eq!(store.set(state.clone()), Ok(()));
+        let oversized = PanelState {
+            draft: Some(PanelDraft::Settings {
+                roots: vec!["x".repeat(2000)],
+                reviewing: false,
+                operation_id: None,
+            }),
+            ..PanelState::default()
+        };
+        assert_eq!(store.set(oversized), Err("panel draft exceeds its limits"));
+        assert_eq!(store.get(), state);
     }
 
     #[test]

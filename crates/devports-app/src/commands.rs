@@ -103,6 +103,21 @@ pub async fn ignored_rules(
 }
 
 #[tauri::command]
+pub async fn scan_folders(
+    core: State<'_, CoreState>,
+) -> Result<devports_core::settings::ScanFolders, devports_core::settings::SettingsError> {
+    core.0.scan_folders().await
+}
+
+#[tauri::command]
+pub async fn preview_scan_folders(
+    core: State<'_, CoreState>,
+    roots: Vec<String>,
+) -> Result<devports_core::settings::ScanPreview, devports_core::settings::SettingsError> {
+    core.0.preview_scan_folders(roots).await
+}
+
+#[tauri::command]
 pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
     state.get()
 }

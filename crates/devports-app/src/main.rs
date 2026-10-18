@@ -35,6 +35,8 @@ fn main() {
             commands::shared_consumers,
             commands::rule_preview,
             commands::ignored_rules,
+            commands::scan_folders,
+            commands::preview_scan_folders,
             commands::get_panel_state,
             commands::set_panel_state,
             commands::get_operations,

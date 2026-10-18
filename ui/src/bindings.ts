@@ -362,6 +362,56 @@ export type RepoSummary = {
 	branch: string | null,
 };
 
+/**  A folder the person typed that cannot be used, and why. */
+export type RootProblem = {
+	/**  Position in the submitted list. */
+	index: number,
+	/**  Reason to display beside the folder. */
+	message: string,
+};
+
+/**  The scan folders in force and whether they can be edited. */
+export type ScanFolders = {
+	/**  `config.yml`. */
+	configPath: string,
+	/**  The folders, in order. */
+	roots: ScanRoot[],
+	/**  `config.yml` does not set `roots`, so these are the defaults. */
+	fromDefaults: boolean,
+	/**  How many levels below a folder are searched. */
+	maxDepth: number,
+	/**  Whether the panel can edit them now. */
+	editable: boolean,
+	/**  Why not, when it cannot. */
+	reason: string | null,
+	/**  Version token of the reviewed file; send it back with the new list. */
+	base: string,
+};
+
+/**  What saving a list would change in discovery, before anything is written. */
+export type ScanPreview = {
+	/**  The validated folders with what each contains. */
+	roots: ScanRoot[],
+	/**  Projects that would start to be listed. */
+	added: string[],
+	/**  Projects that would stop being listed (their files and processes are untouched). */
+	removed: string[],
+	/**  The list equals the current one, so saving writes nothing. */
+	unchanged: boolean,
+};
+
+/**  One folder projects are searched in. */
+export type ScanRoot = {
+	/**  As written in `config.yml` (may start with `~`). */
+	configured: string,
+	/**  The folder it resolves to. */
+	path: string,
+	/**  Whether it exists as a folder right now. */
+	exists: boolean,
+	/**  Projects found inside it with the current depth. */
+	projects: number,
+};
+
 /**  Editable fields; every other service fact stays bound to the frozen observation. */
 export type ServiceEdits = {
 	/**  Exact service name; validation never silently adds a suffix on apply. */
@@ -381,6 +431,33 @@ export type ServiceSummary = {
 	/**  `app` or `data`. */
 	kind: string,
 };
+
+/**  Why the scan folders cannot be read or saved. */
+export type SettingsError =
+/**  The configuration cannot be edited as it is; nothing was changed. */
+{ code: "ineligible";
+/**  Why, with the file's own problem when it has one. */
+message: string } |
+/**  One or more of the folders typed is not acceptable. */
+{ code: "invalidRoots";
+/**  Each problem with the position of its folder in the submitted list. */
+problems: RootProblem[] } |
+/**  The list as a whole is not acceptable (empty or too long). */
+{ code: "invalidList";
+/**  What is wrong with it. */
+message: string } |
+/**  `config.yml` changed after it was reviewed; review it again. */
+{ code: "documentChanged";
+/**  The configuration file. */
+path: string } |
+/**  The file writes `roots` in a form DevPorts does not edit. */
+{ code: "unsupported";
+/**  Why it cannot be edited safely. */
+message: string } |
+/**  A file or worker operation failed. */
+{ code: "io";
+/**  OS or runtime explanation. */
+message: string };
 
 /**  A service of `shared.yml` as the interface shows it, whether or not it runs. */
 export type SharedSummary = {

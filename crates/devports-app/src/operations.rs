@@ -7,6 +7,7 @@ use devports_core::adopt::review::{AdoptionError, AdoptionTarget as AdoptTarget,
 use devports_core::classify::ProcessClass;
 use devports_core::engine::StopExpectation;
 use devports_core::runtime::CoreHandle;
+use devports_core::settings::SettingsError;
 use devports_core::uses::{UseOutcome, UseReport, UseRequest, UsesError};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -47,6 +48,8 @@ pub enum OperationKind {
     Restore,
     /// Move a loose process to another panel group; the target `reference` is the instance.
     Classify,
+    /// Replace the scan folders of `config.yml`; one target, `reference` is `config`.
+    SetScanFolders,
     /// Adopt an observed instance into a declared destination.
     Adopt,
     /// Declare or remove one shared service in the confirmed projects' manifests.
@@ -75,6 +78,19 @@ pub struct OperationTarget {
     /// Where the person wants the process listed, for classification changes.
     #[serde(default)]
     pub classification: Option<ClassificationChoice>,
+    /// The reviewed folder list, for scan-folder changes.
+    #[serde(default)]
+    pub scan_folders: Option<ScanFoldersSubmission>,
+}
+
+/// The folders the person reviewed and the version of `config.yml` they were read from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanFoldersSubmission {
+    /// Folders exactly as they will be written.
+    pub roots: Vec<String>,
+    /// Version token of the reviewed file.
+    pub base: String,
 }
 
 /// A classification correction; `class: None` goes back to the automatic guess.
@@ -173,6 +189,10 @@ pub struct OperationTargetView {
     pub consumers: Option<ConsumerSummary>,
     /// Requested classification, for classification changes.
     pub classification: Option<ClassificationChoice>,
+    /// Number of folders requested, for scan-folder changes; the list itself stays in the shell.
+    pub scan_folder_count: Option<u32>,
+    /// Typed scan-folder failure, alongside the human-readable message.
+    pub settings_error: Option<SettingsError>,
     /// Typed consumer-change failure, alongside the human-readable message.
     pub uses_error: Option<UsesError>,
     /// Minimal confirmed stop identity, never process arguments or secrets.
@@ -271,6 +291,11 @@ impl OperationStore {
                 }),
                 uses_error: None,
                 classification: target.classification,
+                scan_folder_count: target
+                    .scan_folders
+                    .as_ref()
+                    .map(|folders| u32::try_from(folders.roots.len()).unwrap_or(u32::MAX)),
+                settings_error: None,
                 stop_expectation: target.stop_expectation.clone(),
                 status: TargetStatus::Queued,
                 error: None,
@@ -343,13 +368,23 @@ impl OperationStore {
                     target.error = None;
                     target.adoption_error = None;
                     target.uses_error = None;
+                    target.settings_error = None;
                     target.result = result;
                 }
                 Err(error) => {
                     target.status = TargetStatus::Failed;
                     target.error = Some(error.message);
-                    target.adoption_error = error.adoption;
-                    target.uses_error = error.uses;
+                    (
+                        target.adoption_error,
+                        target.uses_error,
+                        target.settings_error,
+                    ) = (None, None, None);
+                    match error.typed.map(|typed| *typed) {
+                        Some(TypedFailure::Adoption(error)) => target.adoption_error = Some(error),
+                        Some(TypedFailure::Uses(error)) => target.uses_error = Some(error),
+                        Some(TypedFailure::Settings(error)) => target.settings_error = Some(error),
+                        None => {}
+                    }
                 }
             }
             true
@@ -413,30 +448,53 @@ impl OperationStore {
     }
 }
 
-/// Safe failure payload retained by the shell, without command arguments.
+/// The typed form of a failure, for the sheet that started the operation.
+enum TypedFailure {
+    Adoption(AdoptionError),
+    Uses(UsesError),
+    Settings(SettingsError),
+}
+
+/// Safe failure payload retained by the shell, without command arguments. The typed
+/// part is boxed so a `Result` carrying it stays small.
 pub struct OperationFailure {
     message: String,
-    adoption: Option<AdoptionError>,
-    uses: Option<UsesError>,
+    typed: Option<Box<TypedFailure>>,
+}
+
+impl OperationFailure {
+    fn typed(message: String, typed: TypedFailure) -> Self {
+        Self {
+            message,
+            typed: Some(Box::new(typed)),
+        }
+    }
 }
 
 impl From<String> for OperationFailure {
     fn from(message: String) -> Self {
         Self {
             message,
-            adoption: None,
-            uses: None,
+            typed: None,
         }
+    }
+}
+
+impl From<AdoptionError> for OperationFailure {
+    fn from(error: AdoptionError) -> Self {
+        Self::typed(error.to_string(), TypedFailure::Adoption(error))
+    }
+}
+
+impl From<SettingsError> for OperationFailure {
+    fn from(error: SettingsError) -> Self {
+        Self::typed(error.to_string(), TypedFailure::Settings(error))
     }
 }
 
 impl From<UsesError> for OperationFailure {
     fn from(error: UsesError) -> Self {
-        Self {
-            message: error.to_string(),
-            adoption: None,
-            uses: Some(error),
-        }
+        Self::typed(error.to_string(), TypedFailure::Uses(error))
     }
 }
 
@@ -491,6 +549,14 @@ fn validate(request: &OperationRequest) -> Result<(), OperationError> {
             || (request.kind == OperationKind::Adopt) != target.adoption.is_some()
             || (request.kind == OperationKind::SetConsumers) != target.consumers.is_some()
             || (request.kind == OperationKind::Classify) != target.classification.is_some()
+            || (request.kind == OperationKind::SetScanFolders) != target.scan_folders.is_some()
+            || (request.kind == OperationKind::SetScanFolders && request.targets.len() != 1)
+            || target.scan_folders.as_ref().is_some_and(|folders| {
+                folders.roots.len() > devports_core::settings::MAX_ROOTS
+                    || folders.roots.iter().any(|root| root.len() > 1024)
+                    || folders.base.is_empty()
+                    || folders.base.len() > 64
+            })
             || target.consumers.as_ref().is_some_and(|consumers| {
                 !devports_core::manifest::is_valid_name(&consumers.shared)
                     || consumers.base.is_empty()
@@ -676,6 +742,16 @@ async fn perform(
             .await
             .map(|()| None)
             .map_err(|error| OperationFailure::from(error.to_string())),
+        OperationKind::SetScanFolders => {
+            let folders = target
+                .scan_folders
+                .clone()
+                .ok_or_else(|| OperationFailure::from("falta indicar las carpetas".to_owned()))?;
+            core.set_scan_folders(folders.roots, folders.base)
+                .await
+                .map(|_| None)
+                .map_err(OperationFailure::from)
+        }
         OperationKind::Classify => {
             let choice = target.classification.ok_or_else(|| {
                 OperationFailure::from("falta indicar la clasificación".to_owned())
@@ -705,11 +781,7 @@ async fn perform(
                         service: applied.service,
                     })
                 })
-                .map_err(|error| OperationFailure {
-                    message: error.to_string(),
-                    adoption: Some(error),
-                    uses: None,
-                })
+                .map_err(OperationFailure::from)
         }
     }
 }
@@ -754,6 +826,7 @@ mod tests {
                     adoption: None,
                     consumers: None,
                     classification: None,
+                    scan_folders: None,
                     stop_expectation: Some(stop_expectation()),
                 },
                 OperationTarget {
@@ -762,6 +835,7 @@ mod tests {
                     adoption: None,
                     consumers: None,
                     classification: None,
+                    scan_folders: None,
                     stop_expectation: Some(stop_expectation()),
                 },
             ],
@@ -896,6 +970,7 @@ mod tests {
                         base: "a".repeat(64),
                     }),
                     classification: None,
+                    scan_folders: None,
                     stop_expectation: None,
                 })
                 .collect(),
@@ -1011,6 +1086,7 @@ mod tests {
                 adoption: None,
                 consumers: None,
                 classification: None,
+                scan_folders: None,
                 stop_expectation: None,
             }],
         };
@@ -1039,6 +1115,7 @@ mod tests {
                 adoption: None,
                 consumers: None,
                 classification: Some(ClassificationChoice { class }),
+                scan_folders: None,
                 stop_expectation: None,
             }],
         };
@@ -1056,5 +1133,62 @@ mod tests {
         assert_eq!(store.start(wrong_kind), Err(OperationError::InvalidRequest));
         let wire = serde_json::to_string(&store.get("c-2").expect("view")).expect("serializes");
         assert!(wire.contains("\"classification\":{\"class\":null}"));
+    }
+
+    // covers: UXR-6.1
+    #[test]
+    fn a_scan_folder_change_is_one_bounded_target_with_a_version() {
+        let store = OperationStore::default();
+        let request = |id: &str, roots: Vec<String>, base: &str| OperationRequest {
+            id: id.to_owned(),
+            kind: OperationKind::SetScanFolders,
+            targets: vec![OperationTarget {
+                reference: "config".to_owned(),
+                adopt_target: None,
+                adoption: None,
+                consumers: None,
+                classification: None,
+                scan_folders: Some(ScanFoldersSubmission {
+                    roots,
+                    base: base.to_owned(),
+                }),
+                stop_expectation: None,
+            }],
+        };
+        let base = "a".repeat(64);
+        assert!(
+            store
+                .start(request("s-1", vec!["/work".to_owned()], &base))
+                .is_ok()
+        );
+        assert_eq!(
+            store.start(request("s-2", vec!["x".repeat(2000)], &base)),
+            Err(OperationError::InvalidRequest)
+        );
+        assert_eq!(
+            store.start(request("s-3", vec!["/work".to_owned()], "")),
+            Err(OperationError::InvalidRequest)
+        );
+        let many = (0..=devports_core::settings::MAX_ROOTS)
+            .map(|n| format!("/w{n}"))
+            .collect();
+        assert_eq!(
+            store.start(request("s-4", many, &base)),
+            Err(OperationError::InvalidRequest)
+        );
+        let mut wrong_kind = request("s-5", vec!["/work".to_owned()], &base);
+        wrong_kind.kind = OperationKind::Keep;
+        assert_eq!(store.start(wrong_kind), Err(OperationError::InvalidRequest));
+        fail_target(&store, "s-1", 0, "config.yml is read-only");
+        let wire = serde_json::to_string(&store.get("s-1").expect("view")).expect("serializes");
+        assert!(wire.contains("\"scanFolderCount\":1"));
+        assert!(
+            !wire.contains(&base),
+            "the version token stays in the shell"
+        );
+        assert_eq!(
+            store.retry("s-1").expect("retry").targets[0].status,
+            TargetStatus::Queued
+        );
     }
 }

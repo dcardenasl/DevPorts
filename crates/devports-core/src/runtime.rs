@@ -16,6 +16,7 @@
 //! [`Notice`]s from a `broadcast` channel; it never touches the engine.
 
 mod adoption;
+mod folders;
 mod probe;
 mod rules;
 mod uses;
