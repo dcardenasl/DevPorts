@@ -29,7 +29,7 @@ Hoy el panel es solo oscuro (`UI-REFERENCIA.md:14`, «modo claro: diferido» des
 
 ### B. Tema
 - **Un solo mecanismo, sin parpadeo**: `<html data-theme="light|dark">` siempre explícito (resuelto) y `color-scheme` acorde.
-  - Resolución síncrona antes del primer pintado: el shell añade al URL `index.html?…&theme=system|light|dark&lang=es|en` (patrón ya usado por `?tab=` en `panel.rs`); un script **externo y síncrono** `ui/public/boot.js` (cumple la CSP `script-src 'self'`) lee los parámetros, resuelve `system` con `matchMedia('(prefers-color-scheme: dark)')` y fija `data-theme`, `lang` y `color-scheme`. Sin parámetros (navegador en desarrollo) usa sistema/`navigator`.
+  - Resolución síncrona antes del primer pintado: el shell añade al URL `index.html?…&theme=system|light|dark&lang=es|en` (patrón ya usado por `?tab=` en `panel.rs`); un módulo `ui/src/boot.ts`, importado el primero por `main.tsx` (sin script inline: CSP `script-src 'self'`), lee los parámetros, resuelve `system` con `matchMedia('(prefers-color-scheme: dark)')` y fija `data-theme` (el `color-scheme` lo declara cada bloque de `theme.css`). La ventana sigue transparente hasta `panel_ready`, posterior al montaje, y el CSS sin atributo es el oscuro. Sin parámetros (navegador en desarrollo) usa sistema/`navigator`.
   - `ui/src/theme.ts`: lógica pura `resolveTheme(pref, systemDark)` + `applyTheme()` y un listener `matchMedia` (solo con preferencia = sistema) que cubre el cambio de apariencia de macOS con el panel abierto. Testeable.
   - Ventana nativa coherente: `set_theme(None|Light|Dark)` de Tauri desde el shell (API pública, sin `unsafe` nuevo; `window_style.rs` no cambia).
 - **Tokens semánticos completos** en `ui/src/theme.css` (`:root[data-theme="dark"]` y `[data-theme="light"]`): superficies, texto, `--green/amber/coral/blue` y los que hoy son literales: `--tint-*` (14 %), `--wash-*` (7–8 %), `--edge-*`, `--on-green/amber/coral` (texto sobre relleno), `--hover/--press/--surface`, `--dot-idle/--dot-dashed`, `--chip-active-bg/fg`, `--field`, `--shadow`. `styles.css` no contiene ningún color literal; un test lo vigila.
@@ -67,7 +67,7 @@ Secciones «Apariencia» e «Idioma» en `SettingsSheet` (encima de las carpetas
 |---|---|---|
 | UXR-9.0 | ADR-040/041, NF-11, PRUEBAS §4, UI-REFERENCIA (paleta clara) | — |
 | UXR-9.1 | Preferencias: proto + migración 4 + actor + comandos + `api.ts`/mock + bindings | 9.0 |
-| UXR-9.2 | Tema: `theme.css`, tokenizar literales, `boot.js`, `theme.ts`, URL en `panel.rs`, `set_theme`, contraste ×2 | 9.1 |
+| UXR-9.2 | Tema: `theme.css`, tokenizar literales, `boot.ts`, `theme.ts`, URL en `panel.rs`, `set_theme`, contraste ×2 | 9.1 |
 | UXR-9.3 | Catálogo i18n del panel: `i18n/`, 16 consumidores, `Intl`, ESLint, `en.ts`, paridad | 9.1 |
 | UXR-9.4 | Núcleo → datos tipados: `LogEntry.facts`, enums de error, `CommandError` | 9.3 |
 | UXR-9.5 | Bandeja y notificaciones: `i18n.rs`, reconstrucción en caliente | 9.1 |
@@ -91,7 +91,7 @@ CHANGELOG `[Unreleased]` solo en los `feat`; nunca inventar versión.
 CLI/`--json`/goldens/`docs/` en inglés, más de dos idiomas, RTL, monedas, temas personalizados, selector en la bandeja, vibrancy.
 
 ## Riesgos y mitigación
-- Tema equivocado un fotograma → resolución síncrona por URL + `boot.js`, ventana a alfa 0 hasta `panel_ready`; test de `boot.js` en jsdom.
+- Tema equivocado un fotograma → resolución por URL en `boot.ts` antes de montar, ventana a alfa 0 hasta `panel_ready`; test de `boot.ts` en jsdom.
 - Contraste de la paleta clara → lo decide el test AA antes de cerrar; se iteran los valores, no el umbral.
 - Regresión de `App.test.tsx` → provider fijado a `es` en el helper de render.
 - Núcleo más nuevo o más antiguo que el panel → campos `#[serde(default)]` y respaldo con `summary`.

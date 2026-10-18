@@ -1,0 +1,126 @@
+/* Every colour the panel uses, once per theme (ADR-040). The names are the same in both
+   blocks and `styles.css` holds no colour literal: `theme.test.ts` checks both rules, and
+   `contrast.test.ts` checks every pair against WCAG AA in each theme. The dark block is
+   also the default, so a page that never got a theme still looks as it always did. */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces and text */
+  --panel: #171b1f;
+  --tabbar: #1a1e22;
+  --sheet: #20262b;
+  --toast: #262d33;
+  --field: rgba(0, 0, 0, 0.25);
+  --text: #e8ecef;
+  --text-soft: #8c979f;
+  --text-dim: #838e96;
+  --text-strong: #ffffff;
+
+  /* State colours, and the text that sits on a fill of each */
+  --green: #3dd6a0;
+  --amber: #f5b544;
+  --coral: #ff6a55;
+  --blue: #6aa9ff;
+  --on-green: #06241a;
+  --on-amber: #2b1d05;
+  --on-coral: #2b0d08;
+  --on-badge: #1a0d0a;
+
+  /* Washes (cards), edges (card borders), tints (tags) and halos of the state colours */
+  --wash-green: rgba(61, 214, 160, 0.08);
+  --wash-amber: rgba(245, 181, 68, 0.08);
+  --wash-coral: rgba(255, 106, 85, 0.07);
+  --wash-blue: rgba(106, 169, 255, 0.07);
+  --wash-coral-strong: rgba(255, 106, 85, 0.1);
+  --wash-amber-faint: rgba(245, 181, 68, 0.06);
+  --edge-green: rgba(61, 214, 160, 0.35);
+  --edge-amber: rgba(245, 181, 68, 0.4);
+  --edge-coral: rgba(255, 106, 85, 0.38);
+  --edge-blue: rgba(106, 169, 255, 0.3);
+  --edge-green-strong: rgba(61, 214, 160, 0.45);
+  --edge-coral-strong: rgba(255, 106, 85, 0.5);
+  --tint-green: rgba(61, 214, 160, 0.14);
+  --tint-amber: rgba(245, 181, 68, 0.14);
+  --tint-coral: rgba(255, 106, 85, 0.14);
+  --tint-blue: rgba(106, 169, 255, 0.14);
+  --halo-green: rgba(61, 214, 160, 0.18);
+  --halo-coral: rgba(255, 106, 85, 0.2);
+
+  /* Neutral overlays, borders and the veil under sheets */
+  --ov-3: rgba(255, 255, 255, 0.03);
+  --ov-4: rgba(255, 255, 255, 0.04);
+  --ov-6: rgba(255, 255, 255, 0.06);
+  --ov-8: rgba(255, 255, 255, 0.08);
+  --ov-10: rgba(255, 255, 255, 0.1);
+  --surface: rgba(255, 255, 255, 0.035);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --veil: rgba(8, 10, 12, 0.64);
+  --dot-down: #5f6a71;
+  --dot-loose: #7b868d;
+  --pill-bg: #ffffff;
+  --pill-fg: #101316;
+
+  /* How a hovered tag changes: lighter on dark, darker on light */
+  --hover-filter: brightness(1.3);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --panel: #f6f8fa;
+  --tabbar: #eceff3;
+  --sheet: #ffffff;
+  --toast: #ffffff;
+  --field: #f1f4f6;
+  --text: #1a2128;
+  --text-soft: #505c66;
+  --text-dim: #59646e;
+  --text-strong: #0d1216;
+
+  --green: #08694a;
+  --amber: #8a5600;
+  --coral: #b72915;
+  --blue: #1b5fc4;
+  --on-green: #ffffff;
+  --on-amber: #ffffff;
+  --on-coral: #ffffff;
+  --on-badge: #ffffff;
+
+  --wash-green: rgba(8, 105, 74, 0.08);
+  --wash-amber: rgba(138, 86, 0, 0.08);
+  --wash-coral: rgba(183, 41, 21, 0.07);
+  --wash-blue: rgba(27, 95, 196, 0.07);
+  --wash-coral-strong: rgba(183, 41, 21, 0.1);
+  --wash-amber-faint: rgba(138, 86, 0, 0.06);
+  --edge-green: rgba(8, 105, 74, 0.35);
+  --edge-amber: rgba(138, 86, 0, 0.4);
+  --edge-coral: rgba(183, 41, 21, 0.38);
+  --edge-blue: rgba(27, 95, 196, 0.3);
+  --edge-green-strong: rgba(8, 105, 74, 0.45);
+  --edge-coral-strong: rgba(183, 41, 21, 0.5);
+  --tint-green: rgba(8, 105, 74, 0.14);
+  --tint-amber: rgba(138, 86, 0, 0.14);
+  --tint-coral: rgba(183, 41, 21, 0.14);
+  --tint-blue: rgba(27, 95, 196, 0.14);
+  --halo-green: rgba(8, 105, 74, 0.18);
+  --halo-coral: rgba(183, 41, 21, 0.2);
+
+  --ov-3: rgba(15, 23, 32, 0.03);
+  --ov-4: rgba(15, 23, 32, 0.04);
+  --ov-6: rgba(15, 23, 32, 0.06);
+  --ov-8: rgba(15, 23, 32, 0.08);
+  --ov-10: rgba(15, 23, 32, 0.1);
+  --surface: rgba(15, 23, 32, 0.035);
+  --line: rgba(15, 23, 32, 0.1);
+  --line-strong: rgba(15, 23, 32, 0.18);
+  --veil: rgba(20, 26, 32, 0.38);
+  --dot-down: #6b7680;
+  --dot-loose: #7d8892;
+  --pill-bg: #1a2128;
+  --pill-fg: #ffffff;
+
+  --hover-filter: brightness(0.94);
+}

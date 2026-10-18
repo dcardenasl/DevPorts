@@ -3,6 +3,17 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.2 — Tema claro, oscuro o del sistema · 2026-10-18
+- **Resultado:** el panel tiene tema claro y oscuro; con la preferencia por defecto (`system`) sigue a macOS, también en vivo. Aún no hay selector (UXR-9.6).
+- **Contrato:**
+  - `ui/src/theme.css`: un bloque por tema (`:root, :root[data-theme="dark"]` y `:root[data-theme="light"]`) con los mismos 49 tokens; `styles.css` no contiene colores literales (solo `--font`/`--mono` en su `:root`).
+  - `ui/src/theme.ts`: `parseThemePreference`, `resolveTheme`, `createThemeController(root, system)` (`set`, `preference`, `resolved`; escucha `matchMedia` solo con `system`). `ui/src/boot.ts` crea `appTheme` y aplica `?theme=` del URL antes de montar React (import en `main.tsx`); 9.6 reutiliza `appTheme`.
+  - app: `panel_url(tab, theme)` (`index.html?[tab=…&]theme=…`), `.theme(native_theme(..))` al crear la ventana y `panel::apply_theme` desde `set_preferences`.
+  - Desviación del plan: `boot.ts` (módulo) en lugar de `public/boot.js` (script síncrono): una sola implementación tipada y probada; la ventana sigue a alfa 0 hasta `panel_ready`, posterior al montaje. ADR-040 y el plan lo reflejan.
+  - Ajustes de diseño: `--dot-down` oscuro pasó de `#5B656C` a `#5F6A71` para cumplir 3:1 como marcador de estado; `--hover-filter` por tema; `--shadow` retirado (el panel no lleva sombra CSS). `vite.config.ts`: la lectura cruda de CSS en pruebas incluye `theme.css`.
+- **Verificación:** `tools/check.sh full` verde; UI typecheck, lint, format, build y 185/185 pruebas (contraste: 30 pares de texto y 5 no textuales por tema, todos AA). Revisión visual en el navegador de desarrollo a 380×520 (Atención y Proyectos en claro, Actividad en oscuro); sin captura guardada.
+- **Pendiente (M-16):** abrir la app nativa con macOS claro y oscuro y cambiar la apariencia con el panel abierto.
+
 ## UXR-9.1 — Preferencias persistentes · 2026-10-18
 - **Resultado:** tema e idioma se guardan en SQLite (migración 4) y se leen/escriben con comandos de Tauri; el socket no expone nada nuevo.
 - **Contrato:**

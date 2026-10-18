@@ -150,7 +150,7 @@ No se crea ningún proceso; el panel resalta el servicio y la línea queda en Ac
 ## 6. Sistema visual
 
 ### Color (dos temas, ADR-040)
-Cada token existe en los dos temas con el mismo nombre (`ui/src/theme.css`, un bloque `[data-theme]` por tema). `styles.css` no contiene colores literales. Los valores claros están calculados para AA (texto ≥ 4,5:1; foco y bordes de interfaz ≥ 3:1) y los verifica `contrast.test.ts` por tema.
+Cada token existe en los dos temas con el mismo nombre (`ui/src/theme.css`, un bloque `[data-theme]` por tema). `styles.css` no contiene colores literales. Los valores claros están calculados para AA (texto ≥ 4,5:1; foco y marcadores de estado ≥ 3:1) y los verifica `contrast.test.ts` por tema.
 
 **Superficies y texto**
 | Token | Oscuro | Claro | Uso |
@@ -194,9 +194,9 @@ Cada token existe en los dos temas con el mismo nombre (`ui/src/theme.css`, un b
 | `--line`, `--line-strong` | oscuro 8 % / 14 %; claro 10 % / 18 % | Bordes |
 | `--veil` | oscuro 64 %; claro 38 % | Velo bajo hojas y diálogos |
 | `--field` | oscuro negro 25 %; claro `#F1F4F6` | Fondo de campos de texto |
-| `--dot-down`, `--dot-loose` | oscuro `#5B656C` / `#7B868D`; claro `#6B7680` / `#7D8892` | Anillo de caída / sin dueño |
+| `--dot-down`, `--dot-loose` | oscuro `#5F6A71` / `#7B868D`; claro `#6B7680` / `#7D8892` | Anillo de caída / sin dueño |
 | `--pill-bg`, `--pill-fg` | oscuro `#FFFFFF` / `#101316`; claro `#1A2128` / `#FFFFFF` | Píldora de filtro activa |
-| `--shadow` | oscuro `0 24px 60px rgba(0,0,0,0.55)`; claro `0 24px 60px rgba(15,23,32,0.22)` | Elevación del panel |
+| `--hover-filter` | oscuro `brightness(1.3)`; claro `brightness(0.94)` | Etiqueta pulsable al pasar el puntero |
 
 Contrastes del tema claro (texto sobre su fondo): texto 15,3:1; suave 6,4:1; tenue 5,7:1 (5,2:1 en la barra de pestañas); verde 6,3:1, ámbar 5,8:1, coral 5,9:1, azul 5,7:1 sobre el panel; etiquetas de color sobre su tinte 4,7 a 5,1:1; blanco sobre verde 6,7:1, coral 6,3:1 y ámbar 6,2:1.
 

@@ -431,13 +431,13 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** firmas exactas de los comandos y tipos en ARCHIVES (las consumen 9.2, 9.3, 9.5 y 9.6).
 
-- [ ] **UXR-9.2 — Tema claro/oscuro/sistema sin parpadeo.**
+- [x] **UXR-9.2 — Tema claro/oscuro/sistema sin parpadeo.**
 
   **Dependencias:** UXR-9.1 (tipos y copia en el shell). **Plan:** [Diseño B](docs/plan/tema-e-idioma.md#b-tema). **Contexto:** ADR-040, ADR-017 (webview efímero), ADR-025.5 (ventana opaca, esquinas nativas), UXR-7.1 (contraste AA).
 
   **Leer código:** `ui/src/{styles.css,contrast.test.ts,main.tsx,hooks.ts}`, `ui/index.html`, `ui/vite.config.ts`, `ui/eslint.config.js`; `crates/devports-app/src/panel.rs` (URL `?tab=`, `reveal`, `REVEAL_FALLBACK`), `window_style.rs` (no se modifica); `docs/UI-REFERENCIA.md` §6 (paleta de UXR-9.0).
 
-  **Trabajo de esta sesión:** Crear `ui/src/theme.css` con los dos bloques `[data-theme]` y mover **todos** los colores literales de `styles.css` (≈39) a tokens semánticos; `styles.css` solo usa `var(--…)`. `ui/public/boot.js` síncrono (CSP `script-src 'self'`) y `ui/src/theme.ts` (`resolveTheme`, `applyTheme`, listener `matchMedia` solo con preferencia = sistema). `panel.rs` añade `theme` (y deja `lang` listo para 9.3) al URL desde la copia del shell y llama a `set_theme(None|Light|Dark)` en la ventana. `contrast.test.ts` parametrizado por tema (21 pares, texto-sobre-relleno desde tokens, AA ≥ 4.5; foco/bordes ≥ 3:1). Tests: sin `#hex`/`rgb(` fuera de `theme.css`; ambos temas definen el mismo conjunto de tokens; `boot.js` en jsdom (con y sin parámetros, valor inválido → sistema). Sin selector en Ajustes todavía (UXR-9.6): el tema se prueba con el parámetro y el mock.
+  **Trabajo de esta sesión:** Crear `ui/src/theme.css` con los dos bloques `[data-theme]` y mover **todos** los colores literales de `styles.css` (≈39) a tokens semánticos; `styles.css` solo usa `var(--…)`. `ui/src/boot.ts` (importado el primero por `main.tsx`; sin script inline por la CSP) y `ui/src/theme.ts` (`resolveTheme`, controlador con listener `matchMedia` solo con preferencia = sistema). `panel.rs` añade `theme` (y deja `lang` listo para 9.3) al URL desde la copia del shell y llama a `set_theme(None|Light|Dark)` en la ventana. `contrast.test.ts` parametrizado por tema (21 pares, texto-sobre-relleno desde tokens, AA ≥ 4.5; foco/bordes ≥ 3:1). Tests: sin `#hex`/`rgb(` fuera de `theme.css`; ambos temas definen el mismo conjunto de tokens; `boot.ts` en jsdom (con y sin parámetros, valor inválido → sistema). Sin selector en Ajustes todavía (UXR-9.6): el tema se prueba con el parámetro y el mock.
 
   **Hecho cuando:** ambos temas pasan AA; el panel nativo abre ya en el tema correcto sin fotograma equivocado (comprobación nativa a David, con la ventana a alfa 0 hasta `panel_ready`); cambiar la apariencia de macOS con el panel abierto actualiza el tema si la preferencia es sistema; capturas claro/oscuro de las cinco pestañas y de las hojas en el navegador de desarrollo.
 
@@ -445,7 +445,9 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Commits previstos:** `refactor(ui): move every color into theme tokens` → `feat(ui): resolve light and dark themes before first paint` → `test(ui): check contrast for both themes`.
 
-  **Entrega a la próxima sesión:** lista final de tokens, `applyTheme`/`resolveTheme` y cómo fija el tema una prueba; evidencia en `docs/audits/evidencia/uxr-9/`.
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.2». Comprobación nativa (apertura sin parpadeo, cambio de apariencia de macOS con el panel abierto) pendiente de David (M-16).
+
+  **Entrega a la próxima sesión:** lista final de tokens, `createThemeController`/`appTheme` y cómo fija el tema una prueba.
 
 - [ ] **UXR-9.3 — Catálogo i18n tipado del panel (es + en).**
 

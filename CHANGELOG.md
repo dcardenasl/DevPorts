@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Light theme** — the panel now has a light and a dark theme, both meeting WCAG AA; by default it follows the system appearance, live, and opens already wearing the right one.
+
 - **Projects tab layout** — each project is one header row (name, folder, branch and its occupied ports, still visible when folded), several projects can stay open at once with Plegar todo / Abrir todo, active projects open by themselves and are listed first, and a service row opens its own details.
 
 - **Connection recovery** — if the panel loses DevPorts it keeps showing the last data (with its age), retries on its own a bounded number of times and offers Reintentar; Docker being unreachable and manifest or configuration warnings are now explained on every tab, with the details in Configuración.

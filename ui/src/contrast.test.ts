@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import css from "./styles.css?raw";
+import themeCss from "./theme.css?raw";
 
 type Rgb = [number, number, number];
 type Rgba = [number, number, number, number];
 
-function token(name: string): string {
-  const match = new RegExp(`--${name}:\\s*([^;]+);`).exec(css);
-  if (!match?.[1]) throw new Error(`missing token --${name}`);
+type Theme = "dark" | "light";
+
+const THEME_BLOCKS: Record<Theme, RegExp> = {
+  dark: /:root,\s*:root\[data-theme="dark"\]\s*\{([^}]*)\}/,
+  light: /:root\[data-theme="light"\]\s*\{([^}]*)\}/,
+};
+
+function token(theme: Theme, name: string): string {
+  const block = THEME_BLOCKS[theme].exec(themeCss)?.[1] ?? "";
+  const match = new RegExp(`--${name}:\\s*([^;]+);`).exec(block);
+  if (!match?.[1]) throw new Error(`missing token --${name} in the ${theme} theme`);
   return match[1].trim();
 }
 
@@ -51,42 +60,70 @@ function ratio(foreground: Rgb, background: Rgb): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-const solid = (name: string): Rgb => over(parse(token(name)), [0, 0, 0]);
-const panel = solid("panel");
-const sheet = solid("sheet");
-const tabbar = solid("tabbar");
-const tint = (name: string, alpha: number, base: Rgb): Rgb => {
-  const [r, g, b] = parse(token(name));
-  return over([r, g, b, alpha], base);
-};
+const THEMES: Theme[] = ["dark", "light"];
 
-// covers: UXR-7.1
-describe("contrast of the colour pairs the panel uses (WCAG AA, 4.5:1 for text)", () => {
-  const pairs: [string, Rgb, Rgb][] = [
-    ["text on panel", solid("text"), panel],
-    ["text on sheet", solid("text"), sheet],
-    ["soft text on panel", solid("text-soft"), panel],
-    ["soft text on sheet", solid("text-soft"), sheet],
-    ["soft text on a card", solid("text-soft"), over(parse(token("surface")), panel)],
-    ["dim text on panel", solid("text-dim"), panel],
-    ["dim text on the tab bar", solid("text-dim"), tabbar],
-    ["selected tab on the tab bar", [255, 255, 255], tabbar],
-    ["green on panel", solid("green"), panel],
-    ["amber on panel", solid("amber"), panel],
-    ["coral on panel", solid("coral"), panel],
-    ["blue on panel", solid("blue"), panel],
-    ["blue on sheet", solid("blue"), sheet],
-    ["coral on sheet (errors)", solid("coral"), sheet],
-    ["primary button text on green", parse("#06241a").slice(0, 3) as Rgb, solid("green")],
-    ["badge text on coral", parse("#1a0d0a").slice(0, 3) as Rgb, solid("coral")],
-    ["blue tag", solid("blue"), tint("blue", 0.14, panel)],
-    ["green tag", solid("green"), tint("green", 0.14, panel)],
-    ["amber tag", solid("amber"), tint("amber", 0.14, panel)],
-    ["coral tag", solid("coral"), tint("coral", 0.14, panel)],
-    ["soft tag", solid("text-soft"), over([255, 255, 255, 0.08], panel)],
-  ];
-  it.each(pairs)("%s", (_name, foreground, background) => {
+/** Every colour pair the panel paints, resolved against one theme's tokens. */
+function pairs(theme: Theme): { text: [string, Rgb, Rgb][]; ui: [string, Rgb, Rgb][] } {
+  const solid = (name: string): Rgb => over(parse(token(theme, name)), [0, 0, 0]);
+  const panel = solid("panel");
+  const sheet = solid("sheet");
+  const tabbar = solid("tabbar");
+  const rgbaOver = (name: string, base: Rgb): Rgb => over(parse(token(theme, name)), base);
+  return {
+    text: [
+      ["text on panel", solid("text"), panel],
+      ["text on sheet", solid("text"), sheet],
+      ["soft text on panel", solid("text-soft"), panel],
+      ["soft text on sheet", solid("text-soft"), sheet],
+      ["soft text on a card", solid("text-soft"), rgbaOver("surface", panel)],
+      ["dim text on panel", solid("text-dim"), panel],
+      ["dim text on the tab bar", solid("text-dim"), tabbar],
+      ["selected tab on the tab bar", solid("text-strong"), tabbar],
+      ["green on panel", solid("green"), panel],
+      ["amber on panel", solid("amber"), panel],
+      ["coral on panel", solid("coral"), panel],
+      ["blue on panel", solid("blue"), panel],
+      ["blue on sheet", solid("blue"), sheet],
+      ["coral on sheet (errors)", solid("coral"), sheet],
+      ["primary green button text", solid("on-green"), solid("green")],
+      ["primary amber button text", solid("on-amber"), solid("amber")],
+      ["primary coral button text", solid("on-coral"), solid("coral")],
+      ["badge text on coral", solid("on-badge"), solid("coral")],
+      ["blue tag", solid("blue"), rgbaOver("tint-blue", panel)],
+      ["green tag", solid("green"), rgbaOver("tint-green", panel)],
+      ["amber tag", solid("amber"), rgbaOver("tint-amber", panel)],
+      ["coral tag", solid("coral"), rgbaOver("tint-coral", panel)],
+      ["soft tag", solid("text-soft"), rgbaOver("ov-8", panel)],
+      ["green on its card", solid("green"), rgbaOver("wash-green", panel)],
+      ["amber on its card", solid("amber"), rgbaOver("wash-amber", panel)],
+      ["coral on its card", solid("coral"), rgbaOver("wash-coral", panel)],
+      ["blue on its card", solid("blue"), rgbaOver("wash-blue", panel)],
+      ["active filter pill", solid("pill-fg"), solid("pill-bg")],
+      ["text in a field", solid("text"), solid("field")],
+      ["text in a toast", solid("text"), solid("toast")],
+    ],
+    // Not text: what must still be told apart from the surface it sits on (3:1).
+    ui: [
+      ["focus ring on panel", solid("blue"), panel],
+      ["focus ring on sheet", solid("blue"), sheet],
+      ["unhealthy ring", solid("dot-down"), panel],
+      ["ownerless ring", solid("dot-loose"), panel],
+      ["active filter pill on panel", solid("pill-bg"), panel],
+    ],
+  };
+}
+
+describe.each(THEMES)("contrast of the colour pairs the panel uses in the %s theme", (theme) => {
+  const { text, ui } = pairs(theme);
+
+  // covers: UXR-7.1, UXR-9.2
+  it.each(text)("text pair: %s (WCAG AA, 4.5:1)", (_name, foreground, background) => {
     expect(ratio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // covers: UXR-9.2
+  it.each(ui)("non-text pair: %s (3:1)", (_name, foreground, background) => {
+    expect(ratio(foreground, background)).toBeGreaterThanOrEqual(3);
   });
 });
 
