@@ -111,6 +111,11 @@ describe("layout rules that keep the panel usable at 380×520 and with long text
     expect(button).toContain("min-height");
   });
 
+  it("keeps list items at their size so a long list scrolls instead of collapsing cards", () => {
+    const rule = /\.body > \*\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toContain("flex-shrink: 0");
+  });
+
   it("keeps a visible focus ring", () => {
     expect(css).toMatch(/:focus-visible\s*\{[^}]*outline:\s*2px/);
   });

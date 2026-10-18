@@ -80,6 +80,12 @@ button {
   scrollbar-width: thin;
 }
 
+/* In a column that scrolls, children keep their size: cards with `overflow: hidden` have
+   no minimum height, so without this they shrink to nothing instead of scrolling. */
+.body > * {
+  flex-shrink: 0;
+}
+
 @keyframes fade {
   from {
     opacity: 0;
