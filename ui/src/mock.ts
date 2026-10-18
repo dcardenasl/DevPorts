@@ -92,29 +92,13 @@ export function mockBackend(): Backend {
         listener(op);
       });
       if (request.kind === "setConsumers") {
-        const first = request.targets[0]?.consumers;
-        const outcomes = consumers.apply(
-          first?.shared ?? "",
-          request.targets.map((target) => ({
-            project: target.reference,
-            include: target.consumers?.include ?? false,
-            base: target.consumers?.base ?? "",
-          })),
-        );
-        request.targets.forEach((target, index) => {
-          const result = op.targets.find((item) => item.reference === target.reference);
-          const outcome = outcomes[index];
-          if (result === undefined || outcome === undefined) return;
-          result.consumers = target.consumers
-            ? { shared: target.consumers.shared, include: target.consumers.include }
-            : null;
-          result.status = outcome.ok ? "succeeded" : "failed";
-          if (!outcome.ok) {
-            result.usesError = outcome.error;
-            result.error = JSON.stringify(outcome.error);
-          }
+        consumers.settle(request).forEach((settled, index) => {
+          const result = op.targets[index];
+          if (result) Object.assign(result, settled);
         });
-        op.status = outcomes.every((outcome) => outcome.ok) ? "succeeded" : "failed";
+        op.status = op.targets.every((item) => item.status === "succeeded")
+          ? "succeeded"
+          : "failed";
         op.revision++;
         opListeners.forEach((listener) => {
           listener(op);

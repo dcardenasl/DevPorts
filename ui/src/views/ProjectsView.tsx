@@ -134,17 +134,38 @@ function ProjectCard({
               ))}
             </div>
           ))}
-          {node.summary.uses.length > 0 && (
-            <div className="uses">
-              <LinkIcon size={14} />
-              <span>{text.projects.uses}</span>
-              {node.summary.uses.map((name) => (
-                <Tag key={name} tone="blue">
-                  {name}
-                </Tag>
+          <div className="uses">
+            <LinkIcon size={14} />
+            <span>{text.projects.uses}</span>
+            {node.summary.uses.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className="tag blue"
+                aria-label={text.consumers.manageFor(name)}
+                onClick={(event) => {
+                  actions.manageConsumers(name, event.currentTarget, node.summary.name);
+                }}
+              >
+                {name}
+              </button>
+            ))}
+            {actions.snapshot.shared
+              .filter((item) => !node.summary.uses.includes(item.name))
+              .map((item) => (
+                <button
+                  key={item.name}
+                  type="button"
+                  className="tag add"
+                  aria-label={text.consumers.associate(item.name)}
+                  onClick={(event) => {
+                    actions.manageConsumers(item.name, event.currentTarget, node.summary.name);
+                  }}
+                >
+                  + {item.name}
+                </button>
               ))}
-            </div>
-          )}
+          </div>
         </>
       )}
     </section>

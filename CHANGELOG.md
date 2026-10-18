@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Shared resources panel** — manage which projects use a shared service from its card or from a project, with a file-by-file review, per-project results and retry of pending ones; a stopped resource offers its declared start command, and a browser link only when `shared.yml` declares an HTTP endpoint.
+
 - **Shared-service consumers** — the core can list which projects declare a shared service and save the association in several manifests at once: every manifest is validated before any write, each file reports its own result, and repeating a save never declares a service twice.
 
 - **Reviewed adoption** — adopting a process or container now goes destination → editable review → save in the panel, with recoverable drafts, per-field errors, typed conflicts and results that survive closing the panel; destinations the discovery cannot reach are refused with the next step.

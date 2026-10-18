@@ -33,21 +33,14 @@ function fakeBackend(
   const opListeners = new Set<(operation: OperationView) => void>();
   let currentSnapshot = snapshot;
   const listeners = new Set<(snapshot: Snapshot) => void>();
-  const adoption = mockAdoption(
-    () => currentSnapshot,
-    (next) => {
-      currentSnapshot = { ...next, revision: currentSnapshot.revision + 1 };
-      listeners.forEach((listener) => {
-        listener(currentSnapshot);
-      });
-    },
-  );
-  const consumers = mockConsumers(
-    () => currentSnapshot,
-    (next) => {
-      currentSnapshot = { ...next, revision: currentSnapshot.revision + 1 };
-    },
-  );
+  const publish = (next: Snapshot): void => {
+    currentSnapshot = { ...next, revision: currentSnapshot.revision + 1 };
+    listeners.forEach((listener) => {
+      listener(currentSnapshot);
+    });
+  };
+  const adoption = mockAdoption(() => currentSnapshot, publish);
+  const consumers = mockConsumers(() => currentSnapshot, publish);
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -94,12 +87,13 @@ function fakeBackend(
       await Promise.resolve();
       if (calls.operation === undefined) calls.operation = [];
       calls.operation.push([request]);
+      const settled = request.kind === "setConsumers" ? consumers.settle(request) : [];
       const op: OperationView = {
         id: request.id,
         kind: request.kind,
-        status: "succeeded",
+        status: settled.some((item) => item.status === "failed") ? "failed" : "succeeded",
         revision: 1,
-        targets: request.targets.map((target) => ({
+        targets: request.targets.map((target, index) => ({
           reference: target.reference,
           adoptTarget: target.adoptTarget ?? null,
           stopExpectation: target.stopExpectation ?? null,
@@ -111,6 +105,7 @@ function fakeBackend(
               : null,
           adoptionReview: target.adoption?.id ?? null,
           attempts: 1,
+          ...settled[index],
         })),
       };
       history.unshift(op);
@@ -747,5 +742,200 @@ describe("the panel", () => {
     });
     expect(backend.calls.operation).toBeUndefined();
     expect(backend.calls["adopt"]).toBeUndefined();
+  });
+
+  // covers: UI, UXR-4.2
+  it("associates projects with a shared service only after reviewing the files", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Compartidos/));
+    await user.click(screen.getByRole("button", { name: "Gestionar proyectos de mysql" }));
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByRole("checkbox", { name: "tienda-demo" })).toBeChecked();
+    expect(within(dialog).getByText(/El uso real puede no estar declarado/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("checkbox", { name: "ci4-kickstart" }));
+    await user.click(within(dialog).getByRole("button", { name: "Revisar cambios" }));
+    expect(within(dialog).getByText("/work/ci4-kickstart/.devports.yml")).toBeInTheDocument();
+    expect(backend.calls.operation).toBeUndefined();
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => {
+      expect(backend.calls.operation).toHaveLength(1);
+    });
+    const sent = backend.calls.operation?.[0]?.[0] as OperationRequest;
+    expect(sent.kind).toBe("setConsumers");
+    expect(sent.targets).toHaveLength(1);
+    expect(sent.targets[0]).toMatchObject({
+      reference: "ci4-kickstart",
+      consumers: { shared: "mysql", include: true },
+    });
+    expect(await within(dialog).findByText("Guardado")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Listo" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("ci4-kickstart", { selector: ".tag" })).toBeInTheDocument();
+    expect(backend.getPersisted().draft).toBeNull();
+  });
+
+  // covers: UI, UXR-4.2
+  it("accepts zero consumers and says so instead of claiming nobody uses the resource", async () => {
+    const { user } = await open();
+    await user.click(tab(/Compartidos/));
+    await user.click(screen.getByRole("button", { name: "Gestionar proyectos de mysql" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(await within(dialog).findByRole("checkbox", { name: "tienda-demo" }));
+    expect(within(dialog).getByText(/Sin proyectos asociados/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Revisar cambios" }));
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Listo" }));
+    expect(screen.getByText("Sin proyectos asociados")).toBeInTheDocument();
+    expect(screen.getByText(/El uso real puede no estar declarado/)).toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-4.2
+  it("shows a partial save per project and retries only what is pending", async () => {
+    const { backend, user } = await open();
+    const target = (reference: string, failed: boolean) => ({
+      reference,
+      adoptTarget: null,
+      status: failed ? ("failed" as const) : ("succeeded" as const),
+      error: failed ? "disk full" : null,
+      usesError: failed ? { code: "io" as const, message: "disk full" } : null,
+      result: null,
+      attempts: 1,
+    });
+    let operation: OperationView | undefined;
+    backend.startOperation = (request) => {
+      operation = {
+        id: request.id,
+        kind: "setConsumers",
+        status: "partial",
+        revision: 1,
+        targets: [target("ci4-kickstart", false), target("tienda-demo", true)],
+      };
+      return Promise.resolve(operation);
+    };
+    backend.retryOperation = (id) => {
+      backend.calls["retryOperation"] = [[id]];
+      return Promise.resolve({
+        id,
+        kind: "setConsumers",
+        status: "succeeded",
+        revision: 2,
+        targets: [target("ci4-kickstart", false), { ...target("tienda-demo", false) }],
+      });
+    };
+    await user.click(tab(/Compartidos/));
+    await user.click(screen.getByRole("button", { name: "Gestionar proyectos de mysql" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(await within(dialog).findByRole("checkbox", { name: "ci4-kickstart" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "tienda-demo" }));
+    await user.click(within(dialog).getByRole("button", { name: "Revisar cambios" }));
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    expect(await within(dialog).findByText(/Se guardaron algunos proyectos/)).toBeInTheDocument();
+    expect(within(dialog).getByText("disk full")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Reintentar pendientes" }));
+    await waitFor(() => {
+      expect(backend.calls["retryOperation"]).toEqual([[operation?.id]]);
+    });
+    expect(await within(dialog).findByRole("button", { name: "Listo" })).toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-4.2
+  it("opens the same sheet from a project, focused on that project", async () => {
+    const { user } = await open();
+    await user.click(tab(/Proyectos/));
+    await user.click(screen.getByRole("button", { name: /ci4-kickstart/ }));
+    await user.click(screen.getByRole("button", { name: "Asociar mysql" }));
+    const dialog = screen.getByRole("dialog");
+    const own = await within(dialog).findByRole("checkbox", { name: "ci4-kickstart" });
+    await waitFor(() => {
+      expect(own).toHaveFocus();
+    });
+    expect(within(dialog).getByRole("checkbox", { name: "tienda-demo" })).toBeChecked();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-4.2
+  it("restores a consumers draft at its review step and discards one whose resource vanished", async () => {
+    const draft = (shared: string) => ({
+      kind: "consumers" as const,
+      shared,
+      selected: ["tienda-demo", "ci4-kickstart"],
+      reviewing: true,
+      focus: null,
+    });
+    const base = {
+      version: 1 as const,
+      tab: "shared" as const,
+      expandedProject: null,
+      expandedProjectSet: true,
+      activityFilter: "all" as const,
+    };
+    const restored = fakeBackend(sampleSnapshot(), { ...base, draft: draft("mysql") });
+    state.current = restored;
+    render(<App />);
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText("/work/ci4-kickstart/.devports.yml"),
+    ).toBeInTheDocument();
+    expect(restored.calls.operation).toBeUndefined();
+    cleanup();
+
+    const gone = fakeBackend(sampleSnapshot(), { ...base, draft: draft("ghost") });
+    state.current = gone;
+    render(<App />);
+    expect(await screen.findByText(/ya no está disponible/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(gone.getPersisted().draft).toBeNull();
+    });
+  });
+
+  // covers: UI, UXR-4.2
+  it("offers a start command only for a stopped resource and never invents one", async () => {
+    const stopped = sampleSnapshot();
+    const mysql = stopped.instances.find((view) => view.service === "mysql" && view.shared);
+    if (mysql) mysql.state = "down";
+    const first = await open(stopped);
+    await first.user.click(tab(/Compartidos/));
+    await first.user.click(screen.getByRole("button", { name: "Copiar comando de inicio" }));
+    await waitFor(async () => {
+      expect(await navigator.clipboard.readText()).toBe("docker start mysql");
+    });
+    cleanup();
+
+    const unknown = sampleSnapshot();
+    const unknownMysql = unknown.instances.find((view) => view.service === "mysql" && view.shared);
+    if (unknownMysql) unknownMysql.state = "unknown";
+    unknown.shared = [{ name: "mysql", start: null, endpoint: null }];
+    const second = await open(unknown);
+    await second.user.click(tab(/Compartidos/));
+    expect(screen.queryByRole("button", { name: "Copiar comando de inicio" })).toBeNull();
+    expect(screen.queryByText(/Sin comando de inicio/)).toBeNull();
+    cleanup();
+
+    const bare = sampleSnapshot();
+    const bareMysql = bare.instances.find((view) => view.service === "mysql" && view.shared);
+    if (bareMysql) bareMysql.state = "down";
+    bare.shared = [{ name: "mysql", start: null, endpoint: null }];
+    const third = await open(bare);
+    await third.user.click(tab(/Compartidos/));
+    expect(screen.getByText(/Sin comando de inicio declarado/)).toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-4.2
+  it("opens a browser only for an endpoint the resource declares", async () => {
+    const withEndpoint = sampleSnapshot();
+    withEndpoint.shared = [{ name: "mysql", start: null, endpoint: "http://localhost:3306/ready" }];
+    const first = await open(withEndpoint);
+    await first.user.click(tab(/Compartidos/));
+    await first.user.click(screen.getByRole("button", { name: "Abrir" }));
+    await waitFor(() => {
+      expect(first.backend.calls["openUrl"]).toEqual([["http://localhost:3306/ready"]]);
+    });
+    cleanup();
+
+    const second = await open();
+    await second.user.click(tab(/Compartidos/));
+    expect(screen.queryByRole("button", { name: "Abrir" })).toBeNull();
   });
 });

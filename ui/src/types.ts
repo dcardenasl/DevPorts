@@ -22,6 +22,7 @@ export type {
   ProjectSummary,
   RepoSummary,
   ServiceSummary,
+  SharedSummary,
   Snapshot,
 } from "./bindings";
 
@@ -48,13 +49,23 @@ export interface AdoptDraft {
   } | null;
   operationId?: string | null;
 }
+/** Projects ticked to consume one shared service; manifests are read again on restore. */
+export interface ConsumersDraft {
+  kind: "consumers";
+  shared: string;
+  selected: string[];
+  reviewing: boolean;
+  focus: string | null;
+  operationId?: string | null;
+}
+export type PanelDraft = AdoptDraft | ConsumersDraft;
 export interface PanelState {
   version: 1;
   tab: PanelTab;
   expandedProject: string | null;
   expandedProjectSet: boolean;
   activityFilter: ActivityFilter;
-  draft: AdoptDraft | null;
+  draft: PanelDraft | null;
 }
 
 export type OperationKind = "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers";

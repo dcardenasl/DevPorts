@@ -1,6 +1,8 @@
 import type { ReactElement } from "react";
 
 import type { Actions } from "../actions";
+import type { SharedNode } from "../model";
+import type { SharedSummary } from "../types";
 import { StopIcon } from "../icons";
 import { buildShared, buildUndeclaredData } from "../model";
 import { text } from "../text";
@@ -29,6 +31,7 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
       {nodes.map((node) => {
         const view = node.principal;
         const running = canRequestStop(view);
+        const summary = actions.snapshot.shared.find((item) => item.name === node.name);
         return (
           <section className="card" key={node.name}>
             <div className="row">
@@ -57,15 +60,31 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
             <InstanceDetails view={view} />
             <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
               <span className="dim" style={{ fontSize: 12 }}>
-                {text.shared.usedBy}
+                {text.consumers.associated}
               </span>
               {node.users.length === 0 ? (
                 <span className="dim" style={{ fontSize: 12 }}>
-                  {text.shared.nobody}
+                  {text.consumers.nobody}
                 </span>
               ) : (
                 node.users.map((name) => <Tag key={name}>{name}</Tag>)
               )}
+            </div>
+            <div className="soft" style={{ marginTop: 4, fontSize: 11 }}>
+              {text.consumers.declaredOnly}
+            </div>
+            <div className="row" style={{ marginTop: 8, justifyContent: "flex-end" }}>
+              <ResourceButtons node={node} summary={summary} actions={actions} />
+              <button
+                type="button"
+                className="btn"
+                aria-label={text.consumers.manageFor(node.name)}
+                onClick={(event) => {
+                  actions.manageConsumers(node.name, event.currentTarget);
+                }}
+              >
+                {text.consumers.manage}
+              </button>
             </div>
           </section>
         );
@@ -118,4 +137,50 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
       )}
     </>
   );
+}
+
+/**
+ * What can be done with the resource itself. A start command or an address is
+ * offered only when `shared.yml` declares it; nothing is derived from a port.
+ */
+function ResourceButtons({
+  node,
+  summary,
+  actions,
+}: {
+  node: SharedNode;
+  summary: SharedSummary | undefined;
+  actions: Actions;
+}): ReactElement | null {
+  const state = node.principal.state;
+  if (state === "down") {
+    const start = summary?.start ?? null;
+    return start === null ? (
+      <span className="soft grow" style={{ fontSize: 11 }}>
+        {text.consumers.noStart}
+      </span>
+    ) : (
+      <button
+        type="button"
+        className="btn"
+        onClick={() => {
+          actions.copy(start);
+        }}
+      >
+        {text.consumers.copyStart}
+      </button>
+    );
+  }
+  const endpoint = summary?.endpoint ?? null;
+  return endpoint !== null && canRequestStop(node.principal) ? (
+    <button
+      type="button"
+      className="btn"
+      onClick={() => {
+        actions.openUrl(endpoint);
+      }}
+    >
+      {text.consumers.open}
+    </button>
+  ) : null;
 }

@@ -16,4 +16,6 @@ export interface Actions {
   adopt: (view: InstanceView, invoker: HTMLButtonElement) => void;
   /** Opens the same reviewed declaration flow for a shared container. */
   declareShared: (view: InstanceView, invoker: HTMLButtonElement) => void;
+  /** Opens the consumers sheet for one shared service, optionally focused on a project. */
+  manageConsumers: (shared: string, invoker: HTMLButtonElement, focus?: string) => void;
 }

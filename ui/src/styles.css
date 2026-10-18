@@ -644,3 +644,30 @@ button {
   cursor: not-allowed;
   color: var(--text-soft);
 }
+button.tag {
+  border: 0;
+  cursor: pointer;
+}
+button.tag:hover {
+  filter: brightness(1.3);
+}
+button.tag.add {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.consumers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.consumer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}

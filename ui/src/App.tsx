@@ -3,6 +3,8 @@ import { useCallback, useMemo, useState, type ReactElement } from "react";
 import type { Actions } from "./actions";
 import { ConfirmStop } from "./dialogs";
 import { AdoptSheet } from "./AdoptSheet";
+import { ConsumersSheet } from "./ConsumersSheet";
+import { consumersDraft } from "./consumers";
 import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
 import {
   BellIcon,
@@ -13,7 +15,7 @@ import {
   OrphanIcon,
   WarningIcon,
 } from "./icons";
-import { buildOrphans, dependentsOf } from "./model";
+import { buildOrphans, dependentsOf, draftTargetExists } from "./model";
 import { text } from "./text";
 import type { AdoptDraft, InstanceView, PanelState, PanelTab, StopExpectation } from "./types";
 import { ActivityView, activitySubtitle } from "./views/ActivityView";
@@ -180,6 +182,10 @@ export function App(): ReactElement {
         updatePanelState({ draft });
         setDraftInvoker(invoker);
       },
+      manageConsumers: (shared, invoker, focus) => {
+        updatePanelState({ draft: consumersDraft(snapshot, shared, focus ?? null) });
+        setDraftInvoker(invoker);
+      },
       declareShared: (view, invoker) => {
         updatePanelState({
           draft: { kind: "adopt", reference: view.ref, mode: "options", name: "", lastStep: null },
@@ -263,9 +269,7 @@ export function App(): ReactElement {
         </section>
       )}
       {(missingDraft ||
-        (panelState.draft !== null &&
-          panelState.draft.operationId == null &&
-          !snapshot.instances.some((view) => view.ref === panelState.draft?.reference))) && (
+        (panelState.draft !== null && !draftTargetExists(panelState.draft, snapshot))) && (
         <p className="card blue" role="status">
           {text.status.draftGone}
         </p>
@@ -320,7 +324,8 @@ export function App(): ReactElement {
   );
 
   const confirmed = dialog;
-  const adoptionDraft = panelState.draft;
+  const adoptionDraft = panelState.draft?.kind === "adopt" ? panelState.draft : null;
+  const sharedDraft = panelState.draft?.kind === "consumers" ? panelState.draft : null;
   const adoptionView =
     adoptionDraft === null
       ? undefined
@@ -430,6 +435,19 @@ export function App(): ReactElement {
                 }}
               />
             )}
+          {sharedDraft !== null && (
+            <ConsumersSheet
+              key={sharedDraft.shared}
+              api={api}
+              draft={sharedDraft}
+              returnFocusTo={draftInvoker}
+              onClose={() => {
+                updatePanelState({ draft: null });
+                setDraftInvoker(null);
+              }}
+              onDraftChange={(draft) => persistPanelState({ draft })}
+            />
+          )}
           {toast !== undefined && (
             <div className={failed ? "toast error" : "toast"} role="status">
               {failed ? <WarningIcon size={14} /> : <CheckIcon size={14} />}

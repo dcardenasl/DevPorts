@@ -1,8 +1,17 @@
 // Browser-only fixture for consumer changes. Manifest validation stays the Rust core's job;
 // this keeps the catalog and snapshot coherent so the panel can be developed without Tauri.
-import type { ConsumerOptions, Snapshot, UseRequest, UsesError } from "./types";
+import { usesMessage } from "./consumers";
+import type {
+  ConsumerOptions,
+  OperationRequest,
+  OperationTargetResult,
+  Snapshot,
+  UseRequest,
+  UsesError,
+} from "./types";
 
 export type ConsumerResult = { ok: true } | { ok: false; error: UsesError };
+type Settled = Pick<OperationTargetResult, "consumers" | "status" | "error" | "usesError">;
 
 const version = (uses: string[]): string => JSON.stringify(uses);
 
@@ -18,6 +27,23 @@ export function mockConsumers(get: () => Snapshot, publish: (next: Snapshot) => 
     if (request.base !== version(project.uses))
       return { code: "documentChanged", path: `${project.root}/.devports.yml` };
     return undefined;
+  };
+  /** Validates every request first; writes nothing when any fails. */
+  const apply = (shared: string, requests: UseRequest[]): ConsumerResult[] => {
+    const errors = requests.map((request) => validate(shared, request));
+    if (errors.some((error) => error !== undefined))
+      return errors.map((error) => ({ ok: false, error: error ?? { code: "blocked" } }));
+    const state = get();
+    publish({
+      ...state,
+      projects: state.projects.map((project) => {
+        const request = requests.find((candidate) => candidate.project === project.name);
+        if (request === undefined) return project;
+        const rest = project.uses.filter((name) => name !== shared);
+        return { ...project, uses: request.include ? [...rest, shared] : rest };
+      }),
+    });
+    return requests.map(() => ({ ok: true }));
   };
   return {
     sharedConsumers: async (shared: string): Promise<ConsumerOptions> => {
@@ -38,25 +64,35 @@ export function mockConsumers(get: () => Snapshot, publish: (next: Snapshot) => 
           })),
       };
     },
-    /** Validates every request first; writes nothing when any fails. */
-    apply: (shared: string, requests: UseRequest[]): ConsumerResult[] => {
-      const errors = requests.map((request) => validate(shared, request));
-      if (errors.some((error) => error !== undefined))
-        return errors.map((error) => ({
-          ok: false,
-          error: error ?? { code: "blocked" },
-        }));
-      const state = get();
-      publish({
-        ...state,
-        projects: state.projects.map((project) => {
-          const request = requests.find((candidate) => candidate.project === project.name);
-          if (request === undefined) return project;
-          const rest = project.uses.filter((name) => name !== shared);
-          return { ...project, uses: request.include ? [...rest, shared] : rest };
-        }),
+    apply,
+    /**
+     * Runs a whole `setConsumers` request the way the shell does: one all-or-nothing
+     * batch, one result per target.
+     */
+    settle: (request: OperationRequest): Settled[] => {
+      const shared = request.targets[0]?.consumers?.shared ?? "";
+      const outcomes = apply(
+        shared,
+        request.targets.map((target) => ({
+          project: target.reference,
+          include: target.consumers?.include ?? false,
+          base: target.consumers?.base ?? "",
+        })),
+      );
+      return request.targets.map((target, index): Settled => {
+        const outcome = outcomes[index];
+        const consumers = target.consumers
+          ? { shared: target.consumers.shared, include: target.consumers.include }
+          : null;
+        return outcome?.ok === false
+          ? {
+              consumers,
+              status: "failed",
+              error: usesMessage(outcome.error),
+              usesError: outcome.error,
+            }
+          : { consumers, status: "succeeded", error: null, usesError: null };
       });
-      return requests.map(() => ({ ok: true }));
     },
   };
 }

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
 
 import type { Backend } from "./api";
 import { adoptionFailure, adoptionMessage, needsNewReview, reviewDraft } from "./adoption";
-import { useMounted, useSingleFlight } from "./hooks";
+import { useMounted, useOperationWatch, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
 import { text } from "./text";
 import type {
@@ -11,7 +11,6 @@ import type {
   AdoptionError,
   AdoptionOptions,
   InstanceView,
-  OperationView,
   Snapshot,
 } from "./types";
 
@@ -43,23 +42,6 @@ export function AdoptSheet({
   const [options, setOptions] = useState<AdoptionOptions>();
   const [failure, setFailure] = useState<AdoptionError>();
   const [busy, setBusy] = useState(false);
-  const [observedOperation, setObservedOperation] = useState<{
-    id: string;
-    value: OperationView | null;
-  }>();
-  const updateOperation = useCallback((id: string, next: OperationView | null) => {
-    setObservedOperation((prior) => {
-      if (
-        prior?.id === id &&
-        prior.value !== null &&
-        (next === null || prior.value.revision > next.revision)
-      )
-        return prior;
-      return { id, value: next };
-    });
-  }, []);
-  const [queryError, setQueryError] = useState<string>();
-  const [reload, setReload] = useState(0);
   const nameRef = useRef<HTMLInputElement>(null);
   const firstProjectRef = useRef<HTMLButtonElement>(null);
   const optionsFocusRef = useRef<HTMLButtonElement>(null);
@@ -69,7 +51,14 @@ export function AdoptSheet({
 
   const review = draft.review ?? undefined;
   const operationId = draft.operationId ?? undefined;
-  const operation = observedOperation?.id === operationId ? observedOperation?.value : undefined;
+  const {
+    operation,
+    record: updateOperation,
+    error: queryError,
+    clearError,
+    refresh,
+    generation: reload,
+  } = useOperationWatch(api, operationId);
   const choosing = draft.mode !== "review";
   const inFlight =
     operationId !== undefined &&
@@ -105,34 +94,6 @@ export function AdoptSheet({
       active = false;
     };
   }, [api, reviewId, operationId, choosing]);
-
-  useEffect(() => {
-    if (operationId === undefined) return;
-    const state = { active: true };
-    const active = (): boolean => state.active;
-    let unsubscribe: (() => void) | undefined;
-    const merge = (next: OperationView): void => {
-      if (!state.active || next.id !== operationId) return;
-      updateOperation(operationId, next);
-    };
-    void (async () => {
-      unsubscribe = await api.subscribeOperations(merge);
-      if (!state.active) {
-        unsubscribe();
-        return;
-      }
-      const stored = await api.operation(operationId);
-      if (!active()) return;
-      if (stored === null) updateOperation(operationId, null);
-      else merge(stored);
-    })().catch((error: unknown) => {
-      if (state.active) setQueryError(adoptionMessage(adoptionFailure(error)));
-    });
-    return () => {
-      state.active = false;
-      unsubscribe?.();
-    };
-  }, [api, operationId, reload, updateOperation]);
 
   const persist = async (next: AdoptDraft): Promise<void> => {
     await onDraftChange(next);
@@ -226,7 +187,7 @@ export function AdoptSheet({
   };
   const reopen = (): void => {
     setFailure(undefined);
-    setQueryError(undefined);
+    clearError();
     change({ ...draft, operationId: null });
   };
 
@@ -260,8 +221,7 @@ export function AdoptSheet({
               type="button"
               className="btn"
               onClick={() => {
-                setQueryError(undefined);
-                setReload((value) => value + 1);
+                refresh();
               }}
             >
               {t.retry}
@@ -455,8 +415,7 @@ export function AdoptSheet({
               type="button"
               className="btn"
               onClick={() => {
-                setQueryError(undefined);
-                setReload((value) => value + 1);
+                refresh();
               }}
             >
               {t.retryQuery}

@@ -7,6 +7,7 @@ import { isActiveInstance } from "./instance";
 import type {
   AttentionItem,
   InstanceView,
+  PanelDraft,
   ProjectSummary,
   RepoSummary,
   ServiceSummary,
@@ -214,4 +215,15 @@ function shellQuote(path: string): string {
 export function whoAsked(view: InstanceView): string | null {
   const link = view.launcher_chain.find((candidate) => candidate.label !== null);
   return link?.label ?? view.launcher_chain[0]?.name ?? null;
+}
+
+/**
+ * Whether what a draft refers to is still there. A draft with a sent operation is
+ * kept either way: its result matters more than its subject.
+ */
+export function draftTargetExists(draft: PanelDraft, snapshot: Snapshot): boolean {
+  if (draft.operationId != null) return true;
+  return draft.kind === "adopt"
+    ? snapshot.instances.some((view) => view.ref === draft.reference)
+    : snapshot.shared.some((item) => item.name === draft.shared);
 }
