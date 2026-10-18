@@ -27,6 +27,7 @@ pub mod process;
 pub mod runtime;
 mod shell;
 pub mod store;
+pub mod uses;
 pub mod yaml_keys;
 
 /// Protocol version the core's IPC server speaks.

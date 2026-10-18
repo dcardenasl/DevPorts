@@ -121,6 +121,34 @@ export type ChainLink = {
 	label: string | null,
 };
 
+/**  One project as a possible consumer. */
+export type ConsumerChoice = {
+	/**  Project name. */
+	project: string,
+	/**  Canonical project folder. */
+	root: string,
+	/**  Canonical manifest path. */
+	manifest: string,
+	/**  Whether the manifest lists the shared service in `uses`. */
+	declared: boolean,
+	/**  Whether the manifest can currently be edited. */
+	eligible: boolean,
+	/**  Why it cannot be edited, instead of hiding the project. */
+	reason: string | null,
+	/**  Version token of the reviewed content; send it back with the request. */
+	base: string | null,
+};
+
+/**  Every project and whether it declares one shared service. Reading writes nothing. */
+export type ConsumerOptions = {
+	/**  The shared service. */
+	shared: string,
+	/**  Whether `shared.yml` defines it right now. */
+	defined: boolean,
+	/**  Projects ordered by name. */
+	consumers: ConsumerChoice[],
+};
+
 /**  What kind of instance this is. */
 export type InstanceRole =
 /**
@@ -317,3 +345,46 @@ export type Snapshot = {
 	/**  Minutes an "extend" adds, for the button's label. */
 	extend_minutes: number,
 };
+
+/**  The confirmed state of one project: declare the service or stop declaring it. */
+export type UseRequest = {
+	/**  Project name. */
+	project: string,
+	/**  `true` to list the shared service in `uses`, `false` to remove it. */
+	include: boolean,
+	/**  The [`ConsumerChoice::base`] the person reviewed. */
+	base: string,
+};
+
+/**  Why a consumer cannot be listed or saved. */
+export type UsesError =
+/**  The shared service is not defined in `shared.yml`. */
+{ code: "unknownShared";
+/**  The missing shared service. */
+name: string } |
+/**  The catalog has no such project any more. */
+{ code: "unknownProject";
+/**  The missing project. */
+project: string } |
+/**  The manifest is absent, invalid or read-only: nothing was changed. */
+{ code: "ineligible";
+/**  Reason to display beside the project. */
+message: string } |
+/**  The manifest changed after it was reviewed; review it again. */
+{ code: "documentChanged";
+/**  The affected manifest. */
+path: string } |
+/**  The manifest writes `uses` in a form DevPorts does not edit. */
+{ code: "unsupported";
+/**  Why it cannot be edited safely. */
+message: string } |
+/**  Another project of the same save failed validation, so nothing was written. */
+{ code: "blocked" } |
+/**  The request itself is malformed. */
+{ code: "invalidRequest";
+/**  What is wrong with it. */
+message: string } |
+/**  A file or worker operation failed. */
+{ code: "io";
+/**  OS or runtime explanation. */
+message: string };

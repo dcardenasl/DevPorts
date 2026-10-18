@@ -17,6 +17,7 @@
 
 mod adoption;
 mod probe;
+mod uses;
 
 use crate::adopt::review::AdoptionBook;
 pub use crate::adopt::review::AdoptionTarget as AdoptTarget;
@@ -232,6 +233,7 @@ enum Msg {
     Describe(String, oneshot::Sender<Option<Description>>),
     Adopted(Applied),
     Adoption(AdoptionMsg),
+    UsesContext(oneshot::Sender<uses::UsesContext>),
 }
 
 /// What an adoption needs to know about the thing being adopted.
@@ -782,6 +784,10 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             }
             Msg::Describe(reference, reply) => {
                 let _ = reply.send(self.describe_adoption(&reference));
+                Vec::new()
+            }
+            Msg::UsesContext(reply) => {
+                let _ = reply.send(self.uses_context());
                 Vec::new()
             }
             Msg::Adopted(applied) => {

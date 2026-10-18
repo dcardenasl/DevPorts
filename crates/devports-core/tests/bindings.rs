@@ -20,6 +20,9 @@ fn generated() -> String {
         .register::<devports_core::adopt::review::AdoptionPreview>()
         .register::<devports_core::adopt::review::AdoptionError>()
         .register::<devports_core::adopt::review::ServiceEdits>()
+        .register::<devports_core::uses::ConsumerOptions>()
+        .register::<devports_core::uses::UseRequest>()
+        .register::<devports_core::uses::UsesError>()
         .register::<InstanceView>()
         .register::<LogEntry>();
     let body = Typescript::default()
