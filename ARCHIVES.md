@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-5.1 — Hacer ignorados explícitos y restaurables · 2026-10-18
+- **Commits de implementación:** ver `git log` (`feat(core)` regla exacta y restauración, `feat(app)` operación `restore`, `feat(ui)` Ignorar y Ver ignorados).
+- **Resultado:** Ignorar separado de Adoptar con la regla exacta visible antes de guardar; «Ver ignorados → Restaurar» con reglas vivas, huérfanas, anteriores e ilegibles; clave con argumentos como lista y contenedores por contexto; reglas antiguas conservadas sin ampliarse.
+- **Archivos/contratos:** `ignore.rs`, `Engine::{ignore_preview, ignored_rules, restore_ignored}`, `runtime/ignored.rs`, comandos `ignore_preview`/`ignored_rules`, `OperationKind::Restore`, `IgnoreSheets.tsx`, `mock-ignored.ts`, `IgnoreRule` generado; ADR-037.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 57/57 Vitest y build. Persistencia real con reinicio del núcleo (almacén en disco propio).
+- **Evidencia nativa vs simulada:** actor y almacén reales con ProcessSource falso y UI con backend simulado; sin Tauri/WebKit/VoiceOver ni navegador (UXR-7.x). [Informe](docs/audits/2026-10-18-uxr-5-1.md).
+- **Limpieza:** sin procesos ni servicios reales; sin tocar reglas del usuario; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-5.2 agrupa auxiliares sin ignorarlos y reutiliza `Criterion`/`commandLine`; la corrección de clasificación no es una regla de ignorados.
+
 ## UXR-4.2 — Gestionar recursos compartidos y completar sus acciones · 2026-10-17
 - **Commits de implementación:** ver `git log` (`feat(core)` resumen de compartidos, `feat(app)` borrador de consumidores, `feat(ui)` hoja y acciones).
 - **Resultado:** hoja única de consumidores (desde Compartidos y desde la tarjeta del proyecto) con búsqueda, motivos, revisión obligatoria por archivo, cero asociados, parcial con reintento de pendientes y recuperación tras cerrar el panel. Recurso detenido: copiar el comando declarado; abrir navegador solo con endpoint declarado.
