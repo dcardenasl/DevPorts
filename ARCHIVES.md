@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-4.2 — Gestionar recursos compartidos y completar sus acciones · 2026-10-17
+- **Commits de implementación:** ver `git log` (`feat(core)` resumen de compartidos, `feat(app)` borrador de consumidores, `feat(ui)` hoja y acciones).
+- **Resultado:** hoja única de consumidores (desde Compartidos y desde la tarjeta del proyecto) con búsqueda, motivos, revisión obligatoria por archivo, cero asociados, parcial con reintento de pendientes y recuperación tras cerrar el panel. Recurso detenido: copiar el comando declarado; abrir navegador solo con endpoint declarado.
+- **Archivos/contratos:** `ConsumersSheet.tsx`, `consumers.ts`, `useOperationWatch`/`draftTargetExists` (reutilizados por AdoptSheet y la hidratación), `PanelDraft::Consumers`, `SharedSummary` en el snapshot, `Actions.manageConsumers`, textos y estilos; MANIFIESTO actualizado.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 54/54 Vitest y build. Pruebas Rust del borrador y del resumen.
+- **Evidencia nativa vs simulada:** solo UI con backend simulado; no hubo recorrido de navegador (navegación denegada) ni Tauri/WebKit/VoiceOver. [Informe](docs/audits/2026-10-17-uxr-4-2.md).
+- **Limpieza:** servidor de desarrollo detenido y viewport restaurado; sin procesos ni servicios reales; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-7.1 revisa accesibilidad/densidad de esta hoja; UXR-7.2 valida el recorrido real con YAML y recursos propios.
+
 ## UXR-4.1 — Guardar consumidores compartidos por proyecto · 2026-10-17
 - **Commits de implementación:** ver `git log` (`feat(core)` edición de `uses`, `feat(app)` operación y comando, `feat(ui)` contrato y mock).
 - **Resultado:** consulta de consumidores y guardado por lote con prevalidación total (cero escrituras ante un error conocido), resultado independiente por archivo, reintento idempotente de pendientes y recarga del catálogo. Cero consumidores válido; quitar no detiene ni borra.

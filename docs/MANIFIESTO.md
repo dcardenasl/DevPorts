@@ -55,7 +55,7 @@ services:
 |---|---|---|---|
 | `version` | entero | sí | Debe ser `1`. Otro valor: error "versión no soportada". |
 | `project` | texto | sí | Patrón `^[a-z0-9][a-z0-9-]{0,62}$`. Es el nombre mostrado y el usado por `--project`. |
-| `uses` | lista de textos | no | Nombres definidos en `shared.yml`. Un nombre inexistente es advertencia, no error. |
+| `uses` | lista de textos | no | Nombres definidos en `shared.yml`. Un nombre inexistente es advertencia, no error. La app la edita desde «Gestionar proyectos» (lista de una línea o en bloque, comentarios intactos); formas con comillas, anclas o varias líneas se rechazan antes de guardar y se editan a mano. Declara una asociación, no una conexión detectada. |
 | `services` | mapa nombre a servicio | sí | Puede estar vacío. Cada nombre cumple el mismo patrón que `project` y es único. |
 
 **Servicio**
@@ -97,7 +97,7 @@ services:
     port: 3306
     start: docker start mysql-dev
 ```
-Mismo esquema de servicio que el manifiesto, salvo que el nombre del servicio es el que los proyectos citan en `uses`. Un servicio compartido pertenece a un grupo global "Compartidos", no a un proyecto. En la interfaz se lista junto a los proyectos que lo usan; antes de detenerlo, la app muestra esa lista (ADR-013).
+Mismo esquema de servicio que el manifiesto, salvo que el nombre del servicio es el que los proyectos citan en `uses`. Un servicio compartido pertenece a un grupo global "Compartidos", no a un proyecto. En la interfaz se lista junto a los proyectos que lo usan; antes de detenerlo, la app muestra esa lista (ADR-013). Un proyecto se asocia o desasocia desde el compartido o desde su propia tarjeta («Gestionar proyectos»); desasociar solo quita la línea de `uses`, no detiene ni borra nada. Si `shared.yml` declara `start`, la app ofrece copiarlo cuando el recurso está detenido; solo ofrece abrir el navegador si declara `port` y `health: http:/ruta`.
 
 ---
 

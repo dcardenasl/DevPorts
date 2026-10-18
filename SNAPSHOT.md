@@ -7,8 +7,8 @@
 |---|---|
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1, UXR-2, UXR-3 y UXR-4.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Ejecutar [UXR-4.2](TASKS.md#uxr-4-2): selección y edición de consumidores en el panel sobre `sharedConsumers`/`setConsumers`. UXR-4.1 cerrada: [informe](docs/audits/2026-10-17-uxr-4-1.md). UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver y presupuesto quedan en UXR-7.2. |
+| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-4 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
+| **Próximo paso** | Ejecutar [UXR-5.1](TASKS.md#uxr-5-1): ignorados explícitos y restaurables (clave persistente, lista y restauración). UXR-4.2 cerrada: [informe](docs/audits/2026-10-17-uxr-4-2.md). UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver, recorrido a 380×520 y presupuesto quedan en UXR-7.x. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 
