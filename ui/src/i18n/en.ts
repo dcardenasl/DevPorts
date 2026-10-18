@@ -1,6 +1,6 @@
 // Every string the person reads, in English. It has the very same shape as the Spanish
 // source (`Catalog`), so a missing key or a changed signature does not compile.
-import { type Catalog } from "./es";
+import { type Catalog, type EventContext } from "./es";
 import { pluralizer } from "./format";
 
 const { pick, counted } = pluralizer("en");
@@ -348,6 +348,40 @@ export const en: Catalog = {
     temporals: "Temporary",
     alerts: "Alerts",
     none: "No activity for this filter",
+    unnamedService: "a service",
+    events: {
+      core_started: () => "DevPorts started",
+      run_accepted: (e: EventContext) =>
+        e.temporal
+          ? `Test of ${e.service} ${e.port} for “${e.reason ?? "no reason"}”`
+          : `${e.service} registered as Primary ${e.port}`,
+      run_rejected: (e: EventContext) =>
+        `${e.launcher === null ? "A process" : `An agent (${e.launcher})`} tried to start another instance of ${e.service}; the Primary is still ${e.url === null ? "" : `at ${e.url}`}`,
+      reuse: (e: EventContext) =>
+        `${e.launcher === null ? "A process" : `An agent (${e.launcher})`} reused the Primary of ${e.service}`,
+      reservation_released: (e: EventContext) =>
+        `The port reserved for ${e.service} was released: nobody opened it in time`,
+      bound: (e: EventContext) => `${e.service} ${e.port} was bound to its process`,
+      port_stolen: (e: EventContext) =>
+        `Another process took port ${e.portNumber ?? "?"}, reserved for ${e.service}`,
+      lease_warned: (e: EventContext) => `The test of ${e.service} ${e.port} expires in 1 minute`,
+      lease_extended: (e: EventContext) =>
+        `The test of ${e.service} ${e.port} was extended; it expires ${e.expires ?? "later"}`,
+      lease_expired: (e: EventContext) =>
+        `The test of ${e.service} ${e.port} expired and was stopped`,
+      stopped: (e: EventContext) => `${e.service} ${e.port} was stopped`,
+      stop_failed: (e: EventContext) =>
+        `${e.service} ${e.port} could not be stopped: it is left as forgotten`,
+      duplicate_detected: (e: EventContext) =>
+        `An unregistered duplicate of ${e.service} ${e.port} appeared`,
+      kept: (e: EventContext) =>
+        `You kept ${e.service} ${e.port} although it duplicates the Primary`,
+      restored: () => "You restored an ignored service",
+      reclassified: (e: EventContext) => `You changed the classification of ${e.service} ${e.port}`,
+      adopted: (e: EventContext) => `You adopted ${e.service} into a manifest`,
+      unregistered_seen: (e: EventContext) => `An unregistered process appeared ${e.port}`,
+      process_gone: (e: EventContext) => `${e.service} ${e.port} stopped running`,
+    },
     labels: {
       rejection: "REJECTED",
       temporal: "TEMPORARY",

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type ReactElement } from "react";
 import type { Backend } from "../api";
 import type { Catalog } from "../i18n/es";
 import { useI18n } from "../i18n/provider";
+import { eventSentence } from "../events";
 import { clock } from "../time";
 import type { LogEntry, LogTopic } from "../types";
 import { Empty } from "./shared-parts";
@@ -223,7 +224,7 @@ export function ActivityView({
                   <div className="log-row" key={`${entry.at}-${index}`}>
                     <span className="mono dim">{clock(entry.at, locale)}</span>
                     <span className={`eyebrow ${TONE_CLASS[tag.tone]}`}>{tag.word}</span>
-                    <span>{entry.summary}</span>
+                    <span>{eventSentence(entry, text, locale)}</span>
                   </div>
                 );
               })}

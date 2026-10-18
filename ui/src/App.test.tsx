@@ -1692,3 +1692,19 @@ describe("the panel in English", () => {
     expect(await screen.findByText("Scan folders")).toBeInTheDocument();
   });
 });
+
+// covers: UXR-9.4
+describe("the activity in English", () => {
+  beforeEach(() => {
+    state.current = undefined;
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("writes every entry from its facts, not from the core's Spanish sentence", async () => {
+    const { user } = await open(sampleSnapshot(), "en");
+    await user.click(tab(/Activity/));
+    expect(await screen.findByText("Test of api :52814 for “QA login”")).toBeInTheDocument();
+    expect(screen.getByText("An unregistered duplicate of api :8083 appeared")).toBeInTheDocument();
+    expect(screen.queryByText(/Prueba de api/)).not.toBeInTheDocument();
+  });
+});

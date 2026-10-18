@@ -29,6 +29,7 @@ export type {
   LogEntry,
   LogError,
   LanguagePreference,
+  LogFacts,
   LogTopic,
   Preferences,
   ProjectSummary,

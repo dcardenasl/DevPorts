@@ -4,6 +4,26 @@ import { pluralizer } from "./format";
 
 const { pick, counted } = pluralizer("es");
 
+/** What a sentence of the activity log is written from (see `eventSentence`). */
+export interface EventContext {
+  /** The service, or «un servicio» / «a service» when the event has none. */
+  service: string;
+  /** `:8080`, or empty when the event has no port. */
+  port: string;
+  /** The bare port number, when there is one. */
+  portNumber: number | null;
+  /** Why a temporary instance was started. */
+  reason: string | null;
+  /** The agent that launched it, as named by `known_agents`. */
+  launcher: string | null;
+  /** Where the Principal that refused a launch runs. */
+  url: string | null;
+  /** The time a lease ends, as the person's clock writes it. */
+  expires: string | null;
+  /** Whether the run was a temporary one. */
+  temporal: boolean;
+}
+
 export const es = {
   adoption: {
     review: "Revisar adopción",
@@ -344,6 +364,38 @@ export const es = {
     temporals: "Temporales",
     alerts: "Alertas",
     none: "Sin actividad en este filtro",
+    unnamedService: "un servicio",
+    events: {
+      core_started: () => "DevPorts se inició",
+      run_accepted: (e: EventContext) =>
+        e.temporal
+          ? `Prueba de ${e.service} ${e.port} para «${e.reason ?? "sin motivo"}»`
+          : `${e.service} registrada como Principal ${e.port}`,
+      run_rejected: (e: EventContext) =>
+        `${e.launcher === null ? "un proceso" : `un agente (${e.launcher})`} intentó levantar otra instancia de ${e.service}; la Principal sigue ${e.url === null ? "" : `en ${e.url}`}`,
+      reuse: (e: EventContext) =>
+        `${e.launcher === null ? "un proceso" : `un agente (${e.launcher})`} reutilizó la Principal de ${e.service}`,
+      reservation_released: (e: EventContext) =>
+        `Se liberó el puerto reservado para ${e.service}: nadie lo abrió a tiempo`,
+      bound: (e: EventContext) => `${e.service} ${e.port} quedó vinculada a su proceso`,
+      port_stolen: (e: EventContext) =>
+        `Otro proceso tomó el puerto ${e.portNumber ?? "?"} reservado para ${e.service}`,
+      lease_warned: (e: EventContext) => `La prueba de ${e.service} ${e.port} vence en 1 minuto`,
+      lease_extended: (e: EventContext) =>
+        `La prueba de ${e.service} ${e.port} se extendió; vence ${e.expires ?? "más tarde"}`,
+      lease_expired: (e: EventContext) => `La prueba de ${e.service} ${e.port} venció y se detuvo`,
+      stopped: (e: EventContext) => `${e.service} ${e.port} se detuvo`,
+      stop_failed: (e: EventContext) =>
+        `${e.service} ${e.port} no se pudo detener: queda como olvidada`,
+      duplicate_detected: (e: EventContext) =>
+        `Apareció un duplicado de ${e.service} ${e.port} sin registrar`,
+      kept: (e: EventContext) => `Conservaste ${e.service} ${e.port} aunque duplica a la Principal`,
+      restored: () => "Restauraste un servicio ignorado",
+      reclassified: (e: EventContext) => `Cambiaste la clasificación de ${e.service} ${e.port}`,
+      adopted: (e: EventContext) => `Adoptaste ${e.service} en un manifiesto`,
+      unregistered_seen: (e: EventContext) => `Apareció un proceso sin registrar ${e.port}`,
+      process_gone: (e: EventContext) => `${e.service} ${e.port} dejó de ejecutarse`,
+    },
     labels: {
       rejection: "RECHAZO",
       temporal: "TEMPORAL",

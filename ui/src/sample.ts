@@ -1,7 +1,7 @@
 // Invented data (projects, ports, times) for tests and for the panel in a
 // browser without the application. Never shipped as real content.
 
-import type { InstanceView, LogEntry, Snapshot } from "./types";
+import type { InstanceView, LogEntry, LogFacts, Snapshot } from "./types";
 
 const base: InstanceView = {
   ref: "",
@@ -214,6 +214,16 @@ export function sampleSnapshot(nowMs: number = Date.now()): Snapshot {
   };
 }
 
+/** What an event carries, with everything it does not carry absent. */
+const facts = (given: Partial<LogFacts> = {}): LogFacts => ({
+  port: null,
+  reason: null,
+  launcher: null,
+  existing_url: null,
+  expires_at: null,
+  ...given,
+});
+
 export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
   const at = (offsetMinutes: number): string => iso(nowMs, offsetMinutes * 60);
   return [
@@ -224,6 +234,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       service: null,
       summary: "DevPorts se inició",
       topics: [],
+      facts: facts(),
     },
     {
       at: at(-180),
@@ -232,6 +243,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       service: "api",
       summary: "api registrada como Principal :8080",
       topics: [],
+      facts: facts({ port: 8080 }),
     },
     {
       at: at(-62),
@@ -239,16 +251,18 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       project: "tienda-demo",
       service: "api",
       summary:
-        "un agente (Cursor > zsh) intentó levantar otra instancia de api; la Principal sigue en :8080",
+        "un agente (Cursor > zsh) intentó levantar otra instancia de api; la Principal sigue en http://localhost:8080",
       topics: ["rejection"],
+      facts: facts({ launcher: "Cursor > zsh", existing_url: "http://localhost:8080" }),
     },
     {
       at: at(-29),
       kind: "run_accepted",
       project: "tienda-demo",
       service: "api",
-      summary: "api registrada como Temporal :52814 para «QA login», vence en 30 min",
+      summary: "Prueba de api :52814 para «QA login»",
       topics: ["temporal"],
+      facts: facts({ port: 52814, reason: "QA login" }),
     },
     {
       at: at(-22),
@@ -257,6 +271,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       service: "api",
       summary: "Apareció un duplicado de api :8083 sin registrar",
       topics: ["alert"],
+      facts: facts({ port: 8083 }),
     },
   ];
 }

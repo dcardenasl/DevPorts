@@ -467,21 +467,23 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** API de `useI18n`, cómo añadir un idioma y qué textos del núcleo siguen en español (insumo de 9.4).
 
-- [ ] **UXR-9.4 — Texto del núcleo como datos tipados (Actividad y errores).**
+- [x] **UXR-9.4 — Actividad como datos tipados.**
 
-  **Dependencias:** UXR-9.3. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041; CLI.md y los goldens **no cambian**.
+  **Dependencias:** UXR-9.3. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041; CLI.md y los goldens no cambian. El resto del texto del núcleo pasa a UXR-9.7 y UXR-9.8 (mismo patrón, otros tipos).
 
-  **Leer código:** `crates/devports-core/src/messages.rs` (`event_summary`, `event_topics`, `messages/tests.rs`), `crates/devports-proto/src/views.rs` (`LogEntry`), `settings.rs`, `adopt/{review,apply}.rs`, `uses.rs`, `engine/actions.rs` (`ActionError`), `crates/devports-app/src/{commands,operations}.rs`, `crates/devports-core/tests/bindings.rs`, `crates/devports-cli/tests/golden/`, `ui/src/views/ActivityView.tsx`, `ui/src/settings.ts`, `ui/src/adoption.ts`, `ui/src/i18n/`.
+  **Leer código:** `crates/devports-core/src/messages.rs` (`Details`, `event_facts`, `event_summary`, `messages/tests.rs`), `crates/devports-proto/src/views.rs` (`LogEntry`, `LogFacts`), `engine/actions.rs` (`log`), `ui/src/events.ts`, `ui/src/views/ActivityView.tsx`, `ui/src/i18n/{es,en}.ts` (`activity.events`).
 
-  **Trabajo de esta sesión:** `LogEntry.facts` tipado (`#[serde(default)]`) derivado del payload; `summary` se conserva para CLI/socket y como respaldo de `kind` desconocido. Variantes/razones tipadas con parámetros en `SettingsError`, `RootProblem`, `ScanFolders.reason`, `AdoptionDestination.reason`, `AdoptionPreview.warnings`, `UsesError`, `AdoptionError`; el detalle de SO/archivo viaja como `detail`. `CommandError { code, … }` único para los `Result<_, String>` de `commands.rs`; `ActionError` serializable. El panel mapea todo a `t.*` (`t.activity.event[kind](facts)`, errores por código) en es y en. Test de guardia: tipos exportados sin texto libre salvo `detail`/nombres de usuario. Goldens y `--json` byte a byte iguales.
+  **Trabajo de esta sesión:** `LogEntry.facts` tipado (`#[serde(default)]`) leído del payload una sola vez junto con la frase en español (`Details`); `summary` se conserva para CLI/socket y como respaldo de un `kind` desconocido. El panel escribe cada frase con `activity.events[kind](contexto)` en es y en (`eventSentence`).
 
-  **Hecho cuando:** con el panel en `en` no queda texto en español procedente del núcleo salvo `detail` técnico; `tools/check.sh full` con los goldens sin tocar; bindings regenerados sin deriva; un núcleo con `kind` nuevo no rompe el panel.
+  **Hecho cuando:** con el panel en `en` ninguna entrada de Actividad sale en español salvo un `kind` que el panel no conoce; `tools/check.sh full` con goldens y `--json` intactos salvo el campo nuevo `facts` (documentado en CLI.md §6); bindings regenerados; un `kind` nuevo no rompe el panel.
 
-  **Verificación:** `tools/check.sh full`; `pnpm` completo; recorrido en `en` de Actividad, Ajustes (carpetas inválidas, `documentChanged`), adopción y consumidores con mocks.
+  **Verificación:** `tools/check.sh full`; `pnpm` completo; pruebas de `event_facts`, `eventSentence` y de Actividad en inglés.
 
-  **Commits previstos:** `refactor(core): send typed facts and error codes to the panel` → `refactor(ui): render core events from typed facts`.
+  **Commits previstos:** `refactor(core): send typed facts for every activity event` → `feat(ui): write the activity from typed facts`.
 
-  **Entrega a la próxima sesión:** lista de tipos/códigos y el patrón para añadir un evento o error nuevo.
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.4».
+
+  **Entrega a la próxima sesión:** patrón para un evento nuevo: añadir su `kind` a `event_summary` y una entrada `activity.events.<kind>` en `es.ts` y `en.ts` (el compilador exige ambas).
 
 - [x] **UXR-9.5 — Bandeja y notificaciones localizadas.**
 
@@ -503,7 +505,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
 - [ ] **UXR-9.6 — Ajustes de apariencia e idioma y cierre.**
 
-  **Dependencias:** UXR-9.2, 9.3, 9.4 y 9.5. **Plan:** [Diseño F](docs/plan/tema-e-idioma.md#f-ui-de-ajustes) y Verificación global. **Contexto:** ADR-035/036 (el borrador de carpetas no cambia).
+  **Dependencias:** UXR-9.2, 9.3, 9.4 y 9.5 (9.7 y 9.8 no la bloquean). **Plan:** [Diseño F](docs/plan/tema-e-idioma.md#f-ui-de-ajustes) y Verificación global. **Contexto:** ADR-035/036 (el borrador de carpetas no cambia).
 
   **Leer código:** `ui/src/SettingsSheet.tsx`, `settings.ts`, `ui/src/hooks.ts`, `ui/src/App.tsx`, `ui/src/theme.ts`, `ui/src/i18n/`, `ui/src/api.ts`, `ui/src/App.test.tsx` (pruebas de Ajustes).
 
@@ -516,6 +518,38 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Commits previstos:** `feat(ui): add appearance and language to settings` → `docs: close uxr-9 with evidence`.
 
   **Entrega a la próxima sesión:** informe enlazado desde TASKS/SNAPSHOT; sin release ni push sin orden de David.
+
+- [ ] **UXR-9.7 — Errores y razones del núcleo como datos tipados (Ajustes, adopción, consumidores, comandos).**
+
+  **Dependencias:** UXR-9.3 y UXR-9.4. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041 punto 6; ADR-035/036 (flujos de Ajustes y adopción, sin cambios); CLI.md y goldens **no cambian**.
+
+  **Leer código:** `crates/devports-core/src/{settings,uses,config,document}.rs`, `adopt/{review,apply}.rs` (todas las frases en español de `SettingsError`, `RootProblem`, `ScanFolders.reason`, `AdoptionError`, `AdoptionDestination.reason`, `ProposedService.review`, `AdoptionPreview.warnings`, `UsesError`, `ConsumerChoice.reason`), `engine/actions.rs` (`ActionError`), `crates/devports-app/src/{commands,operations}.rs` (los `Result<_, String>` y `OperationTargetResult.error`), `crates/devports-core/tests/bindings.rs`, `ui/src/{settings,adoption,consumers}.ts`, `ui/src/i18n/{es,en}.ts` (`errors`).
+
+  **Trabajo de esta sesión:** Sustituir cada `message`/`reason: String` en español que llega al panel por una variante tipada con parámetros (`code` camelCase como `SettingsError`), dejando el detalle técnico de SO/archivo (rutas, `errno`, errores de YAML) en un campo `detail` que el panel muestra tal cual bajo el texto traducido. Un `CommandError { code, … }` único para los `Result<_, String>` de `commands.rs`; `ActionError` serializable (specta); errores de operación con código. El texto en español de `thiserror` (`#[error]`) se conserva para CLI, socket y registros. Catálogo `errors.*` en es y en y mapeo en `settings.ts`/`adoption.ts`/`consumers.ts`. Test de guardia en `bindings.rs`: los tipos exportados al panel no tienen campos de texto libre salvo `detail` y nombres puestos por el usuario (lista blanca revisada).
+
+  **Hecho cuando:** con el panel en `en`, Ajustes (carpetas inválidas, `documentChanged`, no editable), adopción (destinos no elegibles, advertencias, campos inválidos) y consumidores no muestran español salvo `detail`; goldens del CLI byte a byte iguales; bindings sin deriva; pruebas por cada código nuevo en es y en.
+
+  **Verificación:** `tools/check.sh full`; `pnpm` completo; recorrido en `en` con mocks de cada error.
+
+  **Commits previstos:** `refactor(core): send typed reasons instead of sentences to the panel` → `refactor(ui): write core errors from typed reasons`.
+
+  **Entrega a la próxima sesión:** lista de códigos y cómo añadir uno; qué texto del núcleo queda (UXR-9.8).
+
+- [ ] **UXR-9.8 — Avisos del núcleo y `stale` como datos tipados.**
+
+  **Dependencias:** UXR-9.7. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041 punto 6; MANIFIESTO.md (diagnósticos de manifiestos).
+
+  **Leer código:** `crates/devports-core/src/{diagnostic,manifest,config,catalog}.rs` y `manifest/` (frases de diagnóstico con ruta y línea que llegan en `Snapshot.problems`), `InstanceView.stale` (`gitinfo.rs`/`engine`), `Snapshot.docker_error`, `ui/src/views/InstanceDetails.tsx`, `ui/src/StatusStrip.tsx`, `ui/src/i18n/`.
+
+  **Trabajo de esta sesión:** `Snapshot.problems: Vec<String>` pasa a diagnósticos tipados (`code`, archivo, línea, parámetros, `detail` del analizador YAML); `InstanceView.stale: Option<String>` pasa a un dato (qué commit/fecha) en vez de una frase; `docker_error` conserva el texto técnico del motor como `detail`. El CLI, `ls --json` y `devports adopt` mantienen su texto: el cambio de contrato de `--json` (`problems`/`stale`) se documenta en CLI.md y se compatibiliza (campo antiguo intacto, campo tipado nuevo).
+
+  **Hecho cuando:** con el panel en `en`, «Avisos del núcleo» y los detalles de una instancia no muestran frases en español; goldens y `--json` compatibles; pruebas por código de diagnóstico.
+
+  **Verificación:** `tools/check.sh full`; `pnpm` completo.
+
+  **Commits previstos:** `refactor(core): send typed diagnostics to the panel` → `refactor(ui): write the core warnings from typed diagnostics`.
+
+  **Entrega a la próxima sesión:** con 9.7 y 9.8 el panel no recibe frases del núcleo; actualizar ADR-041 si el patrón cambió.
 
 ### Inicio de una sesión dedicada
 

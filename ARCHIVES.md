@@ -3,6 +3,11 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.4 — Actividad como datos tipados · 2026-10-18
+- **Resultado:** las entradas de Actividad se escriben en el panel en el idioma en vigor a partir de `LogEntry.facts`; `summary` (español) queda para el CLI y como respaldo de un `kind` desconocido. El resto del texto del núcleo se reparte en UXR-9.7 (errores y razones) y UXR-9.8 (avisos, `stale`, `docker_error`); el alcance se acotó porque son ~90 frases en 14 archivos con sus pruebas y goldens, y merecen su propia verificación.
+- **Contrato:** proto `LogFacts {port, reason, launcher, existing_url, expires_at}` (ISO 8601) y `LogEntry.facts` (`#[serde(default)]`); core `messages::event_facts` y `Details` (una sola lectura del payload para frase y datos); `docs/CLI.md` §6 documenta el campo opcional nuevo. UI: `ui/src/events.ts` (`eventSentence`), `activity.events` y `activity.unnamedService` en los catálogos (una entrada por `kind` conocido: el compilador exige las dos), `sample.ts` con `facts`.
+- **Verificación:** `tools/check.sh full` verde (goldens del CLI sin tocar); UI 227/227 (nuevas: 6 de `eventSentence`, 1 de Actividad en inglés), typecheck, lint, format, build.
+
 ## UXR-9.5 — Bandeja y notificaciones localizadas · 2026-10-18
 - **Resultado:** el menú de la bandeja, sus diálogos y las notificaciones hablan el idioma en vigor (preferencia guardada; `system` = idiomas de macOS vía `sys-locale`, regla es*→es, en*→en, otro→en). Guardar preferencias reescribe el menú en el acto y vuelve a registrar el botón «Extender 30 min»/«Extend 30 min».
 - **Contrato:**
