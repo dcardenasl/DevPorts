@@ -136,6 +136,7 @@ pub fn get_preferences(store: State<'_, PreferencesStore>) -> Preferences {
 /// Saves the preferences in the core and, once it has, in the shell's copy.
 #[tauri::command]
 pub async fn set_preferences(
+    app: AppHandle,
     core: State<'_, CoreState>,
     store: State<'_, PreferencesStore>,
     preferences: Preferences,
@@ -146,6 +147,7 @@ pub async fn set_preferences(
         .await
         .map_err(|error| error.to_string())?;
     store.replace(saved);
+    crate::panel::apply_theme(&app, saved.theme);
     Ok(saved)
 }
 

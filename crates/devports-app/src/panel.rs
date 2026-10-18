@@ -8,8 +8,13 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use devports_core::clock::{Clock, SystemClock};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use devports_proto::ThemePreference;
+use tauri::{
+    AppHandle, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 use tauri_plugin_positioner::{Position, WindowExt};
+
+use crate::preferences::PreferencesStore;
 
 /// Label of the panel window, which the capability file and events refer to.
 pub const PANEL_LABEL: &str = "panel";
@@ -111,15 +116,14 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         return existing.set_focus();
     }
     // `DevPorts --show --tab=projects` opens straight on a tab (first look, screenshots).
-    let start = std::env::args()
+    let tab = std::env::args()
         .find_map(|argument| argument.strip_prefix("--tab=").map(str::to_owned))
-        .filter(|tab| tab.chars().all(|character| character.is_ascii_lowercase()))
-        .map_or_else(
-            || "index.html".to_owned(),
-            |tab| format!("index.html?tab={tab}"),
-        );
+        .filter(|tab| tab.chars().all(|character| character.is_ascii_lowercase()));
+    let theme = app.state::<PreferencesStore>().get().theme;
+    let start = panel_url(tab.as_deref(), theme);
     let window = WebviewWindowBuilder::new(app, PANEL_LABEL, WebviewUrl::App(start.into()))
         .title("DevPorts")
+        .theme(native_theme(theme))
         .inner_size(PANEL_WIDTH, PANEL_HEIGHT)
         .resizable(false)
         .decorations(false)
@@ -154,6 +158,37 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         }
     });
     Ok(())
+}
+
+/// Where the panel page starts: the tab to open on, if any, and the theme preference the
+/// page must wear before it first paints (ADR-040).
+fn panel_url(tab: Option<&str>, theme: ThemePreference) -> String {
+    let theme = theme.as_str();
+    tab.map_or_else(
+        || format!("index.html?theme={theme}"),
+        |tab| format!("index.html?tab={tab}&theme={theme}"),
+    )
+}
+
+/// The window's own appearance: scroll bars and system controls follow the theme the
+/// person chose, and the system's when they chose none.
+fn native_theme(theme: ThemePreference) -> Option<Theme> {
+    match theme {
+        ThemePreference::System => None,
+        ThemePreference::Light => Some(Theme::Light),
+        ThemePreference::Dark => Some(Theme::Dark),
+    }
+}
+
+/// Gives an open panel the window appearance of `theme`; the page itself changes through
+/// its own preferences.
+pub fn apply_theme(app: &AppHandle, theme: ThemePreference) {
+    if let Some(window) = app.get_webview_window(PANEL_LABEL)
+        && let Err(error) = window.set_theme(native_theme(theme))
+    {
+        // The preference is already saved and the page already wears it.
+        crate::diagnostics::report(&error);
+    }
 }
 
 /// Makes the panel visible, focuses it and starts closing it when it loses
@@ -215,6 +250,27 @@ mod tests {
     use devports_core::clock::ManualClock;
 
     use super::*;
+
+    // covers: UXR-9.2
+    #[test]
+    fn the_page_starts_with_the_theme_and_optionally_a_tab() {
+        assert_eq!(
+            panel_url(None, ThemePreference::System),
+            "index.html?theme=system"
+        );
+        assert_eq!(
+            panel_url(Some("projects"), ThemePreference::Dark),
+            "index.html?tab=projects&theme=dark"
+        );
+    }
+
+    // covers: UXR-9.2
+    #[test]
+    fn the_window_follows_the_system_unless_a_theme_is_chosen() {
+        assert_eq!(native_theme(ThemePreference::System), None);
+        assert_eq!(native_theme(ThemePreference::Light), Some(Theme::Light));
+        assert_eq!(native_theme(ThemePreference::Dark), Some(Theme::Dark));
+    }
 
     fn guard() -> (Arc<ManualClock>, ReopenGuard<Arc<ManualClock>>) {
         let clock = Arc::new(ManualClock::new("2026-10-17T12:00:00Z".parse().unwrap()));
