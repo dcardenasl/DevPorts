@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use devports_proto::{ErrorBody, ErrorCode, MAX_LINE_BYTES, PROTOCOL_VERSION, Request, Response};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Semaphore;
 
@@ -219,6 +219,13 @@ async fn remove_stale_socket(path: &Path) -> Result<(), IpcError> {
 async fn refuse(mut stream: UnixStream, code: ErrorCode, message: &str) {
     let response = Response::err("", ErrorBody::new(code, message));
     let _ = write_response(&mut stream, &response).await;
+    // Closing with the request still unread makes Linux reset the connection and
+    // drop the answer, so drain what the client sent (briefly) before closing.
+    let mut sink = [0_u8; 1024];
+    let _ = tokio::time::timeout(Duration::from_millis(500), async {
+        while matches!(stream.read(&mut sink).await, Ok(n) if n > 0) {}
+    })
+    .await;
 }
 
 async fn write_response(stream: &mut UnixStream, response: &Response) -> io::Result<()> {
