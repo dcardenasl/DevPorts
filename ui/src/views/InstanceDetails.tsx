@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 
 import { commandLine, instanceTitle, stateLabel } from "../instance";
+import { timeOfDay } from "../i18n/format";
 import { useI18n } from "../i18n/provider";
 import type { InstanceView } from "../types";
 
@@ -20,7 +21,7 @@ export function InstanceDetails({ view }: { view: InstanceView }): ReactElement 
 
 /** The diagnostics themselves, for rows that act as their own trigger. */
 export function InstanceFacts({ view }: { view: InstanceView }): ReactElement {
-  const { text } = useI18n();
+  const { text, locale } = useI18n();
   const missing = text.instance.unavailable;
   const ports = view.ports ?? [];
   const facts: [string, string][] = [
@@ -79,7 +80,11 @@ export function InstanceFacts({ view }: { view: InstanceView }): ReactElement {
       )}
       {view.stale !== null && (
         <p className="instance-stale">
-          <strong>{text.instance.stale}</strong> {view.stale}. {text.instance.staleBody}
+          <strong>{text.instance.stale}</strong>{" "}
+          {view.stale_at === undefined || view.stale_at === null
+            ? view.stale
+            : text.instance.staleSince(timeOfDay(new Date(view.stale_at), locale))}{" "}
+          {text.instance.staleBody}
         </p>
       )}
       <div className="soft">{text.instance.command}</div>

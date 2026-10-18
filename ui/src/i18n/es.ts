@@ -1,6 +1,6 @@
 // Every string the person reads, in Spanish: the source catalog. `en.ts` must have the very
 // same shape (the `Catalog` type), so a missing key or a changed signature does not compile.
-import type { DocumentKind, FormProblem } from "../types";
+import type { DiagnosticKind, DocumentKind, FormProblem } from "../types";
 import { pluralizer } from "./format";
 
 const { pick, counted } = pluralizer("es");
@@ -129,6 +129,7 @@ export const es = {
     commandPrivacy:
       "Se muestran el ejecutable y las opciones largas. Los valores y argumentos posicionales se ocultan para proteger credenciales y scripts.",
     stale: "Posible código anterior",
+    staleSince: (time: string) => `Arrancó antes del último commit o checkout (${time}).`,
     staleBody:
       "Es un indicio basado en fechas de Git, no una prueba de fallo ni una autorización para reiniciar.",
   },
@@ -569,6 +570,100 @@ export const es = {
       operationAtCapacity: "Hay demasiadas operaciones en curso.",
       operationNotFound: "La operación no existe.",
       nothingToRetry: "La operación no tiene objetivos fallidos que reintentar.",
+    },
+    diagnostic: (kind: DiagnosticKind): string => {
+      switch (kind.code) {
+        case "syntax":
+          return kind.detail;
+        case "unknownKey":
+          return `Clave desconocida «${kind.key}»; se ignora.`;
+        case "testIgnored":
+          return "«test» ignorada: devports no gestiona configuración de pruebas (ADR-010).";
+        case "versionMissing":
+          return "Falta «version»; debe ser 1.";
+        case "unsupportedVersion":
+          return `Versión ${kind.version} no soportada; actualiza devports.`;
+        case "versionMustBeOne":
+          return "«version» debe ser 1.";
+        case "projectMissing":
+          return "Falta «project».";
+        case "invalidProjectName":
+          return `El nombre de proyecto «${kind.name}» no es válido: usa minúsculas, números y guiones, hasta 63 caracteres, sin empezar por guion.`;
+        case "unknownShared":
+          return `«${kind.name}» no está definido en shared.yml.`;
+        case "servicesMissing":
+          return "Falta «services» (puede estar vacío: `services: {}`).";
+        case "invalidServiceName":
+          return `El nombre de servicio «${kind.name}» no es válido: usa minúsculas, números y guiones.`;
+        case "cwdAndDocker":
+          return `«${kind.service}» tiene «cwd» y «docker»: debe tener exactamente uno.`;
+        case "noCwdNorDocker":
+          return `«${kind.service}» necesita «cwd» (servicio del host) o «docker» (contenedor).`;
+        case "emptyDocker":
+          return `«docker» de «${kind.service}» está vacío.`;
+        case "emptyCwd":
+          return `«cwd» de «${kind.service}» está vacío.`;
+        case "cwdNotAbsolute":
+          return `«cwd» de «${kind.service}» debe ser una ruta absoluta (o empezar por ~/) en shared.yml.`;
+        case "cwdAbsolute":
+          return `«cwd» de «${kind.service}» debe ser relativa al manifiesto, no «${kind.cwd}».`;
+        case "cwdEscapes":
+          return `«cwd» de «${kind.service}» sale de la carpeta del proyecto: «${kind.cwd}».`;
+        case "startMultiline":
+          return `«start» de «${kind.service}» debe ser un solo comando, sin saltos de línea; para varios pasos usa un script.`;
+        case "portOutOfRange":
+          return `«port» de «${kind.service}» debe estar entre 1 y 65535, no ${kind.port}.`;
+        case "portPrivileged":
+          return `«port» de «${kind.service}» es ${kind.port}, menor que 1024: puede requerir privilegios.`;
+        case "portTaken":
+          return `El puerto ${kind.port} ya lo usa «${kind.other}»: dentro de un proyecto cada puerto preferido es único.`;
+        case "invalidHealth":
+          return `«health» de «${kind.service}» debe ser \`tcp\` o \`http:/ruta\`, no «${kind.health}».`;
+        case "invalidKind":
+          return `«kind» de «${kind.service}» debe ser \`app\` o \`data\`, no «${kind.kind}».`;
+        case "emptyMatch":
+          return `«match» de «${kind.service}» está vacío: no reconocerá ningún proceso.`;
+        case "invalidDuration":
+          return `«${kind.key}»: ${kind.detail}`;
+        case "maxDepthRange":
+          return `«max_depth» debe estar entre 0 y 8, no ${kind.value}.`;
+        case "retentionRange":
+          return `«events_retention_days» debe ser al menos 1, no ${kind.value}.`;
+        case "maxPerServiceRange":
+          return `«lease.max_per_service» debe estar entre 1 y 16, no ${kind.value}.`;
+        case "hostIntervalRange":
+          return "«observation.host_interval» debe estar entre 250ms y 10s.";
+        case "temporalPortRange":
+          return "«observation.temporal_port_range» debe ser [inicio, fin] con 1024 <= inicio < fin <= 65535.";
+        case "leaseDefaultOverMax":
+          return "«lease.default» no puede superar «lease.max_total».";
+        case "leaseExtendOverMax":
+          return "«lease.extend_by» no puede superar «lease.max_total».";
+        case "leaseWarnOverDefault":
+          return "«lease.warn_before» debe ser menor que «lease.default».";
+      }
+    },
+    atLine: (line: number, message: string) => `línea ${line}: ${message}`,
+    file: {
+      unreadable: (path: string, detail: string) => `${path}: no se pudo leer: ${detail}`,
+      invalid: (path: string, messages: string) => `${path}: ${messages}`,
+    },
+    problem: {
+      folderUnreadable: (path: string, detail: string) => `${path}: no se pudo leer: ${detail}`,
+      duplicateProjectName: (name: string, roots: string) =>
+        `El nombre de proyecto «${name}» se repite en ${roots}.`,
+      activityLogWrite: (detail: string) =>
+        `No se pudo escribir en el registro de actividad: ${detail}`,
+      activityLogPrune: (detail: string) =>
+        `No se pudo limpiar el registro de actividad: ${detail}`,
+      catalogNotRefreshed:
+        "La declaración se guardó; el catálogo se actualizará en el próximo sondeo.",
+      instanceNotSaved: (reference: string, detail: string) =>
+        `No se pudo guardar la instancia ${reference}: ${detail}`,
+    },
+    docker: {
+      connectionLost: "Se perdió la conexión con Docker.",
+      unreachable: (detail: string) => detail,
     },
     ineligibility: {
       configInvalid: (detail: string) =>

@@ -4,6 +4,10 @@ import type { Catalog } from "./i18n/es";
 import type {
   ActionError,
   CommandError,
+  Diagnostic,
+  DockerProblem,
+  FileProblem,
+  Problem,
   FieldProblem,
   Ineligibility,
   Limitation,
@@ -18,11 +22,11 @@ export function ineligibilityText(reason: Ineligibility, text: Catalog): string 
   const t = text.reasons.ineligibility;
   switch (reason.code) {
     case "configInvalid":
-      return t.configInvalid(reason.detail);
+      return t.configInvalid(fileProblemText(reason.problem, text));
     case "noManifest":
       return t.noManifest;
     case "manifestInvalid":
-      return t.manifestInvalid(reason.detail);
+      return t.manifestInvalid(fileProblemText(reason.problem, text));
     case "readOnly":
       return t.readOnly(reason.path);
     case "rootsNotEditable":
@@ -38,7 +42,7 @@ export function limitationText(limitation: Limitation, text: Catalog): string {
     case "form":
       return t.form(limitation.key, limitation.problem);
     case "editInvalid":
-      return t.editInvalid(limitation.document, limitation.detail);
+      return t.editInvalid(limitation.document, fileProblemText(limitation.problem, text));
     case "editTouchedMore":
       return t.editTouchedMore(limitation.key);
     case "other":
@@ -63,7 +67,7 @@ export function unsuitabilityText(reason: Unsuitability, text: Catalog): string 
     case "folderUnresolvable":
       return t.folderUnresolvable(reason.detail);
     case "fileInvalid":
-      return t.fileInvalid(reason.detail);
+      return t.fileInvalid(fileProblemText(reason.problem, text));
     case "other":
       return t.other(reason.detail);
     case "instanceUnavailable":
@@ -102,7 +106,7 @@ export function reviewNoteText(note: ReviewNote, text: Catalog): string {
     case "launcherProgram":
       return t.launcherProgram(note.program);
     case "manifestWarning":
-      return t.manifestWarning(note.detail);
+      return t.manifestWarning(diagnosticText(note.diagnostic, text));
     case "notOneLine":
     case "noStartCommand":
       return t[note.code];
@@ -203,4 +207,49 @@ export function failureText(failure: unknown, text: Catalog): string {
     }
   }
   return failure instanceof Error ? failure.message : String(failure);
+}
+
+/** One problem of a file: its line, when it has one, and what is wrong. */
+export function diagnosticText(diagnostic: Diagnostic, text: Catalog): string {
+  const message = text.reasons.diagnostic(diagnostic.kind);
+  return diagnostic.line === null ? message : text.reasons.atLine(diagnostic.line, message);
+}
+
+export function fileProblemText(problem: FileProblem, text: Catalog): string {
+  const t = text.reasons.file;
+  if (problem.code === "unreadable") return t.unreadable(problem.path, problem.detail);
+  const errors = problem.diagnostics
+    .filter((diagnostic) => diagnostic.severity === "error")
+    .map((diagnostic) => diagnosticText(diagnostic, text));
+  return t.invalid(problem.path, errors.join("; "));
+}
+
+/** A warning of the core, as the strip and the settings sheet list it. */
+export function problemText(problem: Problem, text: Catalog): string {
+  const t = text.reasons.problem;
+  switch (problem.code) {
+    case "folderUnreadable":
+      return t.folderUnreadable(problem.path, problem.detail);
+    case "manifestUnusable":
+      return fileProblemText(problem.problem, text);
+    case "manifestWarnings": {
+      const first = problem.diagnostics[0];
+      return `${problem.path}: ${first === undefined ? "" : diagnosticText(first, text)}`;
+    }
+    case "duplicateProjectName":
+      return t.duplicateProjectName(problem.name, problem.roots.join(", "));
+    case "activityLogWrite":
+    case "activityLogPrune":
+      return t[problem.code](problem.detail);
+    case "catalogNotRefreshed":
+      return t.catalogNotRefreshed;
+    case "instanceNotSaved":
+      return t.instanceNotSaved(problem.reference, problem.detail);
+  }
+}
+
+export function dockerProblemText(problem: DockerProblem, text: Catalog): string {
+  return problem.code === "connectionLost"
+    ? text.reasons.docker.connectionLost
+    : text.reasons.docker.unreachable(problem.detail);
 }

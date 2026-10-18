@@ -1,6 +1,6 @@
 // Every string the person reads, in English. It has the very same shape as the Spanish
 // source (`Catalog`), so a missing key or a changed signature does not compile.
-import type { DocumentKind, FormProblem } from "../types";
+import type { DiagnosticKind, DocumentKind, FormProblem } from "../types";
 import { type Catalog, type EventContext } from "./es";
 import { pluralizer } from "./format";
 
@@ -114,6 +114,7 @@ export const en: Catalog = {
     commandPrivacy:
       "The executable and the long options are shown. Values and positional arguments are hidden to protect credentials and scripts.",
     stale: "Possibly older code",
+    staleSince: (time: string) => `It started before the last commit or checkout (${time}).`,
     staleBody: "This is a hint based on Git dates, not proof of a fault nor permission to restart.",
   },
   projects: {
@@ -554,6 +555,97 @@ export const en: Catalog = {
       operationAtCapacity: "There are too many operations running.",
       operationNotFound: "The operation does not exist.",
       nothingToRetry: "The operation has no failed targets to retry.",
+    },
+    diagnostic: (kind: DiagnosticKind): string => {
+      switch (kind.code) {
+        case "syntax":
+          return kind.detail;
+        case "unknownKey":
+          return `Unknown key “${kind.key}”; it is ignored.`;
+        case "testIgnored":
+          return "“test” ignored: devports does not manage test configuration (ADR-010).";
+        case "versionMissing":
+          return "“version” is missing; it must be 1.";
+        case "unsupportedVersion":
+          return `Version ${kind.version} is not supported; update devports.`;
+        case "versionMustBeOne":
+          return "“version” must be 1.";
+        case "projectMissing":
+          return "“project” is missing.";
+        case "invalidProjectName":
+          return `The project name “${kind.name}” is not valid: use lowercase letters, digits and hyphens, up to 63 characters, not starting with a hyphen.`;
+        case "unknownShared":
+          return `“${kind.name}” is not defined in shared.yml.`;
+        case "servicesMissing":
+          return "“services” is missing (it may be empty: `services: {}`).";
+        case "invalidServiceName":
+          return `The service name “${kind.name}” is not valid: use lowercase letters, digits and hyphens.`;
+        case "cwdAndDocker":
+          return `“${kind.service}” has both “cwd” and “docker”: it must have exactly one.`;
+        case "noCwdNorDocker":
+          return `“${kind.service}” needs “cwd” (host service) or “docker” (container).`;
+        case "emptyDocker":
+          return `“docker” of “${kind.service}” is empty.`;
+        case "emptyCwd":
+          return `“cwd” of “${kind.service}” is empty.`;
+        case "cwdNotAbsolute":
+          return `“cwd” of “${kind.service}” must be an absolute path (or start with ~/) in shared.yml.`;
+        case "cwdAbsolute":
+          return `“cwd” of “${kind.service}” must be relative to the manifest, not “${kind.cwd}”.`;
+        case "cwdEscapes":
+          return `“cwd” of “${kind.service}” leaves the project folder: “${kind.cwd}”.`;
+        case "startMultiline":
+          return `“start” of “${kind.service}” must be a single command, without line breaks; for several steps use a script.`;
+        case "portOutOfRange":
+          return `“port” of “${kind.service}” must be between 1 and 65535, not ${kind.port}.`;
+        case "portPrivileged":
+          return `“port” of “${kind.service}” is ${kind.port}, below 1024: it may need privileges.`;
+        case "portTaken":
+          return `Port ${kind.port} is already used by “${kind.other}”: within a project every preferred port is unique.`;
+        case "invalidHealth":
+          return `“health” of “${kind.service}” must be \`tcp\` or \`http:/path\`, not “${kind.health}”.`;
+        case "invalidKind":
+          return `“kind” of “${kind.service}” must be \`app\` or \`data\`, not “${kind.kind}”.`;
+        case "emptyMatch":
+          return `“match” of “${kind.service}” is empty: it will not recognise any process.`;
+        case "invalidDuration":
+          return `“${kind.key}”: ${kind.detail}`;
+        case "maxDepthRange":
+          return `“max_depth” must be between 0 and 8, not ${kind.value}.`;
+        case "retentionRange":
+          return `“events_retention_days” must be at least 1, not ${kind.value}.`;
+        case "maxPerServiceRange":
+          return `“lease.max_per_service” must be between 1 and 16, not ${kind.value}.`;
+        case "hostIntervalRange":
+          return "“observation.host_interval” must be between 250ms and 10s.";
+        case "temporalPortRange":
+          return "“observation.temporal_port_range” must be [start, end] with 1024 <= start < end <= 65535.";
+        case "leaseDefaultOverMax":
+          return "“lease.default” cannot exceed “lease.max_total”.";
+        case "leaseExtendOverMax":
+          return "“lease.extend_by” cannot exceed “lease.max_total”.";
+        case "leaseWarnOverDefault":
+          return "“lease.warn_before” must be shorter than “lease.default”.";
+      }
+    },
+    atLine: (line: number, message: string) => `line ${line}: ${message}`,
+    file: {
+      unreadable: (path: string, detail: string) => `${path}: could not be read: ${detail}`,
+      invalid: (path: string, messages: string) => `${path}: ${messages}`,
+    },
+    problem: {
+      folderUnreadable: (path: string, detail: string) => `${path}: could not be read: ${detail}`,
+      duplicateProjectName: (name: string, roots: string) =>
+        `The project name “${name}” is repeated in ${roots}.`,
+      activityLogWrite: (detail: string) => `Could not write to the activity log: ${detail}`,
+      activityLogPrune: (detail: string) => `Could not clean the activity log: ${detail}`,
+      catalogNotRefreshed: "The declaration was saved; the catalog will refresh on the next scan.",
+      instanceNotSaved: (reference: string, detail: string) =>
+        `Could not save the instance ${reference}: ${detail}`,
+    },
+    docker: {
+      connectionLost: "The connection to Docker was lost.",
+      unreachable: (detail: string) => detail,
     },
     ineligibility: {
       configInvalid: (detail: string) =>

@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 
 import type { Link } from "./connection";
 import { useI18n } from "./i18n/provider";
+import { dockerProblemText, problemText } from "./reasons";
 import { agoFrom } from "./time";
 import type { Snapshot } from "./types";
 
@@ -57,7 +58,7 @@ export function StatusStrip({
           <div className="soft">{text.status.dockerDownBody}</div>
           {snapshot.docker_error !== null && (
             <div className="soft mono" style={{ marginTop: 4, fontSize: 11 }}>
-              {shortReason(snapshot.docker_error)}
+              {shortReason(dockerProblemText(snapshot.docker_error, text))}
             </div>
           )}
         </div>
@@ -108,7 +109,7 @@ export function StatusDetails({
         <dd>
           {snapshot.docker_reachable || snapshot.docker_error === null
             ? t.dockerOk
-            : t.dockerDown(shortReason(snapshot.docker_error))}
+            : t.dockerDown(shortReason(dockerProblemText(snapshot.docker_error, text)))}
         </dd>
       </dl>
       <div className="eyebrow">{t.problemsTitle}</div>
@@ -116,9 +117,10 @@ export function StatusDetails({
         <p className="soft">{t.noProblems}</p>
       ) : (
         <ul className="soft evidence">
-          {snapshot.problems.map((problem) => (
-            <li key={problem}>{problem}</li>
-          ))}
+          {snapshot.problems.map((problem) => {
+            const sentence = problemText(problem, text);
+            return <li key={sentence}>{sentence}</li>;
+          })}
         </ul>
       )}
     </section>

@@ -8,6 +8,10 @@ import { es } from "./i18n/es";
 import {
   actionErrorText,
   commandErrorText,
+  diagnosticText,
+  dockerProblemText,
+  fileProblemText,
+  problemText,
   failureText,
   fieldProblemText,
   ineligibilityText,
@@ -23,13 +27,18 @@ import type {
   ActionError,
   AdoptionError,
   CommandError,
+  Diagnostic,
+  DiagnosticKind,
+  DockerProblem,
   FieldProblem,
+  FileProblem,
   FormKey,
   FormProblem,
   Ineligibility,
   Limitation,
   ListProblem,
   OperationTargetResult,
+  Problem,
   ReviewNote,
   RootProblemKind,
   SettingsError,
@@ -45,10 +54,65 @@ const catalogs = [
 
 // One sample of every code the core can send. Adding a code to a type fails the compiler
 // here (the arrays are checked against the unions), so a code cannot go without its sentence.
+const kinds: DiagnosticKind[] = [
+  { code: "syntax", detail: "d" },
+  { code: "unknownKey", key: "k" },
+  { code: "testIgnored" },
+  { code: "versionMissing" },
+  { code: "unsupportedVersion", version: "2" },
+  { code: "versionMustBeOne" },
+  { code: "projectMissing" },
+  { code: "invalidProjectName", name: "N" },
+  { code: "unknownShared", name: "mysql" },
+  { code: "servicesMissing" },
+  { code: "invalidServiceName", name: "N" },
+  { code: "cwdAndDocker", service: "api" },
+  { code: "noCwdNorDocker", service: "api" },
+  { code: "emptyDocker", service: "api" },
+  { code: "emptyCwd", service: "api" },
+  { code: "cwdNotAbsolute", service: "api" },
+  { code: "cwdAbsolute", service: "api", cwd: "/x" },
+  { code: "cwdEscapes", service: "api", cwd: "../x" },
+  { code: "startMultiline", service: "api" },
+  { code: "portOutOfRange", service: "api", port: "70000" },
+  { code: "portPrivileged", service: "api", port: 80 },
+  { code: "portTaken", port: 8080, other: "web" },
+  { code: "invalidHealth", service: "api", health: "ping" },
+  { code: "invalidKind", service: "api", kind: "x" },
+  { code: "emptyMatch", service: "api" },
+  { code: "invalidDuration", key: "lease.default", detail: "d" },
+  { code: "maxDepthRange", value: "9" },
+  { code: "retentionRange", value: "0" },
+  { code: "maxPerServiceRange", value: "20" },
+  { code: "hostIntervalRange" },
+  { code: "temporalPortRange" },
+  { code: "leaseDefaultOverMax" },
+  { code: "leaseExtendOverMax" },
+  { code: "leaseWarnOverDefault" },
+];
+const diagnostics: Diagnostic[] = kinds.map((kind, index) => ({
+  severity: index % 2 === 0 ? "error" : "warning",
+  line: index % 3 === 0 ? null : index,
+  kind,
+}));
+const file: FileProblem = { code: "invalid", path: "/p/.devports.yml", diagnostics };
+const problemsOfTheCore: Problem[] = [
+  { code: "folderUnreadable", path: "/p", detail: "d" },
+  { code: "manifestUnusable", problem: file },
+  { code: "manifestUnusable", problem: { code: "unreadable", path: "/p", detail: "d" } },
+  { code: "manifestWarnings", path: "/p", diagnostics },
+  { code: "manifestWarnings", path: "/p", diagnostics: [] },
+  { code: "duplicateProjectName", name: "n", roots: ["/a", "/b"] },
+  { code: "activityLogWrite", detail: "d" },
+  { code: "activityLogPrune", detail: "d" },
+  { code: "catalogNotRefreshed" },
+  { code: "instanceNotSaved", reference: "r", detail: "d" },
+];
+const dockers: DockerProblem[] = [{ code: "connectionLost" }, { code: "unreachable", detail: "d" }];
 const ineligibility: Ineligibility[] = [
-  { code: "configInvalid", detail: "d" },
+  { code: "configInvalid", problem: file },
   { code: "noManifest" },
-  { code: "manifestInvalid", detail: "d" },
+  { code: "manifestInvalid", problem: file },
   { code: "readOnly", path: "/p" },
   { code: "rootsNotEditable" },
 ];
@@ -76,8 +140,8 @@ const limitations: Limitation[] = [
   { code: "targetFolderNotFound" },
   { code: "targetFolderUnresolvable" },
   ...keys.flatMap((key) => problems.map((problem) => ({ code: "form" as const, key, problem }))),
-  { code: "editInvalid", document: "config", detail: "d" },
-  { code: "editInvalid", document: "manifest", detail: "d" },
+  { code: "editInvalid", document: "config", problem: file },
+  { code: "editInvalid", document: "manifest", problem: file },
   { code: "editTouchedMore", key: "uses" },
   { code: "other", detail: "d" },
 ];
@@ -95,7 +159,7 @@ const unsuitabilities: Unsuitability[] = [
   { code: "projectNotInCatalog" },
   { code: "resultTooLarge" },
   { code: "notDescribable" },
-  { code: "fileInvalid", detail: "d" },
+  { code: "fileInvalid", problem: file },
   { code: "other", detail: "d" },
 ];
 const fields: FieldProblem[] = ["invalidName", "invalidStart", "nameTaken", "tooLong"];
@@ -112,7 +176,7 @@ const notes: ReviewNote[] = [
   { code: "launcherProgram", program: "npm" },
   { code: "notOneLine" },
   { code: "noStartCommand" },
-  { code: "manifestWarning", detail: "d" },
+  { code: "manifestWarning", diagnostic: diagnostics[0] as Diagnostic },
 ];
 const stops: StopFailure[] = [
   { code: "protected", pid: 1 },
@@ -190,6 +254,10 @@ describe.each(catalogs)("every reason the core sends has a sentence in %s", (_na
     ["stop", stops.map((value) => stopFailureText(value, text))],
     ["action", actions.map((value) => actionErrorText(value, text))],
     ["command", commands.map((value) => commandErrorText(value, text))],
+    ["diagnostic", diagnostics.map((value) => diagnosticText(value, text))],
+    ["file", [fileProblemText(file, text)]],
+    ["problem", problemsOfTheCore.map((value) => problemText(value, text))],
+    ["docker", dockers.map((value) => dockerProblemText(value, text))],
     ["settings", settings.map((value) => settingsMessage(value, text))],
     ["uses", uses.map((value) => usesMessage(value, text))],
     ["adoption", adoptions.map((value) => adoptionMessage(value, text))],
@@ -226,8 +294,27 @@ describe("the sentences carry what the core said", () => {
       "Could not read or write: EACCES: permission denied",
     );
     expect(
-      ineligibilityText({ code: "configInvalid", detail: "line 3: bad indent" }, en),
-    ).toContain("line 3: bad indent");
+      ineligibilityText(
+        {
+          code: "configInvalid",
+          problem: { code: "unreadable", path: "/c", detail: "EACCES" },
+        },
+        en,
+      ),
+    ).toContain("EACCES");
+    expect(
+      fileProblemText(
+        {
+          code: "invalid",
+          path: "/p/.devports.yml",
+          diagnostics: [
+            { severity: "error", line: 4, kind: { code: "noCwdNorDocker", service: "api" } },
+            { severity: "warning", line: 9, kind: { code: "unknownKey", key: "x" } },
+          ],
+        },
+        en,
+      ),
+    ).toBe("/p/.devports.yml: line 4: “api” needs “cwd” (host service) or “docker” (container).");
   });
 });
 

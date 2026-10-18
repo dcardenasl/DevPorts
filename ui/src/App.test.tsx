@@ -1500,7 +1500,10 @@ describe("the panel", () => {
   it("says Docker is unreachable on every tab and never shows its containers as stopped", async () => {
     const snapshot = sampleSnapshot();
     snapshot.docker_reachable = false;
-    snapshot.docker_error = "no se pudo conectar con /var/run/docker.sock";
+    snapshot.docker_error = {
+      code: "unreachable",
+      detail: "no se pudo conectar con /var/run/docker.sock",
+    };
     const mysql = snapshot.instances.find((view) => view.service === "mysql" && view.shared);
     if (mysql) mysql.state = "unknown";
     const { user } = await open(snapshot);
@@ -1517,15 +1520,33 @@ describe("the panel", () => {
   it("points to the manifest and configuration warnings and lists them in Configuración", async () => {
     const snapshot = sampleSnapshot();
     snapshot.problems = [
-      "/work/blog/.devports.yml: línea 4: «api» necesita «cwd»",
-      "/work/old/.devports.yml: versión 2 no soportada",
+      {
+        code: "manifestUnusable",
+        problem: {
+          code: "invalid",
+          path: "/work/blog/.devports.yml",
+          diagnostics: [
+            { severity: "error", line: 4, kind: { code: "noCwdNorDocker", service: "api" } },
+          ],
+        },
+      },
+      {
+        code: "manifestUnusable",
+        problem: {
+          code: "invalid",
+          path: "/work/old/.devports.yml",
+          diagnostics: [
+            { severity: "error", line: null, kind: { code: "unsupportedVersion", version: "2" } },
+          ],
+        },
+      },
     ];
     const { user } = await open(snapshot);
     expect(screen.getByText("2 avisos de configuración o manifiestos")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Ver detalle" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/«api» necesita «cwd»/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/versión 2 no soportada/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Versión 2 no soportada/)).toBeInTheDocument();
     expect(within(dialog).getByText("Conectado")).toBeInTheDocument();
     expect(within(dialog).getByText("Responde")).toBeInTheDocument();
     // The sheet still edits the folders: a warning is not a dead end.

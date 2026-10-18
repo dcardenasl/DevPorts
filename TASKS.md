@@ -539,7 +539,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** lista de códigos y cómo añadir uno; qué texto del núcleo queda (UXR-9.8).
 
-- [ ] **UXR-9.8 — Avisos del núcleo y `stale` como datos tipados.**
+- [x] **UXR-9.8 — Avisos del núcleo y `stale` como datos tipados.**
 
   **Dependencias:** UXR-9.7. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041 punto 6; MANIFIESTO.md (diagnósticos de manifiestos).
 
@@ -552,6 +552,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `tools/check.sh full`; `pnpm` completo.
 
   **Commits previstos:** `refactor(core): send typed diagnostics to the panel` → `refactor(ui): write the core warnings from typed diagnostics`.
+
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.8». El panel ya no recibe frases del núcleo salvo las de la lista de `bindings.rs`.
 
   **Entrega a la próxima sesión:** con 9.7 y 9.8 el panel no recibe frases del núcleo; actualizar ADR-041 si el patrón cambió.
 
