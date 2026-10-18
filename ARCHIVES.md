@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-3.2 — Completar adopción revisada desde el panel · 2026-10-17
+- **Commits de implementación:** ver `git log` (`feat(core)` alcance de exploración, `feat(app)` operación revisada, `feat(ui)` hoja de adopción).
+- **Resultado:** destino → revisión editable → Guardar, siempre con revisión previa (también compartidos); borrador recuperable, errores junto al campo, conflictos tipados y resultado recuperable tras cerrar el panel sin reenviar. Éxito muestra el destino devuelto y enlaza a su tarjeta. El núcleo rechaza raíces que la exploración no alcanza.
+- **Archivos/contratos:** `AdoptSheet.tsx`, `adoption.ts`, `mock-adoption.ts`, `hooks.ts` (`useMounted`, `useSingleFlight`, `usePanelStore`), `operations.rs` (`AdoptionSubmission`, huella SHA-256, `adoption_error`), `panel_state.rs` (`AdoptionDraftReview`, `operation_id`), `discovery::includes_directory`, `runtime/adoption.rs`. Sin nuevos métodos del socket.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check y 43/43 Vitest. Pruebas nuevas: alcance de exploración (Rust), campo inválido con reintento y recuperación tras recrear el panel (UI).
+- **Evidencia nativa vs simulada:** mock de navegador y pruebas de núcleo con archivos reales en TempDir; sin Tauri/WebKit/VoiceOver (UXR-7.2). [Informe](docs/audits/2026-10-17-uxr-3-2.md).
+- **Limpieza:** sin procesos ni servicios reales; `.devports.yml` local no versionado intacto; sin push ni reinstalación.
+- **Entrega siguiente:** UXR-4.2 reutiliza `AdoptSheet` y el patrón `adoption` de operación para consumidores; UXR-6.1 ofrece la edición de carpetas de exploración que esta revisión menciona al rechazar una raíz.
+
 ## UXR-3.1 — Preparar adopción elegible y edición validada · 2026-10-17
 - **Commit de implementación:** `5e4425a` (`feat(core): add validated adoption reviews with idempotent saves`).
 - **Resultado:** destinos con elegibilidad/motivos, raíz Git/cwd real, proyecto provisional explícito y revisión congelada con nombre/comando editables. Guardado sin recalcular/sufijar, conflictos tipados y recibos idempotentes tras respuesta perdida. Adoptar no ejecuta ni reinicia el comando.

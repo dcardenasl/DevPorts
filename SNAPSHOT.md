@@ -7,8 +7,8 @@
 |---|---|
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1, UXR-2 y UXR-3.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Ejecutar [UXR-3.2](TASKS.md#uxr-3-2): integrar destino → revisión editable → Guardar con borrador y OperationStore. UXR-3.1 (`5e4425a`) entrega contratos congelados, conflictos e idempotencia; [contrato y límites](docs/audits/2026-10-17-uxr-3-1.md). Controles completos Rust, UI 41/41 y build verdes. Resolver descubrimiento/navegación de proyectos nuevos fuera de carpetas configuradas explícitamente. UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver y presupuesto con las correcciones quedan en UXR-7.2. |
+| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1, UXR-2 y UXR-3 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
+| **Próximo paso** | Ejecutar [UXR-4.1](TASKS.md#uxr-4-1): guardar consumidores compartidos por proyecto, reutilizando `FileSnapshot` y el registro de operaciones. UXR-3.2 cerrada: [informe](docs/audits/2026-10-17-uxr-3-2.md). UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver y presupuesto quedan en UXR-7.2. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 
