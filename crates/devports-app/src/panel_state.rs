@@ -4,6 +4,11 @@ use std::sync::{Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
+/// Contract version of the serialized panel context.
+pub const PANEL_STATE_VERSION: u32 = 2;
+/// Most projects either manual list may hold.
+const MAX_FOLDED_PROJECTS: usize = 256;
+
 /// The panel context kept by the application shell, never written to disk.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,10 +17,10 @@ pub struct PanelState {
     pub version: u32,
     /// Last selected panel tab.
     pub tab: PanelTab,
-    /// Expanded project in the project list, if any.
-    pub expanded_project: Option<String>,
-    /// Whether the person has chosen an expansion state, including "all closed".
-    pub expanded_project_set: bool,
+    /// Projects the person opened by hand; they stay open whatever their activity.
+    pub open_projects: Vec<String>,
+    /// Projects the person folded by hand; they stay folded whatever their activity.
+    pub closed_projects: Vec<String>,
     /// Activity filter selection.
     pub activity_filter: ActivityFilter,
     /// A non-destructive, resumable form draft.
@@ -25,10 +30,10 @@ pub struct PanelState {
 impl Default for PanelState {
     fn default() -> Self {
         Self {
-            version: 1,
+            version: PANEL_STATE_VERSION,
             tab: PanelTab::Attention,
-            expanded_project: None,
-            expanded_project_set: false,
+            open_projects: Vec::new(),
+            closed_projects: Vec::new(),
             activity_filter: ActivityFilter::All,
             draft: None,
         }
@@ -203,6 +208,10 @@ pub enum AdoptMode {
     Review,
 }
 
+fn within_limits(names: &[String]) -> bool {
+    names.len() <= MAX_FOLDED_PROJECTS && names.iter().all(|name| name.len() <= MAX_NAME_BYTES)
+}
+
 /// Thread-safe owner for the volatile panel context.
 #[derive(Debug, Default)]
 pub struct PanelStateStore(Mutex<PanelState>);
@@ -218,8 +227,11 @@ impl PanelStateStore {
 
     /// Replaces the current context, accepting only the current contract version.
     pub fn set(&self, state: PanelState) -> Result<(), &'static str> {
-        if state.version != 1 {
+        if state.version != PANEL_STATE_VERSION {
             return Err("unsupported panel state version");
+        }
+        if !within_limits(&state.open_projects) || !within_limits(&state.closed_projects) {
+            return Err("project list exceeds its limits");
         }
         if state
             .draft
@@ -241,7 +253,8 @@ mod tests {
     fn panel_context_round_trips_through_json() {
         let state = PanelState {
             tab: PanelTab::Projects,
-            expanded_project: Some("shop".to_owned()),
+            open_projects: vec!["shop".to_owned()],
+            closed_projects: vec!["blog".to_owned()],
             activity_filter: ActivityFilter::Alerts,
             draft: Some(PanelDraft::Adopt {
                 reference: "instance-1".to_owned(),
@@ -331,10 +344,26 @@ mod tests {
     }
 
     #[test]
+    fn project_lists_are_bounded() {
+        let store = PanelStateStore::default();
+        let too_many = PanelState {
+            open_projects: (0..257).map(|index| format!("p{index}")).collect(),
+            ..PanelState::default()
+        };
+        assert_eq!(store.set(too_many), Err("project list exceeds its limits"));
+        let too_long = PanelState {
+            closed_projects: vec!["x".repeat(64)],
+            ..PanelState::default()
+        };
+        assert_eq!(store.set(too_long), Err("project list exceeds its limits"));
+        assert_eq!(store.get(), PanelState::default());
+    }
+
+    #[test]
     fn store_rejects_unknown_versions_without_replacing_state() {
         let store = PanelStateStore::default();
         let unknown = PanelState {
-            version: 2,
+            version: PANEL_STATE_VERSION + 1,
             ..PanelState::default()
         };
         assert_eq!(store.set(unknown), Err("unsupported panel state version"));
