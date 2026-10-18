@@ -10,6 +10,10 @@ export interface Actions {
   requestProjectStop: (project: string, invoker: HTMLButtonElement) => void;
   extend: (view: InstanceView) => void;
   keep: (view: InstanceView) => void;
+  /** Shows the exact rule and, once confirmed, ignores this service. */
+  ignore: (view: InstanceView, invoker: HTMLButtonElement) => void;
+  /** Lists the saved ignore rules so each can be restored. */
+  showIgnored: (invoker: HTMLButtonElement) => void;
   openUrl: (url: string) => void;
   copy: (text: string) => void;
   showInProjects: (ref: string) => void;

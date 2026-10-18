@@ -4,6 +4,7 @@ import type { Actions } from "./actions";
 import { ConfirmStop } from "./dialogs";
 import { AdoptSheet } from "./AdoptSheet";
 import { ConsumersSheet } from "./ConsumersSheet";
+import { IgnoreConfirm, IgnoredList } from "./IgnoreSheets";
 import { consumersDraft } from "./consumers";
 import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
 import {
@@ -25,6 +26,7 @@ import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
 import { SharedView, sharedSubtitle } from "./views/SharedView";
 
 type Tab = "attention" | "projects" | "shared" | "orphans" | "activity";
+type IgnoreRequest = { view: InstanceView; invoker: HTMLButtonElement };
 type DialogRequest = {
   kind: "stop" | "stopProject";
   views: InstanceView[];
@@ -50,6 +52,8 @@ export function App(): ReactElement {
   const now = useNow();
   const [highlight, setHighlight] = useState<string>();
   const [dialog, setDialog] = useState<DialogRequest>();
+  const [ignoreRequest, setIgnoreRequest] = useState<IgnoreRequest>();
+  const [listInvoker, setListInvoker] = useState<HTMLButtonElement | null>();
   const [preparingProjectStop, setPreparingProjectStop] = useState(false);
   const [draftInvoker, setDraftInvoker] = useState<HTMLButtonElement | null>(null);
   const [logCount, setLogCount] = useState<number>();
@@ -160,6 +164,12 @@ export function App(): ReactElement {
       },
       keep: (view) => {
         runOperation("keep", view.ref);
+      },
+      ignore: (view, invoker) => {
+        setIgnoreRequest({ view, invoker });
+      },
+      showIgnored: (invoker) => {
+        setListInvoker(invoker);
       },
       openUrl: (url) => {
         attempt(api.openUrl(url));
@@ -415,10 +425,6 @@ export function App(): ReactElement {
                   setDraftInvoker(null);
                 }}
                 onDraftChange={(draft) => persistPanelState({ draft })}
-                onIgnore={() => {
-                  updatePanelState({ draft: null });
-                  runOperation("keep", adoptionDraft.reference);
-                }}
                 onNavigate={(project, service, shared) => {
                   setHighlight(
                     snapshot.instances.find(
@@ -435,6 +441,38 @@ export function App(): ReactElement {
                 }}
               />
             )}
+          {ignoreRequest !== undefined && (
+            <IgnoreConfirm
+              api={api}
+              reference={ignoreRequest.view.ref}
+              returnFocusTo={ignoreRequest.invoker}
+              onCancel={() => {
+                setIgnoreRequest(undefined);
+              }}
+              onConfirm={() => {
+                setIgnoreRequest(undefined);
+                runOperation("keep", ignoreRequest.view.ref);
+              }}
+            />
+          )}
+          {listInvoker !== undefined && (
+            <IgnoredList
+              api={api}
+              revision={operations.length + (operations[0]?.revision ?? 0)}
+              returnFocusTo={listInvoker}
+              onClose={() => {
+                setListInvoker(undefined);
+              }}
+              onRestore={async (id) => {
+                const done = await startOperation({
+                  kind: "restore",
+                  targets: [{ reference: id }],
+                });
+                const failed = done?.targets.find((target) => target.status === "failed");
+                if (failed) throw new Error(failed.error ?? "Falló");
+              }}
+            />
+          )}
           {sharedDraft !== null && (
             <ConsumersSheet
               key={sharedDraft.shared}

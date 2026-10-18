@@ -3,6 +3,7 @@
 
 import { mockAdoption } from "./mock-adoption";
 import { mockConsumers } from "./mock-consumers";
+import { mockIgnored } from "./mock-ignored";
 import { adoptionFailure, adoptionMessage } from "./adoption";
 import type { Backend } from "./api";
 import { sampleLog, sampleSnapshot } from "./sample";
@@ -38,11 +39,14 @@ export function mockBackend(): Backend {
 
   const adoption = mockAdoption(() => state, publish);
   const consumers = mockConsumers(() => state, publish);
+  const ignored = mockIgnored(() => state, publish);
   return {
     adoptionOptions: adoption.adoptionOptions,
     previewAdoption: adoption.previewAdoption,
     validateAdoption: adoption.validateAdoption,
     sharedConsumers: consumers.sharedConsumers,
+    ignorePreview: ignored.ignorePreview,
+    ignoredRules: ignored.ignoredRules,
     snapshot: () => Promise.resolve(state),
     previewProjectStop: (project) =>
       Promise.resolve(
@@ -112,14 +116,9 @@ export function mockBackend(): Backend {
             find(ref);
             publish(without(ref));
           } else if (request.kind === "keep") {
-            find(ref);
-            publish({
-              ...state,
-              instances: state.instances.map((candidate) =>
-                candidate.ref === ref ? { ...candidate, ignored: true } : candidate,
-              ),
-              attention: state.attention.filter((item) => item.instance_ref !== ref),
-            });
+            ignored.keep(ref);
+          } else if (request.kind === "restore") {
+            ignored.restore(ref);
           } else if (request.kind === "extend") {
             const view = find(ref);
             const end = Date.parse(view.expires_at ?? "") + state.extend_minutes * 60_000;

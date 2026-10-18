@@ -40,8 +40,24 @@ function groupOrphans(orphans: InstanceView[]): Group[] {
 
 export function OrphansView({ actions }: { actions: Actions }): ReactElement {
   const orphans = buildOrphans(actions.snapshot);
+  const ignored = (
+    <button
+      type="button"
+      className="link-btn"
+      onClick={(event) => {
+        actions.showIgnored(event.currentTarget);
+      }}
+    >
+      {text.ignore.view}
+    </button>
+  );
   if (orphans.length === 0) {
-    return <Empty title={text.orphans.none} body={text.orphans.noneBody} />;
+    return (
+      <>
+        <Empty title={text.orphans.none} body={text.orphans.noneBody} />
+        {ignored}
+      </>
+    );
   }
   return (
     <>
@@ -60,6 +76,7 @@ export function OrphansView({ actions }: { actions: Actions }): ReactElement {
           ))}
         </section>
       ))}
+      {ignored}
     </>
   );
 }
@@ -93,6 +110,15 @@ function OrphanCard({ view, actions }: { view: InstanceView; actions: Actions })
           }}
         >
           {text.projects.stop}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={(event) => {
+            actions.ignore(view, event.currentTarget);
+          }}
+        >
+          {text.ignore.action}
         </button>
         <button
           type="button"

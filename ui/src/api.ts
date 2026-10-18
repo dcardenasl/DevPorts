@@ -6,6 +6,7 @@ import type {
   AdoptionPreview,
   AdoptTarget,
   ConsumerOptions,
+  IgnoreRule,
   ServiceEdits,
   InstanceView,
   LogEntry,
@@ -23,6 +24,10 @@ export interface Backend {
   previewProjectStop(project: string): Promise<InstanceView[]>;
   /** Read-only: every project and whether its manifest declares `shared`. */
   sharedConsumers(shared: string): Promise<ConsumerOptions>;
+  /** The rule that ignoring `reference` would save, exactly as it will be stored. */
+  ignorePreview(reference: string): Promise<IgnoreRule>;
+  /** Every saved ignore rule, with or without a running instance. */
+  ignoredRules(): Promise<IgnoreRule[]>;
   panelState(): Promise<PanelState>;
   savePanelState(state: PanelState): Promise<void>;
   operations(): Promise<OperationView[]>;
@@ -67,6 +72,8 @@ export function createTauriBackend(tauri: TauriGlobal): Backend {
     validateAdoption: (id, edits) => invoke<AdoptionPreview>("validate_adoption", { id, edits }),
     previewProjectStop: (project) => invoke<InstanceView[]>("preview_project_stop", { project }),
     sharedConsumers: (shared) => invoke<ConsumerOptions>("shared_consumers", { shared }),
+    ignorePreview: (reference) => invoke<IgnoreRule>("ignore_preview", { reference }),
+    ignoredRules: () => invoke<IgnoreRule[]>("ignored_rules"),
     panelState: () => invoke<PanelState>("get_panel_state"),
     savePanelState: (state) => {
       stateWrites = stateWrites

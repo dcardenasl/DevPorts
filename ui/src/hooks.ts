@@ -263,7 +263,8 @@ export function useToast(): [string | undefined, (message: string) => void] {
 /** Tracks shell-owned operations so panel remounts recover their actual state. */
 export function useOperations(api: Backend | undefined): {
   operations: OperationView[];
-  start: (request: Omit<OperationRequest, "id">) => Promise<void>;
+  /** Starts the operation, or returns the equal one still waiting for a retry. */
+  start: (request: Omit<OperationRequest, "id">) => Promise<OperationView | undefined>;
   retry: (id: string) => Promise<void>;
 } {
   const [operations, setOperations] = useState<OperationView[]>([]);
@@ -298,9 +299,9 @@ export function useOperations(api: Backend | undefined): {
   }, [api, merge]);
   const start = useCallback(
     async (request: Omit<OperationRequest, "id">) => {
-      if (!api) return;
+      if (!api) return undefined;
       const key = JSON.stringify(request);
-      if (busy.current.has(key)) return;
+      if (busy.current.has(key)) return undefined;
       const existing = operations.find(
         (item) =>
           item.kind === request.kind &&
@@ -319,11 +320,12 @@ export function useOperations(api: Backend | undefined): {
               })),
             ),
       );
-      if (existing && existing.status !== "succeeded") return;
+      if (existing && existing.status !== "succeeded") return existing;
       busy.current.add(key);
       try {
         const operation = await api.startOperation({ ...request, id: crypto.randomUUID() });
         merge(operation);
+        return operation;
       } finally {
         busy.current.delete(key);
       }

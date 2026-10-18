@@ -8,6 +8,7 @@ export type {
   AdoptionOptions,
   AdoptionPreview,
   ConsumerChoice,
+  IgnoreRule,
   ConsumerOptions,
   ServiceEdits,
   UseRequest,
@@ -68,7 +69,8 @@ export interface PanelState {
   draft: PanelDraft | null;
 }
 
-export type OperationKind = "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers";
+export type OperationKind =
+  "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers" | "restore";
 export type OperationStatus = "queued" | "running" | "succeeded" | "partial" | "failed";
 export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed";
 export interface OperationTargetRequest {

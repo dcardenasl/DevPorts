@@ -6,6 +6,7 @@ import type { Backend } from "./api";
 import { App } from "./App";
 import { mockAdoption } from "./mock-adoption";
 import { mockConsumers } from "./mock-consumers";
+import { mockIgnored } from "./mock-ignored";
 import { sampleLog, sampleSnapshot } from "./sample";
 import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
@@ -41,6 +42,7 @@ function fakeBackend(
   };
   const adoption = mockAdoption(() => currentSnapshot, publish);
   const consumers = mockConsumers(() => currentSnapshot, publish);
+  const ignored = mockIgnored(() => currentSnapshot, publish);
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -58,6 +60,8 @@ function fakeBackend(
     },
     validateAdoption: adoption.validateAdoption,
     sharedConsumers: consumers.sharedConsumers,
+    ignorePreview: ignored.ignorePreview,
+    ignoredRules: ignored.ignoredRules,
     previewProjectStop: (project) => {
       void record("previewProjectStop")(project);
       return Promise.resolve(
@@ -88,6 +92,10 @@ function fakeBackend(
       if (calls.operation === undefined) calls.operation = [];
       calls.operation.push([request]);
       const settled = request.kind === "setConsumers" ? consumers.settle(request) : [];
+      for (const target of request.targets) {
+        if (request.kind === "keep") ignored.keep(target.reference);
+        if (request.kind === "restore") ignored.restore(target.reference);
+      }
       const op: OperationView = {
         id: request.id,
         kind: request.kind,
@@ -514,12 +522,26 @@ describe("the panel", () => {
     expect(backend.calls.operation).toHaveLength(1);
   });
 
-  // covers: UI
-  it("keeps a process the person chooses to ignore", async () => {
+  // covers: UI, UXR-5.1
+  it("shows the exact rule before ignoring, keeps it apart from adopting and restores it", async () => {
     const { backend, user } = await open();
     await user.click(tab(/Sin proyecto/));
+    // Adopting no longer hides a process behind a different promise.
     await user.click(screen.getByRole("button", { name: "Adoptar" }));
-    await user.click(screen.getByRole("button", { name: /Ignorar este proceso/ }));
+    expect(screen.queryByRole("button", { name: /Ignorar/ })).toBeNull();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Ignorar" }));
+    const confirm = screen.getByRole("dialog");
+    expect(await within(confirm).findByText("/tmp/scratch")).toBeInTheDocument();
+    expect(within(confirm).getByText(/misma carpeta y el mismo comando/)).toBeInTheDocument();
+    expect(within(confirm).getByText(/No lo detiene ni lo adopta/)).toBeInTheDocument();
+    expect(within(confirm).queryByText(/7000/)).toBeNull();
+    await user.click(within(confirm).getByRole("button", { name: "Cancelar" }));
+    expect(backend.calls.operation).toBeUndefined();
+
+    await user.click(screen.getByRole("button", { name: "Ignorar" }));
+    await user.click(await screen.findByRole("button", { name: "Ignorar este servicio" }));
     await waitFor(() => {
       expect(
         backend.calls.operation
@@ -527,6 +549,118 @@ describe("the panel", () => {
           .map(({ kind, targets }) => [kind, targets[0]?.reference]),
       ).toEqual([["keep", "z9y8"]]);
     });
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Ignorar" })).toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Ver ignorados" }));
+    const list = screen.getByRole("dialog");
+    expect(await within(list).findByText("/tmp/scratch")).toBeInTheDocument();
+    await user.click(within(list).getByRole("button", { name: "Restaurar" }));
+    await waitFor(() => {
+      expect(within(list).getByText("No hay servicios ignorados.")).toBeInTheDocument();
+    });
+    const restores = backend.calls.operation
+      ?.map(([request]) => request as OperationRequest)
+      .filter(({ kind }) => kind === "restore");
+    expect(restores).toHaveLength(1);
+    expect(restores?.[0]?.targets[0]?.reference).toMatch(/^rule-/);
+    await user.click(within(list).getByRole("button", { name: "Cerrar" }));
+    expect(screen.getByRole("button", { name: "Ignorar" })).toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-5.1
+  it("reaches the ignored list with nothing loose and explains that it is empty", async () => {
+    const empty = sampleSnapshot();
+    empty.instances = empty.instances.filter((view) => view.ref !== "z9y8");
+    const { user } = await open(empty);
+    await user.click(tab(/Sin sin proyecto|Sin proyecto/));
+    await user.click(screen.getByRole("button", { name: "Ver ignorados" }));
+    expect(await screen.findByText("No hay servicios ignorados.")).toBeInTheDocument();
+  });
+
+  // covers: UI, UXR-5.1
+  it("lists earlier-build and unreadable rules, labelled, and still restores them", async () => {
+    const { backend, user } = await open();
+    const rules = [
+      {
+        id: "a".repeat(32),
+        kind: "process" as const,
+        folder: "/work/old",
+        command: ["node", "server.js", "--token=abc"],
+        container: null,
+        context: null,
+        legacy: true,
+        createdAt: "2026-10-01T10:00:00Z",
+      },
+      {
+        id: "b".repeat(32),
+        kind: "unknown" as const,
+        folder: null,
+        command: [],
+        container: null,
+        context: null,
+        legacy: false,
+        createdAt: null,
+      },
+    ];
+    backend.ignoredRules = () => Promise.resolve(rules);
+    await user.click(tab(/Sin proyecto/));
+    await user.click(screen.getByRole("button", { name: "Ver ignorados" }));
+    const list = screen.getByRole("dialog");
+    expect(await within(list).findByText("regla anterior")).toBeInTheDocument();
+    expect(within(list).getByText("/work/old")).toBeInTheDocument();
+    expect(within(list).queryByText(/abc/)).toBeNull();
+    expect(within(list).getByText(/no sabe leer/)).toBeInTheDocument();
+    await user.click(within(list).getAllByRole("button", { name: "Restaurar" })[1] as HTMLElement);
+    await waitFor(() => {
+      expect(
+        backend.calls.operation?.map(([r]) => (r as OperationRequest).targets[0]?.reference),
+      ).toEqual(["b".repeat(32)]);
+    });
+  });
+
+  // covers: UI, UXR-5.1
+  it("keeps the rule listed and says why when a restore fails", async () => {
+    const { backend, user } = await open();
+    backend.ignoredRules = () =>
+      Promise.resolve([
+        {
+          id: "c".repeat(32),
+          kind: "container" as const,
+          folder: null,
+          command: [],
+          container: "scratch-db",
+          context: "colima",
+          legacy: false,
+          createdAt: null,
+        },
+      ]);
+    backend.startOperation = (request) =>
+      Promise.resolve({
+        id: request.id,
+        kind: "restore",
+        status: "failed",
+        revision: 1,
+        targets: [
+          {
+            reference: "c".repeat(32),
+            adoptTarget: null,
+            status: "failed",
+            error: "la base de datos está ocupada",
+            result: null,
+            attempts: 1,
+          },
+        ],
+      });
+    await user.click(tab(/Sin proyecto/));
+    await user.click(screen.getByRole("button", { name: "Ver ignorados" }));
+    const list = screen.getByRole("dialog");
+    expect(await within(list).findByText("scratch-db")).toBeInTheDocument();
+    expect(within(list).getByText("colima")).toBeInTheDocument();
+    await user.click(within(list).getByRole("button", { name: "Restaurar" }));
+    expect(await within(list).findByText("la base de datos está ocupada")).toBeInTheDocument();
+    expect(within(list).getByText("scratch-db")).toBeInTheDocument();
   });
 
   // covers: UI

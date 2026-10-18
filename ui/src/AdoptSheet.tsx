@@ -25,7 +25,6 @@ export function AdoptSheet({
   draft,
   onCancel,
   onDraftChange,
-  onIgnore,
   onNavigate,
   returnFocusTo,
 }: {
@@ -35,7 +34,6 @@ export function AdoptSheet({
   draft: AdoptDraft;
   onCancel: () => void;
   onDraftChange: (draft: AdoptDraft) => Promise<void>;
-  onIgnore: () => void;
   onNavigate: (project: string, service: string, shared: boolean) => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
@@ -261,9 +259,6 @@ export function AdoptSheet({
                   )}
                 </div>
               )}
-              <button type="button" className="option" disabled={busy} onClick={onIgnore}>
-                {text.orphans.ignore}
-              </button>
             </div>
           )}
           {draft.mode === "others" && (
