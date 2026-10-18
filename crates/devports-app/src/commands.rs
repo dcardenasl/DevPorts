@@ -82,6 +82,27 @@ pub async fn shared_consumers(
 }
 
 #[tauri::command]
+pub async fn ignore_preview(
+    core: State<'_, CoreState>,
+    reference: String,
+) -> Result<devports_core::ignore::IgnoreRule, String> {
+    core.0
+        .ignore_preview(&reference)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn ignored_rules(
+    core: State<'_, CoreState>,
+) -> Result<Vec<devports_core::ignore::IgnoreRule>, String> {
+    core.0
+        .ignored_rules()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
     state.get()
 }

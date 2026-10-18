@@ -42,6 +42,8 @@ pub enum OperationKind {
     Extend,
     /// Ignore an observed instance.
     Keep,
+    /// Forget one saved ignore rule; the target `reference` is the rule id.
+    Restore,
     /// Adopt an observed instance into a declared destination.
     Adopt,
     /// Declare or remove one shared service in the confirmed projects' manifests.
@@ -656,6 +658,11 @@ async fn perform(
             .await
             .map(|()| None)
             .map_err(|error| OperationFailure::from(error.to_string())),
+        OperationKind::Restore => core
+            .restore_ignored(&target.reference)
+            .await
+            .map(|()| None)
+            .map_err(|error| OperationFailure::from(error.to_string())),
         OperationKind::SetConsumers => Err(OperationFailure::from(
             "los cambios de consumidores se ejecutan como lote".to_owned(),
         )),
@@ -959,5 +966,32 @@ mod tests {
         assert_eq!(retried.targets[0].status, TargetStatus::Succeeded);
         assert_eq!(retried.targets[1].status, TargetStatus::Queued);
         assert_eq!(retried.targets[2].status, TargetStatus::Succeeded);
+    }
+
+    // covers: UXR-5.1
+    #[test]
+    fn a_restore_names_only_a_rule_and_can_be_retried() {
+        let store = OperationStore::default();
+        let restore = OperationRequest {
+            id: "restore-1".to_owned(),
+            kind: OperationKind::Restore,
+            targets: vec![OperationTarget {
+                reference: "0123456789abcdef0123456789abcdef".to_owned(),
+                adopt_target: None,
+                adoption: None,
+                consumers: None,
+                stop_expectation: None,
+            }],
+        };
+        assert!(store.start(restore.clone()).is_ok());
+        fail_target(&store, "restore-1", 0, "the store is busy");
+        assert_eq!(
+            store.retry("restore-1").expect("retry").targets[0].status,
+            TargetStatus::Queued
+        );
+        let mut with_stop = restore;
+        with_stop.id = "restore-2".to_owned();
+        with_stop.targets[0].stop_expectation = Some(stop_expectation());
+        assert_eq!(store.start(with_stop), Err(OperationError::InvalidRequest));
     }
 }
