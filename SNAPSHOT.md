@@ -8,7 +8,7 @@
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
 | **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-6 y UXR-7.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Planificado, sin implementar: tema claro/oscuro e idioma es/en ([plan](docs/plan/tema-e-idioma.md), tareas UXR-9.0 a 9.6 en TASKS.md; UXR-9.0 a 9.2 hechas; siguen 9.3 y 9.5, independientes). UXR-7.2 cerrado ([informe](docs/audits/2026-10-18-uxr-7-2.md)). Solo quedan las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio), G2 y reiniciar el Mac una vez (M-15). |
+| **Próximo paso** | Planificado, sin implementar: tema claro/oscuro e idioma es/en ([plan](docs/plan/tema-e-idioma.md), tareas UXR-9.0 a 9.6 en TASKS.md; UXR-9.0 a 9.3 hechas; sigue 9.5 y luego 9.4 y 9.6). UXR-7.2 cerrado ([informe](docs/audits/2026-10-18-uxr-7-2.md)). Solo quedan las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio), G2 y reiniciar el Mac una vez (M-15). |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 

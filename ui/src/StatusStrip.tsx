@@ -1,11 +1,9 @@
 import type { ReactElement } from "react";
 
 import type { Link } from "./connection";
-import { text } from "./text";
+import { useI18n } from "./i18n/provider";
 import { agoFrom } from "./time";
 import type { Snapshot } from "./types";
-
-const t = text.link;
 
 /** Longest docker error shown; the full text can carry local paths. */
 const REASON_LIMIT = 160;
@@ -31,7 +29,9 @@ export function StatusStrip({
   onRetry: () => void;
   onDetails: (invoker: HTMLButtonElement) => void;
 }): ReactElement | null {
-  const since = agoFrom(link.receivedAt, now);
+  const { text, locale } = useI18n();
+  const t = text.link;
+  const since = agoFrom(link.receivedAt, now, locale);
   const dockerDown = !snapshot.docker_reachable && snapshot.docker_error !== null;
   const warnings = snapshot.problems.length;
   if (link.phase === "ready" && !dockerDown && warnings === 0) return null;
@@ -90,6 +90,8 @@ export function StatusDetails({
   link: Link;
   snapshot: Snapshot;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.link;
   return (
     <section className="stack" aria-label={t.state}>
       <div className="eyebrow">{t.state}</div>

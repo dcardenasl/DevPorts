@@ -3,14 +3,13 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { Backend } from "./api";
 import { Criterion } from "./IgnoreSheets";
 import { Modal } from "./Modal";
-import { text } from "./text";
+import type { Catalog } from "./i18n/es";
+import { useI18n } from "./i18n/provider";
 import type { Classification, IgnoreRule, ProcessClass } from "./types";
-
-const t = text.classify;
 
 type Choice = ProcessClass | "auto";
 
-const label = (class_: ProcessClass): string =>
+const label = (class_: ProcessClass, t: Catalog["classify"]): string =>
   class_ === "project" ? t.project : class_ === "auxiliary" ? t.auxiliary : t.unclassified;
 
 /**
@@ -32,6 +31,8 @@ export function ClassifySheet({
   onSave: (choice: ProcessClass | null) => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.classify;
   const detected = classification?.detected ?? "unclassified";
   const [choice, setChoice] = useState<Choice>(
     classification?.corrected === true ? classification.class : "auto",
@@ -54,7 +55,7 @@ export function ClassifySheet({
     };
   }, [api, reference]);
   const options: [Choice, string][] = [
-    ["auto", t.autoNow(label(detected))],
+    ["auto", t.autoNow(label(detected, t))],
     ["project", t.project],
     ["auxiliary", t.auxiliary],
     ["unclassified", t.unclassified],
@@ -70,7 +71,7 @@ export function ClassifySheet({
     >
       <div className="stack">
         <p className="soft">
-          {t.current}: <strong>{label(classification?.class ?? "unclassified")}</strong>
+          {t.current}: <strong>{label(classification?.class ?? "unclassified", t)}</strong>
           {classification?.origin ? ` · ${t.origin(classification.origin)}` : ""}
         </p>
         <fieldset className="choices">

@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **English panel** — the panel speaks Spanish or English (every screen, plurals, times and error messages from the panel itself); by default it follows the system languages, live. Activity entries and some messages written by the core are still Spanish.
+
 - **Light theme** — the panel now has a light and a dark theme, both meeting WCAG AA; by default it follows the system appearance, live, and opens already wearing the right one.
 
 - **Projects tab layout** — each project is one header row (name, folder, branch and its occupied ports, still visible when folded), several projects can stay open at once with Plegar todo / Abrir todo, active projects open by themselves and are listed first, and a service row opens its own details.

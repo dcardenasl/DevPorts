@@ -4,7 +4,7 @@ import type { Backend } from "./api";
 import { adoptionFailure, adoptionMessage, needsNewReview, reviewDraft } from "./adoption";
 import { useMounted, useOperationWatch, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
-import { text } from "./text";
+import { useI18n } from "./i18n/provider";
 import type {
   AdoptDraft,
   AdoptTarget,
@@ -13,8 +13,6 @@ import type {
   InstanceView,
   Snapshot,
 } from "./types";
-
-const t = text.adoption;
 
 type Review = NonNullable<AdoptDraft["review"]>;
 
@@ -37,6 +35,8 @@ export function AdoptSheet({
   onNavigate: (project: string, service: string, shared: boolean) => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.adoption;
   const [options, setOptions] = useState<AdoptionOptions>();
   const [failure, setFailure] = useState<AdoptionError>();
   const [busy, setBusy] = useState(false);
@@ -208,7 +208,7 @@ export function AdoptSheet({
     >
       {displayedFailure !== undefined && displayedFailure.code !== "invalidField" && (
         <p className="form-error" role="alert">
-          {adoptionMessage(displayedFailure)}
+          {adoptionMessage(displayedFailure, text)}
         </p>
       )}
       {draft.mode !== "review" && (

@@ -11,7 +11,14 @@ import { mockIgnored } from "./mock-ignored";
 import { mockPreferences } from "./mock-preferences";
 import { mockSettings } from "./mock-settings";
 import { sampleLog, sampleSnapshot } from "./sample";
-import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
+import type {
+  InstanceView,
+  LanguagePreference,
+  OperationRequest,
+  OperationView,
+  PanelState,
+  Snapshot,
+} from "./types";
 
 const state = vi.hoisted(() => ({ current: undefined as Backend | undefined }));
 
@@ -169,12 +176,15 @@ function fakeBackend(
   };
 }
 
-async function open(snapshot: Snapshot = sampleSnapshot()) {
+async function open(
+  snapshot: Snapshot = sampleSnapshot(),
+  language: LanguagePreference = "system",
+) {
   const backend = fakeBackend(snapshot);
   state.current = backend;
   const user = userEvent.setup();
-  render(<App />);
-  await screen.findByRole("tab", { name: /Atención/ });
+  render(<App initialLanguage={language} />);
+  await screen.findAllByRole("tab");
   return { backend, user };
 }
 
@@ -1633,5 +1643,52 @@ describe("the panel", () => {
     const message = await within(dialog).findByText("la carpeta no existe");
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveAttribute("aria-describedby", message.id);
+  });
+});
+
+// covers: UXR-9.3
+describe("the panel in English", () => {
+  beforeEach(() => {
+    state.current = undefined;
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("opens on Attention with the counter, the official instance and every alert", async () => {
+    await open(sampleSnapshot(), "en");
+    expect(screen.getByRole("heading", { level: 1, name: "Attention" })).toBeInTheDocument();
+    expect(screen.getByText("3 things are waiting for your decision")).toBeInTheDocument();
+    expect(screen.getByText("OFFICIAL")).toBeInTheDocument();
+    expect(screen.getByText("TEMPORARY, ABOUT TO EXPIRE")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop all 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Extend 30 min" })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("en");
+  });
+
+  it("names every section and its subtitle in English", async () => {
+    const { user } = await open(sampleSnapshot(), "en");
+    expect(screen.getByRole("tablist", { name: "Sections" })).toBeInTheDocument();
+    for (const [name, heading] of [
+      [/Projects/, "Projects"],
+      [/Shared/, "Shared"],
+      [/No project/, "No project"],
+      [/Activity/, "Activity"],
+    ] as const) {
+      await user.click(tab(name));
+      expect(screen.getByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
+    }
+  });
+
+  it("writes the activity from the log with English labels and filters", async () => {
+    const { user } = await open(sampleSnapshot(), "en");
+    await user.click(tab(/Activity/));
+    await screen.findByRole("group", { name: "Filter" });
+    expect(screen.getByRole("button", { name: "Rejections" })).toBeInTheDocument();
+    expect(screen.getAllByText("REJECTED").length).toBeGreaterThan(0);
+  });
+
+  it("opens the settings sheet in English", async () => {
+    const { user } = await open(sampleSnapshot(), "en");
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByText("Scan folders")).toBeInTheDocument();
   });
 });

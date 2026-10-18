@@ -3,7 +3,7 @@ import { useRef, type ReactElement } from "react";
 import { instanceTitle } from "./instance";
 import { Modal } from "./Modal";
 import { WarningIcon } from "./icons";
-import { text } from "./text";
+import { useI18n } from "./i18n/provider";
 import type { InstanceView } from "./types";
 
 export function ConfirmStop({
@@ -21,9 +21,10 @@ export function ConfirmStop({
   onConfirm: () => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const first = views[0];
-  const name = first === undefined ? "" : instanceTitle(first);
+  const name = first === undefined ? "" : instanceTitle(first, text);
   const data = views.some((view) => view.kind === "data");
   const affectedNames = new Set(affected);
   return (
@@ -54,7 +55,7 @@ export function ConfirmStop({
     >
       <div className="stack stop-targets" style={{ marginTop: 8 }}>
         {views.map((view) => {
-          const targetName = instanceTitle(view);
+          const targetName = instanceTitle(view, text);
           const consumers = affectedNames.size > 0 && (view.shared || view.kind === "data");
           return (
             <section className="card coral" key={view.ref}>

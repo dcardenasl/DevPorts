@@ -1,5 +1,6 @@
 // Browser-only fixture for the scan folders. Real validation and discovery stay the Rust
 // core's job; this keeps a coherent in-memory list so the panel works without Tauri.
+import { es } from "./i18n/es";
 import { settingsMessage } from "./settings";
 import type {
   OperationRequest,
@@ -71,7 +72,7 @@ export function mockSettings() {
     previewScanFolders: async (list: string[]): Promise<ScanPreview> => {
       await Promise.resolve();
       const error = validate(list);
-      if (error) throw Object.assign(new Error(settingsMessage(error)), error);
+      if (error) throw Object.assign(new Error(settingsMessage(error, es)), error);
       const before = names(roots);
       const after = names(list);
       return {
@@ -107,7 +108,7 @@ export function mockSettings() {
           ? { status: "succeeded", error: null, settingsError: null, scanFolderCount: count }
           : {
               status: "failed",
-              error: settingsMessage(error),
+              error: settingsMessage(error, es),
               settingsError: error,
               scanFolderCount: count,
             };

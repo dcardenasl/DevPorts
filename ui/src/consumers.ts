@@ -1,4 +1,5 @@
 // Pure helpers for the consumers sheet: what changes, what is sent, how failures read.
+import type { Catalog } from "./i18n/es";
 import type {
   ConsumerOptions,
   ConsumersDraft,
@@ -75,25 +76,25 @@ export function needsFreshRead(error: UsesError | null | undefined): boolean {
   return error?.code === "documentChanged" || error?.code === "unknownProject";
 }
 
-export function usesMessage(error: UsesError): string {
+export function usesMessage(error: UsesError, text: Catalog): string {
   switch (error.code) {
     case "unknownShared":
-      return `«${error.name}» ya no está definido en shared.yml. Decláralo antes de asociarlo.`;
+      return text.errors.uses.unknownShared(error.name);
     case "unknownProject":
-      return `El proyecto «${error.project}» ya no existe.`;
+      return text.errors.uses.unknownProject(error.project);
     case "documentChanged":
-      return `${error.path} cambió desde que lo revisaste. Consulta de nuevo antes de guardar.`;
+      return text.errors.uses.documentChanged(error.path);
     case "blocked":
-      return "No se escribió nada: otro proyecto de esta selección no pasó la validación.";
+      return text.errors.uses.blocked;
     default:
       return error.message;
   }
 }
 
 /** The failure to show for one target: typed first, the shell's text otherwise. */
-export function targetFailure(target: OperationTargetResult): string | undefined {
+export function targetFailure(target: OperationTargetResult, text: Catalog): string | undefined {
   if (target.status !== "failed") return undefined;
-  return target.usesError ? usesMessage(target.usesError) : (target.error ?? undefined);
+  return target.usesError ? usesMessage(target.usesError, text) : (target.error ?? undefined);
 }
 
 const USES_CODES = [
@@ -108,7 +109,7 @@ const USES_CODES = [
 ];
 
 /** A rejected call as text: typed core errors keep their meaning, anything else its message. */
-export function failureMessage(error: unknown): string {
+export function failureMessage(error: unknown, text: Catalog): string {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -116,6 +117,6 @@ export function failureMessage(error: unknown): string {
     typeof error.code === "string" &&
     USES_CODES.includes(error.code)
   )
-    return usesMessage(error as UsesError);
+    return usesMessage(error as UsesError, text);
   return error instanceof Error ? error.message : String(error);
 }

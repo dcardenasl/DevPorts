@@ -4,16 +4,16 @@ import type { Backend } from "./api";
 import { commandLine } from "./instance";
 import { useMounted, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
-import { text } from "./text";
+import { useI18n } from "./i18n/provider";
 import type { IgnoreRule } from "./types";
-
-const t = text.ignore;
 
 const failureText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /** The criterion of a rule, shown the same way before it is saved and when it is listed. */
 export function Criterion({ rule }: { rule: IgnoreRule }): ReactElement {
+  const { text } = useI18n();
+  const t = text.ignore;
   return (
     <dl className="adoption-location">
       {rule.folder !== null && (
@@ -25,7 +25,7 @@ export function Criterion({ rule }: { rule: IgnoreRule }): ReactElement {
       {rule.command.length > 0 && (
         <>
           <dt>{t.command}</dt>
-          <dd className="mono">{commandLine(rule.command)}</dd>
+          <dd className="mono">{commandLine(rule.command, text)}</dd>
         </>
       )}
       {rule.container !== null && (
@@ -58,6 +58,8 @@ export function IgnoreConfirm({
   onConfirm: () => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.ignore;
   const [rule, setRule] = useState<IgnoreRule>();
   const [failure, setFailure] = useState<string>();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -130,6 +132,8 @@ export function IgnoredList({
   onClose: () => void;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.ignore;
   const [rules, setRules] = useState<IgnoreRule[]>();
   const [loadFailure, setLoadFailure] = useState<string>();
   const [restoreFailure, setRestoreFailure] = useState<string>();

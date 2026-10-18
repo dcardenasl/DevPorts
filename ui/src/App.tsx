@@ -22,9 +22,17 @@ import {
   WarningIcon,
 } from "./icons";
 import { buildOrphans, dependentsOf, draftTargetExists } from "./model";
-import { text } from "./text";
+import { APP_NAME } from "./brand";
+import { I18nProvider, useI18n } from "./i18n/provider";
 import { targetLabel } from "./instance";
-import type { AdoptDraft, InstanceView, PanelState, PanelTab, StopExpectation } from "./types";
+import type {
+  AdoptDraft,
+  InstanceView,
+  LanguagePreference,
+  PanelState,
+  PanelTab,
+  StopExpectation,
+} from "./types";
 import { ActivityView, activitySubtitle, type ActivityStatus } from "./views/ActivityView";
 import { AttentionView, attentionSubtitle } from "./views/AttentionView";
 import { OrphansView, orphansSubtitle } from "./views/OrphansView";
@@ -73,7 +81,21 @@ function initialTab(): Tab {
   return TABS.find((entry) => entry.id === wanted)?.id ?? "attention";
 }
 
-export function App(): ReactElement {
+/** The panel, in the language in force: the preference the shell asked for, until it is changed. */
+export function App({
+  initialLanguage = "system",
+}: {
+  initialLanguage?: LanguagePreference;
+}): ReactElement {
+  return (
+    <I18nProvider preference={initialLanguage}>
+      <Panel />
+    </I18nProvider>
+  );
+}
+
+function Panel(): ReactElement {
+  const { text } = useI18n();
   const {
     api,
     snapshot,
@@ -254,6 +276,7 @@ export function App(): ReactElement {
     updatePanelState,
     preparingProjectStop,
     showToast,
+    text,
   ]);
 
   if (
@@ -264,7 +287,7 @@ export function App(): ReactElement {
   ) {
     return link.phase === "failed" ? (
       <Shell
-        title="DevPorts"
+        title={APP_NAME}
         subtitle={text.link.cannotConnect}
         body={
           <div className="card coral" role="alert">
@@ -284,7 +307,7 @@ export function App(): ReactElement {
       />
     ) : (
       <Shell
-        title="DevPorts"
+        title={APP_NAME}
         subtitle={
           link.attempt > 0
             ? text.link.connectingAttempt(link.attempt, link.attempts)
@@ -304,11 +327,11 @@ export function App(): ReactElement {
 
   const orphanCount = buildOrphans(snapshot).length;
   const subtitle: Record<Tab, string> = {
-    attention: attentionSubtitle(snapshot.attention.length),
-    projects: projectsSubtitle(actions),
-    shared: sharedSubtitle(actions),
-    orphans: orphansSubtitle(actions),
-    activity: activitySubtitle(activity),
+    attention: attentionSubtitle(snapshot.attention.length, text),
+    projects: projectsSubtitle(actions, text),
+    shared: sharedSubtitle(actions, text),
+    orphans: orphansSubtitle(actions, text),
+    activity: activitySubtitle(activity, text),
   };
 
   const body = (
@@ -321,14 +344,14 @@ export function App(): ReactElement {
         onDetails={actions.openSettings}
       />
       {operations.length > 0 && (
-        <section className="card" aria-label="Operaciones">
+        <section className="card" aria-label={text.a11y.operations}>
           <div className="eyebrow">{text.operations.title}</div>
           {operations.slice(0, 5).map((operation) => (
             <div key={operation.id} className="soft" style={{ marginTop: 8 }}>
               <strong>{text.operations.kind[operation.kind]}</strong>
               {operation.targets.map((target) => (
                 <div key={target.reference} role={target.status === "failed" ? "alert" : "status"}>
-                  {targetLabel(target, snapshot.instances)}:{" "}
+                  {targetLabel(target, snapshot.instances, text)}:{" "}
                   {target.status === "queued"
                     ? text.operations.queued
                     : target.status === "running"
@@ -337,7 +360,7 @@ export function App(): ReactElement {
                         ? target.result
                           ? text.operations.adopted(target.result.project, target.result.service)
                           : text.operations.succeeded
-                        : (target.error ?? "Falló")}
+                        : (target.error ?? text.operations.failed)}
                 </div>
               ))}
               {(operation.status === "failed" || operation.status === "partial") && (
@@ -404,7 +427,7 @@ export function App(): ReactElement {
         <div
           className="tabs"
           role="tablist"
-          aria-label="Secciones"
+          aria-label={text.a11y.sections}
           onKeyDown={(event) => {
             const next = nextTab(tab, event.key);
             if (next === undefined) return;
@@ -582,7 +605,7 @@ export function App(): ReactElement {
                   targets: [{ reference: id }],
                 });
                 const failed = done?.targets.find((target) => target.status === "failed");
-                if (failed) throw new Error(failed.error ?? "Falló");
+                if (failed) throw new Error(failed.error ?? text.operations.failed);
               }}
             />
           )}
@@ -628,6 +651,7 @@ function Shell({
   overlay?: ReactElement;
   tabKey?: string;
 }): ReactElement {
+  const { text } = useI18n();
   return (
     <div className="panel">
       <header className="head">

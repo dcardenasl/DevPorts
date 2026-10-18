@@ -1,15 +1,16 @@
 import type { ReactElement } from "react";
 
 import { commandLine, instanceTitle, stateLabel } from "../instance";
-import { text } from "../text";
+import { useI18n } from "../i18n/provider";
 import type { InstanceView } from "../types";
 
 /** Reusable, read-only diagnostics. No inferred ancestry, missing ports or actions. */
 export function InstanceDetails({ view }: { view: InstanceView }): ReactElement {
+  const { text } = useI18n();
   return (
     <details className="instance-details">
-      <summary aria-label={text.instance.detailsIdentity(instanceTitle(view), view.ref)}>
-        {text.instance.details(instanceTitle(view))}
+      <summary aria-label={text.instance.detailsIdentity(instanceTitle(view, text), view.ref)}>
+        {text.instance.details(instanceTitle(view, text))}
         {view.stale !== null && <span className="amber-text"> · {text.instance.stale}</span>}
       </summary>
       <InstanceFacts view={view} />
@@ -19,10 +20,11 @@ export function InstanceDetails({ view }: { view: InstanceView }): ReactElement 
 
 /** The diagnostics themselves, for rows that act as their own trigger. */
 export function InstanceFacts({ view }: { view: InstanceView }): ReactElement {
+  const { text } = useI18n();
   const missing = text.instance.unavailable;
   const ports = view.ports ?? [];
   const facts: [string, string][] = [
-    [text.instance.state, stateLabel(view.state)],
+    [text.instance.state, stateLabel(view.state, text)],
     [text.instance.role, text.instance.roles[view.role]],
     [
       text.instance.origin,
@@ -81,7 +83,7 @@ export function InstanceFacts({ view }: { view: InstanceView }): ReactElement {
         </p>
       )}
       <div className="soft">{text.instance.command}</div>
-      <code className="instance-command">{commandLine(view.argv)}</code>
+      <code className="instance-command">{commandLine(view.argv, text)}</code>
       <p className="dim">{text.instance.commandPrivacy}</p>
     </div>
   );

@@ -3,6 +3,18 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.3 — Catálogo i18n tipado del panel (es + en) · 2026-10-18
+- **Resultado:** el panel habla español o inglés; con la preferencia `system` (por defecto) sigue los idiomas de macOS, en vivo (`languagechange`). Aún no hay selector (UXR-9.6) ni `lang` en el URL desde Rust (9.5/9.6); `boot.ts` ya lo lee si llega.
+- **Contrato:**
+  - `ui/src/i18n/es.ts` (fuente; tipo `Catalog = typeof es`) y `en.ts: Catalog` (completitud y firmas verificadas en compilación); `text.ts` eliminado.
+  - `i18n/locale.ts` (`Locale`, `LOCALES`, `parseLanguagePreference`, `resolveLocale`: primera etiqueta con catálogo, si no `en`), `i18n/format.ts` (`pluralizer(locale)` con `pick`/`counted` sobre `Intl.PluralRules`, `relativeTime` con `Intl.RelativeTimeFormat`, `timeOfDay`), `i18n/provider.tsx` (`I18nProvider({ preference })`, `useI18n() -> { locale, text }`; sin proveedor habla español; actualiza `document.documentElement.lang`).
+  - `App({ initialLanguage })` monta el proveedor; `main.tsx` pasa `bootLanguage`. Desviación del plan: el hook devuelve `{ locale, text }` (no `t`) para conservar el identificador `text` de todo el código y evitar choques con los alias `const t = text.sección`; no hay `ListFormat`/`NumberFormat` (sin uso real).
+  - Los ayudantes puros reciben el catálogo o el locale (`stateLabel/instanceTitle/commandLine/targetLabel(…, text)`, `ago/agoFrom/clock(…, locale)`, `settingsMessage/adoptionMessage/usesMessage/failureMessage/targetFailure(…, text)`). Las hojas guardan la causa del error, no su texto, y lo redactan al mostrarlo (cambia con el idioma). Nuevas secciones del catálogo: `errors`, `a11y`, `activity.labels`, `operations.failed`; `ui/src/brand.ts` (`APP_NAME`).
+  - ESLint: `no-restricted-syntax` prohíbe texto literal en JSX y en `aria-label|title|placeholder|alt…` de `src/**/*.tsx` (probado a mano con un archivo de prueba).
+  - `vitest.setup.ts` fija `navigator.languages` a español: la suite existente no cambió sus consultas.
+- **Sigue en español (insumo de 9.4):** `LogEntry.summary` y cualquier texto que venga del núcleo (`error.message`, `RootProblem.message`, `reason`, `warnings`, resultados de operación), los datos de muestra de `mock*.ts`/`sample.ts` y el cierre de `ActivityView` para `kind` desconocido (código técnico).
+- **Verificación:** UI typecheck, lint, format, build y 220/220 pruebas (nuevas: paridad es↔en de claves y aridad, plurales, `resolveLocale`, tiempo relativo y hora, proveedor en vivo, 4 pruebas del panel en inglés). `tools/check.sh full` al cierre de la sesión. Revisión visual de Atención en inglés a 380×520.
+
 ## UXR-9.2 — Tema claro, oscuro o del sistema · 2026-10-18
 - **Resultado:** el panel tiene tema claro y oscuro; con la preferencia por defecto (`system`) sigue a macOS, también en vivo. Aún no hay selector (UXR-9.6).
 - **Contrato:**

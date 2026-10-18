@@ -10,10 +10,8 @@ import {
 } from "./consumers";
 import { useMounted, useOperationWatch, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
-import { text } from "./text";
+import { useI18n } from "./i18n/provider";
 import type { ConsumerOptions, ConsumersDraft } from "./types";
-
-const t = text.consumers;
 
 /**
  * Chooses which projects declare one shared service, reviews the manifests that
@@ -33,9 +31,13 @@ export function ConsumersSheet({
   onDraftChange: (draft: ConsumersDraft) => Promise<void>;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.consumers;
   const [options, setOptions] = useState<ConsumerOptions>();
-  const [loadError, setLoadError] = useState<string>();
-  const [failure, setFailure] = useState<string>();
+  // The causes are kept, not their text: the message is written when it is shown, in the
+  // language in force then.
+  const [loadError, setLoadError] = useState<{ cause: unknown }>();
+  const [failure, setFailure] = useState<{ cause: unknown }>();
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -62,7 +64,7 @@ export function ConsumersSheet({
         setLoadError(undefined);
       },
       (error: unknown) => {
-        if (active) setLoadError(error instanceof Error ? error.message : failureMessage(error));
+        if (active) setLoadError({ cause: error });
       },
     );
     return () => {
@@ -80,7 +82,7 @@ export function ConsumersSheet({
 
   const change = (next: ConsumersDraft): void => {
     void onDraftChange(next).catch((error: unknown) => {
-      if (isAlive()) setFailure(failureMessage(error));
+      if (isAlive()) setFailure({ cause: error });
     });
   };
   const changes = options ? consumerChanges(options, draft.selected) : [];
@@ -100,7 +102,7 @@ export function ConsumersSheet({
         if (!isAlive()) return;
         record(id, await api.startOperation(consumersRequest(id, draft.shared, changes)));
       } catch (error) {
-        if (isAlive()) setFailure(failureMessage(error));
+        if (isAlive()) setFailure({ cause: error });
       } finally {
         if (isAlive()) setBusy(false);
       }
@@ -112,7 +114,7 @@ export function ConsumersSheet({
       try {
         record(id, await api.retryOperation(id));
       } catch (error) {
-        if (isAlive()) setFailure(failureMessage(error));
+        if (isAlive()) setFailure({ cause: error });
       } finally {
         if (isAlive()) setBusy(false);
       }
@@ -145,13 +147,16 @@ export function ConsumersSheet({
     >
       {failure !== undefined && (
         <p className="form-error" role="alert">
-          {failure}
+          {failureMessage(failure.cause, text)}
         </p>
       )}
       {loadError !== undefined && !sent && (
         <>
           <p className="form-error" role="alert">
-            {t.loadFailed} {loadError}
+            {t.loadFailed}{" "}
+            {loadError.cause instanceof Error
+              ? loadError.cause.message
+              : failureMessage(loadError.cause, text)}
           </p>
           <button type="button" className="btn" onClick={readAgain}>
             {t.retryLoad}
@@ -257,7 +262,7 @@ export function ConsumersSheet({
           {operation && (
             <ul className="consumers" aria-label={t.associated}>
               {operation.targets.map((target) => {
-                const message = targetFailure(target);
+                const message = targetFailure(target, text);
                 return (
                   <li key={target.reference}>
                     <span className="name">{target.reference}</span>{" "}

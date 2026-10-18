@@ -1,7 +1,9 @@
 // Browser-only adoption fixture. Filesystem validation remains the Rust core's job.
-import { adoptionException } from "./adoption";
+import { adoptionMessage } from "./adoption";
+import { es } from "./i18n/es";
 import type {
   AdoptTarget,
+  AdoptionError,
   AdoptionOptions,
   AdoptionPreview,
   InstanceView,
@@ -17,6 +19,10 @@ const slug = (value: string): string =>
     .slice(0, 63) || "servicio";
 const within = (cwd: string | null, root: string): boolean =>
   cwd !== null && (cwd === root || cwd.startsWith(`${root}/`));
+/** Error instance carrying the same typed payload as Tauri's rejected JSON. */
+function adoptionException(error: AdoptionError): Error & AdoptionError {
+  return Object.assign(new Error(adoptionMessage(error, es)), error);
+}
 const fail = (message: string): never => {
   throw adoptionException({ code: "unsuitable", message });
 };

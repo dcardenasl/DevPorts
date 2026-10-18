@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 
 import type { Backend } from "../api";
-import { text } from "../text";
+import type { Catalog } from "../i18n/es";
+import { useI18n } from "../i18n/provider";
 import { clock } from "../time";
 import type { LogEntry, LogTopic } from "../types";
 import { Empty } from "./shared-parts";
@@ -32,36 +33,37 @@ interface Label {
   tone: "green" | "amber" | "coral" | "blue" | "soft";
 }
 
-function label(entry: LogEntry): Label {
+function label(entry: LogEntry, text: Catalog): Label {
+  const words = text.activity.labels;
   switch (entry.kind) {
     case "run_rejected":
-      return { word: "RECHAZO", tone: "blue" };
+      return { word: words.rejection, tone: "blue" };
     case "run_accepted":
       return (entry.topics ?? []).includes("temporal")
-        ? { word: "TEMPORAL", tone: "amber" }
-        : { word: "PRINCIPAL", tone: "green" };
+        ? { word: words.temporal, tone: "amber" }
+        : { word: words.primary, tone: "green" };
     case "lease_warned":
-      return { word: "AVISO", tone: "amber" };
+      return { word: words.warned, tone: "amber" };
     case "lease_extended":
-      return { word: "EXTENDIDO", tone: "amber" };
+      return { word: words.extended, tone: "amber" };
     case "lease_expired":
-      return { word: "VENCIÓ", tone: "amber" };
+      return { word: words.expired, tone: "amber" };
     case "duplicate_detected":
     case "unregistered_seen":
-      return { word: "SIN REGISTRAR", tone: "coral" };
+      return { word: words.unregistered, tone: "coral" };
     case "adopted":
-      return { word: "ADOPTADO", tone: "green" };
+      return { word: words.adopted, tone: "green" };
     case "kept":
-      return { word: "CONSERVADO", tone: "soft" };
+      return { word: words.kept, tone: "soft" };
     case "restored":
-      return { word: "RESTAURADO", tone: "soft" };
+      return { word: words.restored, tone: "soft" };
     case "reclassified":
-      return { word: "CLASIFICADO", tone: "soft" };
+      return { word: words.reclassified, tone: "soft" };
     case "stopped":
-      return { word: "DETENIDO", tone: "soft" };
+      return { word: words.stopped, tone: "soft" };
     case "stop_failed":
     case "port_stolen":
-      return { word: "ALERTA", tone: "coral" };
+      return { word: words.alert, tone: "coral" };
     default:
       return { word: entry.kind.replaceAll("_", " ").toUpperCase(), tone: "soft" };
   }
@@ -79,7 +81,7 @@ const TONE_CLASS: Record<Label["tone"], string> = {
 export type ActivityStatus =
   { kind: "loading" } | { kind: "error" } | { kind: "ready"; total: number };
 
-export function activitySubtitle(status: ActivityStatus): string {
+export function activitySubtitle(status: ActivityStatus, text: Catalog): string {
   switch (status.kind) {
     case "loading":
       return text.activity.loading;
@@ -91,7 +93,7 @@ export function activitySubtitle(status: ActivityStatus): string {
 }
 
 /** A rejected call as text; the core's typed storage error keeps its own explanation. */
-function failureText(error: unknown): string {
+function failureText(error: unknown, text: Catalog): string {
   if (typeof error === "object" && error !== null && "code" in error) {
     if (error.code === "closing") return text.activity.closing;
     if ("message" in error && typeof error.message === "string") return error.message;
@@ -103,7 +105,7 @@ interface Loaded {
   /** Entries of the last successful read; kept while a later read fails. */
   entries: LogEntry[] | null;
   /** Why the latest read failed, if it did. */
-  error: string | null;
+  error: { cause: unknown } | null;
 }
 
 export function ActivityView({
@@ -119,6 +121,7 @@ export function ActivityView({
   filter: Filter;
   onFilterChange: (filter: Filter) => void;
 }): ReactElement {
+  const { text, locale } = useI18n();
   const [loaded, setLoaded] = useState<Loaded>({ entries: null, error: null });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => {
@@ -138,7 +141,7 @@ export function ActivityView({
       },
       (error: unknown) => {
         if (!cancelled)
-          setLoaded((previous) => ({ entries: previous.entries, error: failureText(error) }));
+          setLoaded((previous) => ({ entries: previous.entries, error: { cause: error } }));
       },
     );
     return () => {
@@ -156,7 +159,7 @@ export function ActivityView({
   const total = entries?.length ?? 0;
   return (
     <>
-      <div className="pills" role="group" aria-label="Filtro">
+      <div className="pills" role="group" aria-label={text.a11y.filter}>
         {FILTERS.map((name) => (
           <button
             key={name}
@@ -177,7 +180,7 @@ export function ActivityView({
             {entries === null ? text.activity.loadFailed : text.activity.staleFailed}
           </div>
           <div className="soft mono" style={{ marginTop: 4, fontSize: 11 }}>
-            {error}
+            {failureText(error.cause, text)}
           </div>
           <div className="row" style={{ marginTop: 8, justifyContent: "flex-end" }}>
             <button type="button" className="btn" onClick={retry}>
@@ -215,10 +218,10 @@ export function ActivityView({
           ) : (
             <div className="divided">
               {shown.map((entry, index) => {
-                const tag = label(entry);
+                const tag = label(entry, text);
                 return (
                   <div className="log-row" key={`${entry.at}-${index}`}>
-                    <span className="mono dim">{clock(entry.at)}</span>
+                    <span className="mono dim">{clock(entry.at, locale)}</span>
                     <span className={`eyebrow ${TONE_CLASS[tag.tone]}`}>{tag.word}</span>
                     <span>{entry.summary}</span>
                   </div>

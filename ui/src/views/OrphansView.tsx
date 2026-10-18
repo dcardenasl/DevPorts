@@ -2,7 +2,8 @@ import { useState, type ReactElement } from "react";
 
 import type { Actions } from "../actions";
 import { buildOrphans, groupOrphans as groupByClass } from "../model";
-import { text } from "../text";
+import type { Catalog } from "../i18n/es";
+import { useI18n } from "../i18n/provider";
 import { ago } from "../time";
 import { FolderIcon } from "../icons";
 import type { Classification, InstanceView } from "../types";
@@ -10,7 +11,7 @@ import { InstanceDetails } from "./InstanceDetails";
 import { instanceTitle } from "../instance";
 import { Dot, Empty, Tag } from "./shared-parts";
 
-export function orphansSubtitle(actions: Actions): string {
+export function orphansSubtitle(actions: Actions, text: Catalog): string {
   const total = text.orphans.summary(buildOrphans(actions.snapshot).length);
   const auxiliary = groupByClass(actions.snapshot).auxiliary.length;
   return auxiliary === 0 ? total : `${total} · ${text.classify.auxiliaries(auxiliary)}`;
@@ -24,7 +25,7 @@ interface Group {
 }
 
 /** Loose processes grouped by the repository (or compose project) they came from. */
-function groupByRepo(orphans: InstanceView[]): Group[] {
+function groupByRepo(orphans: InstanceView[], text: Catalog): Group[] {
   const groups = new Map<string, Group>();
   for (const view of orphans) {
     const place = view.worktree ?? view.compose;
@@ -41,6 +42,7 @@ function groupByRepo(orphans: InstanceView[]): Group[] {
 }
 
 export function OrphansView({ actions }: { actions: Actions }): ReactElement {
+  const { text } = useI18n();
   const [auxiliaryOpen, setAuxiliaryOpen] = useState(false);
   const groups = groupByClass(actions.snapshot);
   const byRef = new Map(actions.snapshot.classifications.map((item) => [item.instanceRef, item]));
@@ -78,7 +80,7 @@ export function OrphansView({ actions }: { actions: Actions }): ReactElement {
       {groups.project.length > 0 && (
         <>
           {sectioned && heading(text.classify.groupProject, groups.project.length)}
-          {groupByRepo(groups.project).map((group) => (
+          {groupByRepo(groups.project, text).map((group) => (
             <section key={group.key} className="stack">
               <div className="row" style={{ padding: "2px 2px 0" }}>
                 <FolderIcon size={14} />
@@ -141,12 +143,13 @@ function OrphanCard({
   classification: Classification | undefined;
   actions: Actions;
 }): ReactElement {
+  const { text, locale } = useI18n();
   return (
     <div className="card">
       <div className="row">
         <Dot kind="loose" />
-        <span className="mono grow ellipsis" title={instanceTitle(view)}>
-          {instanceTitle(view)}
+        <span className="mono grow ellipsis" title={instanceTitle(view, text)}>
+          {instanceTitle(view, text)}
         </span>
         <span className="mono soft">{view.port === null ? "" : `:${view.port}`}</span>
       </div>
@@ -155,7 +158,7 @@ function OrphanCard({
         style={{ marginTop: 6, fontSize: 11 }}
         title={view.cwd ?? ""}
       >
-        {view.cwd ?? view.image ?? "—"} · {ago(view.started_at, actions.now)}
+        {view.cwd ?? view.image ?? "—"} · {ago(view.started_at, actions.now, locale)}
       </div>
       <InstanceDetails view={view} />
       <div className="row" style={{ marginTop: 6 }}>

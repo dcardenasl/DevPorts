@@ -5,14 +5,15 @@ import type { SharedNode } from "../model";
 import type { SharedSummary } from "../types";
 import { StopIcon } from "../icons";
 import { buildShared, buildUndeclaredData } from "../model";
-import { text } from "../text";
+import type { Catalog } from "../i18n/es";
+import { useI18n } from "../i18n/provider";
 import { ago } from "../time";
 import { canRequestStop, stateLabel } from "../instance";
 import { InstanceDetails } from "./InstanceDetails";
 import { Dot, Empty, Tag, dotFor } from "./shared-parts";
 import { IconButton } from "./ProjectsView";
 
-export function sharedSubtitle(actions: Actions): string {
+export function sharedSubtitle(actions: Actions, text: Catalog): string {
   const declared = buildShared(actions.snapshot).length;
   const undeclared = buildUndeclaredData(actions.snapshot).length;
   return declared === 0 && undeclared > 0
@@ -21,6 +22,7 @@ export function sharedSubtitle(actions: Actions): string {
 }
 
 export function SharedView({ actions }: { actions: Actions }): ReactElement {
+  const { text, locale } = useI18n();
   const nodes = buildShared(actions.snapshot);
   const undeclared = buildUndeclaredData(actions.snapshot);
   if (nodes.length === 0 && undeclared.length === 0) {
@@ -54,8 +56,8 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
             </div>
             <div className="soft mono" style={{ marginTop: 6, fontSize: 11 }}>
               {text.shared.docker} · {view.container ?? view.image ?? "—"}
-              {` · ${stateLabel(view.state)}`}
-              {running ? ` · ${ago(view.started_at, actions.now)}` : ""}
+              {` · ${stateLabel(view.state, text)}`}
+              {running ? ` · ${ago(view.started_at, actions.now, locale)}` : ""}
             </div>
             <InstanceDetails view={view} />
             <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
@@ -152,6 +154,7 @@ function ResourceButtons({
   summary: SharedSummary | undefined;
   actions: Actions;
 }): ReactElement | null {
+  const { text } = useI18n();
   const state = node.principal.state;
   if (state === "down") {
     const start = summary?.start ?? null;

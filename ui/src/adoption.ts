@@ -1,3 +1,4 @@
+import type { Catalog } from "./i18n/es";
 import type { AdoptDraft, AdoptionError, AdoptionPreview } from "./types";
 
 /** Display-only context; the core owns every fact used to authorize the write. */
@@ -45,24 +46,16 @@ export function needsNewReview(error: AdoptionError | undefined): boolean {
   );
 }
 
-export function adoptionMessage(error: AdoptionError): string {
+export function adoptionMessage(error: AdoptionError, text: Catalog): string {
   switch (error.code) {
     case "documentChanged":
-      return `${error.path} cambió. Prepara una nueva revisión antes de guardar.`;
+      return text.errors.adoption.documentChanged(error.path);
     case "targetChanged":
-      return "La instancia o su destino cambiaron. Vuelve a revisar la propuesta.";
     case "previewExpired":
-      return "La revisión caducó. Tus campos se conservan; prepara otra revisión.";
     case "requestChanged":
-      return "Esta revisión ya pertenece a otro guardado. Consulta su resultado o prepara otra revisión.";
     case "atCapacity":
-      return "Hay demasiadas operaciones en curso. Espera y vuelve a intentarlo.";
+      return text.errors.adoption[error.code];
     default:
       return error.message;
   }
-}
-
-/** Error instance carrying the same typed payload as Tauri's rejected JSON. */
-export function adoptionException(error: AdoptionError): Error & AdoptionError {
-  return Object.assign(new Error(adoptionMessage(error)), error);
 }

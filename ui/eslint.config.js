@@ -21,6 +21,26 @@ export default tseslint.config(
     },
   },
   {
+    // Everything the person reads lives in the catalogs (ADR-041): no literal text in JSX
+    // and none in the attributes read out by assistive technology.
+    files: ["src/**/*.tsx"],
+    ignores: ["src/**/*.test.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXText[value=/\\p{L}/u]",
+          message: "Interface text belongs in src/i18n (ADR-041).",
+        },
+        {
+          selector:
+            "JSXAttribute[name.name=/^(aria-label|aria-description|aria-roledescription|aria-placeholder|aria-valuetext|title|placeholder|alt)$/] > Literal",
+          message: "Interface text belongs in src/i18n (ADR-041).",
+        },
+      ],
+    },
+  },
+  {
     files: ["*.config.js", "*.config.ts", "vitest.setup.ts"],
     ...tseslint.configs.disableTypeChecked,
   },

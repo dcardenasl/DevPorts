@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { es } from "./i18n/es";
 import {
   canRequestStop,
   commandLine,
@@ -33,7 +34,7 @@ describe("instance diagnostics", () => {
       forgotten: "Olvidada · sigue activa",
     } as const;
     for (const state of Object.keys(labels) as (keyof typeof labels)[]) {
-      expect(stateLabel(state)).toBe(labels[state]);
+      expect(stateLabel(state, es)).toBe(labels[state]);
       expect(canRequestStop({ ...fixture(), state })).toBe(
         ["healthy", "unhealthy", "forgotten"].includes(state),
       );
@@ -46,16 +47,19 @@ describe("instance diagnostics", () => {
 
   // covers: UXR-2.3
   it("masks positional values, assignments, compact options, credentials and embedded scripts", () => {
-    const command = commandLine([
-      "/bin/node",
-      "--api-key=top-secret",
-      "--password",
-      "secret-value",
-      "-pCompactSecret",
-      "https://user:password@localhost",
-      "-e",
-      "process.env.TOKEN='another-secret'",
-    ]);
+    const command = commandLine(
+      [
+        "/bin/node",
+        "--api-key=top-secret",
+        "--password",
+        "secret-value",
+        "-pCompactSecret",
+        "https://user:password@localhost",
+        "-e",
+        "process.env.TOKEN='another-secret'",
+      ],
+      es,
+    );
     for (const secret of [
       "top-secret",
       "secret-value",
@@ -66,18 +70,21 @@ describe("instance diagnostics", () => {
       expect(command).not.toContain(secret);
     expect(command).toContain("--api-key=[oculto]");
     expect(command).toContain("--password");
-    expect(commandLine([])).toBe("No disponible");
+    expect(commandLine([], es)).toBe("No disponible");
     expect(
-      instanceTitle({
-        ...fixture(),
-        service: null,
-        argv: ["/a/very/long/path/node", "--token=secret"],
-      }),
+      instanceTitle(
+        {
+          ...fixture(),
+          service: null,
+          argv: ["/a/very/long/path/node", "--token=secret"],
+        },
+        es,
+      ),
     ).toBe("node");
     // A daemon that rewrites its title is named by the program, not by the last path in it.
     const title = "php-fpm: master process (/opt/homebrew/etc/php/8.2/php-fpm.conf)";
-    expect(instanceTitle({ ...fixture(), service: null, argv: [title] })).toBe("php-fpm");
-    expect(commandLine([title])).toBe("php-fpm");
+    expect(instanceTitle({ ...fixture(), service: null, argv: [title] }, es)).toBe("php-fpm");
+    expect(commandLine([title], es)).toBe("php-fpm");
   });
 
   // covers: UXR-2.3

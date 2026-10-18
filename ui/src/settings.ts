@@ -1,12 +1,13 @@
 // Pure helpers for the settings sheet: how failures read and whether the list changed.
+import type { Catalog } from "./i18n/es";
 import type { ScanFolders, SettingsError } from "./types";
 
-export function settingsMessage(error: SettingsError): string {
+export function settingsMessage(error: SettingsError, text: Catalog): string {
   switch (error.code) {
     case "invalidRoots":
-      return "Hay carpetas que no se pueden usar. Corrígelas y vuelve a revisar.";
+      return text.errors.settings.invalidRoots;
     case "documentChanged":
-      return `${error.path} cambió desde que lo revisaste. Vuelve a leer la configuración antes de guardar.`;
+      return text.errors.settings.documentChanged(error.path);
     default:
       return error.message;
   }

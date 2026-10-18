@@ -1,8 +1,8 @@
 // Presentation only: lifecycle and process facts always come from the core.
-import { text } from "./text";
+import type { Catalog } from "./i18n/es";
 import type { InstanceState, InstanceView, OperationTargetResult } from "./types";
 
-export function stateLabel(state: InstanceState): string {
+export function stateLabel(state: InstanceState, text: Catalog): string {
   return text.instance.states[state];
 }
 
@@ -40,7 +40,7 @@ export function isActiveInstance(view: InstanceView | undefined): boolean {
 }
 
 /** Short executable title, with arguments kept out of headings and tooltips. */
-export function instanceTitle(view: InstanceView): string {
+export function instanceTitle(view: InstanceView, text: Catalog): string {
   return (
     view.service ?? view.container ?? executableName(view.argv) ?? text.instance.unknownProgram
   );
@@ -62,7 +62,7 @@ function executableName(argv: readonly string[]): string | undefined {
 
 /** Diagnostic command shape, never raw argument values: even positional secrets
  * and shell scripts are masked rather than guessing which flags are sensitive. */
-export function commandLine(argv: readonly string[]): string {
+export function commandLine(argv: readonly string[], text: Catalog): string {
   const program = executableName(argv);
   if (program === undefined) return text.instance.unavailable;
   return [
@@ -80,11 +80,14 @@ export function commandLine(argv: readonly string[]): string {
 export function targetLabel(
   target: OperationTargetResult,
   instances: readonly InstanceView[],
+  text: Catalog,
 ): string {
   const expected = target.stopExpectation;
   const live = instances.find((view) => view.ref === target.reference);
   const name =
-    expected?.service ?? expected?.container ?? (live === undefined ? null : instanceTitle(live));
+    expected?.service ??
+    expected?.container ??
+    (live === undefined ? null : instanceTitle(live, text));
   if (name === null) return target.reference;
   const port = expected?.port ?? live?.port ?? null;
   return port === null ? name : `${name} (:${port})`;

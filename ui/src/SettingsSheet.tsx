@@ -6,7 +6,7 @@ import type { Link } from "./connection";
 import { Modal } from "./Modal";
 import { configuredRoots, rootsChanged, settingsFailure, settingsMessage } from "./settings";
 import { StatusDetails } from "./StatusStrip";
-import { text } from "./text";
+import { useI18n } from "./i18n/provider";
 import type {
   RootProblem,
   ScanFolders,
@@ -15,8 +15,6 @@ import type {
   SettingsError,
   Snapshot,
 } from "./types";
-
-const t = text.settings;
 
 /**
  * Edits the folders projects are searched in. Typed folders live in the shell's draft;
@@ -42,11 +40,15 @@ export function SettingsSheet({
   onDraftChange: (draft: SettingsDraft) => Promise<void>;
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
+  const { text } = useI18n();
+  const t = text.settings;
   const [folders, setFolders] = useState<ScanFolders>();
-  const [loadError, setLoadError] = useState<string>();
+  // Errors are kept as the typed value, not as text: the message is written when it is
+  // shown, in the language in force then.
+  const [loadError, setLoadError] = useState<SettingsError>();
   const [preview, setPreview] = useState<ScanPreview>();
   const [problems, setProblems] = useState<RootProblem[]>([]);
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<SettingsError>();
   const [busy, setBusy] = useState(false);
   const [reads, setReads] = useState(0);
   const firstRef = useRef<HTMLInputElement>(null);
@@ -71,7 +73,7 @@ export function SettingsSheet({
         setLoadError(undefined);
       },
       (error: unknown) => {
-        if (active) setLoadError(settingsMessage(settingsFailure(error)));
+        if (active) setLoadError(settingsFailure(error));
       },
     );
     return () => {
@@ -81,12 +83,12 @@ export function SettingsSheet({
 
   const change = (next: SettingsDraft): void => {
     void onDraftChange(next).catch((error: unknown) => {
-      if (isAlive()) setFailure(settingsMessage(settingsFailure(error)));
+      if (isAlive()) setFailure(settingsFailure(error));
     });
   };
   const showProblems = (error: SettingsError): void => {
     setProblems(error.code === "invalidRoots" ? error.problems : []);
-    setFailure(error.code === "invalidRoots" ? undefined : settingsMessage(error));
+    setFailure(error.code === "invalidRoots" ? undefined : error);
   };
   // Start from what config.yml says; an empty list is never valid, so empty means "not started".
   const started = draft.roots.length > 0;
@@ -166,7 +168,7 @@ export function SettingsSheet({
           }),
         );
       } catch (error) {
-        if (isAlive()) setFailure(settingsMessage(settingsFailure(error)));
+        if (isAlive()) setFailure(settingsFailure(error));
       } finally {
         if (isAlive()) setBusy(false);
       }
@@ -177,7 +179,7 @@ export function SettingsSheet({
       try {
         record(id, await api.retryOperation(id));
       } catch (error) {
-        if (isAlive()) setFailure(settingsMessage(settingsFailure(error)));
+        if (isAlive()) setFailure(settingsFailure(error));
       } finally {
         if (isAlive()) setBusy(false);
       }
@@ -211,13 +213,13 @@ export function SettingsSheet({
       <StatusDetails link={link} snapshot={snapshot} />
       {failure !== undefined && (
         <p className="form-error" role="alert">
-          {failure}
+          {settingsMessage(failure, text)}
         </p>
       )}
       {loadError !== undefined && !sent && (
         <>
           <p className="form-error" role="alert">
-            {t.loadFailed} {loadError}
+            {t.loadFailed} {settingsMessage(loadError, text)}
           </p>
           <button
             type="button"
@@ -391,7 +393,7 @@ export function SettingsSheet({
           {succeeded && <p role="status">{t.saved}</p>}
           {operation?.status === "failed" && result && (
             <p className="form-error" role="alert">
-              {resultError ? settingsMessage(resultError) : (result.error ?? "")}
+              {resultError ? settingsMessage(resultError, text) : (result.error ?? "")}
             </p>
           )}
           {operation?.status === "failed" && (

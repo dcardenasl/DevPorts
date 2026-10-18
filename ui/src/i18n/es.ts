@@ -1,6 +1,10 @@
-// Every string the person reads, in one place (Spanish).
+// Every string the person reads, in Spanish: the source catalog. `en.ts` must have the very
+// same shape (the `Catalog` type), so a missing key or a changed signature does not compile.
+import { pluralizer } from "./format";
 
-export const text = {
+const { pick, counted } = pluralizer("es");
+
+export const es = {
   adoption: {
     review: "Revisar adopción",
     body: "Registra el servidor que ya está corriendo. No lo reinicia.",
@@ -46,7 +50,7 @@ export const text = {
     allClear: "Todo en orden",
     allClearBody: "Nada espera tu decisión.",
     waiting: (count: number) =>
-      count === 1 ? "1 cosa espera tu decisión" : `${count} cosas esperan tu decisión`,
+      pick(count, "1 cosa espera tu decisión", `${count} cosas esperan tu decisión`),
     official: "OFICIAL",
     expiring: "TEMPORAL POR VENCER",
     hung: "COLGADA · NO RESPONDE",
@@ -110,7 +114,7 @@ export const text = {
   projects: {
     title: "Proyectos",
     summary: (projects: number, repos: number, services: number) =>
-      `${plural(projects, "proyecto", "proyectos")} · ${plural(repos, "repo", "repos")} · ${plural(services, "servicio", "servicios")}`,
+      `${counted(projects, "proyecto", "proyectos")} · ${counted(repos, "repo", "repos")} · ${counted(services, "servicio", "servicios")}`,
     none: "Todavía no hay proyectos",
     noneBody:
       "Un proyecto es una carpeta con un archivo .devports.yml. Adopta un proceso desde «Sin proyecto» para crear el primero.",
@@ -132,7 +136,7 @@ export const text = {
   },
   shared: {
     title: "Compartidos",
-    summary: (count: number) => plural(count, "servicio", "servicios"),
+    summary: (count: number) => counted(count, "servicio", "servicios"),
     none: "No hay servicios compartidos",
     onlyUndeclared: "Ninguno declarado todavía",
     noneBody: "Se declaran en ~/.config/devports/shared.yml y los proyectos los citan en «uses».",
@@ -158,7 +162,7 @@ export const text = {
     fromDefaults: "Usas la carpeta por defecto; al guardar se escribirá en config.yml.",
     exists: "existe",
     missing: "no existe ahora",
-    projects: (count: number) => (count === 1 ? "1 proyecto" : `${count} proyectos`),
+    projects: (count: number) => counted(count, "proyecto", "proyectos"),
     folder: (index: number) => `Carpeta ${index}`,
     placeholder: "~/developer",
     add: "Añadir carpeta",
@@ -192,7 +196,7 @@ export const text = {
     auxiliaryBody:
       "Suelen ser demonios o programas que lanza otra herramienta. Es una pista, no un hecho: siguen aquí con todas sus acciones y puedes corregir la clasificación.",
     unclassifiedBody: "No hay indicios suficientes para clasificarlos.",
-    auxiliaries: (count: number) => plural(count, "posible auxiliar", "posibles auxiliares"),
+    auxiliaries: (count: number) => counted(count, "posible auxiliar", "posibles auxiliares"),
     action: "Reclasificar",
     title: "Corregir clasificación",
     body: "Solo cambia en qué grupo se lista. No lo ignora, adopta, detiene ni reinicia.",
@@ -256,7 +260,7 @@ export const text = {
     declaredOnly: "El uso real puede no estar declarado.",
     associated: "Proyectos asociados",
     nobody: "Sin proyectos asociados",
-    count: (count: number) => plural(count, "proyecto asociado", "proyectos asociados"),
+    count: (count: number) => counted(count, "proyecto asociado", "proyectos asociados"),
     search: "Buscar proyecto",
     noMatch: "Ningún proyecto coincide con la búsqueda.",
     loading: "Consultando manifiestos…",
@@ -294,10 +298,10 @@ export const text = {
   },
   orphans: {
     title: "Sin proyecto",
-    group: (count: number) => `${count} ${count === 1 ? "proceso" : "procesos"}`,
+    group: (count: number) => counted(count, "proceso", "procesos"),
     otherGroup: "Otros",
     summary: (count: number) =>
-      count === 0 ? "Nada suelto" : `${plural(count, "proceso", "procesos")} sin dueño`,
+      count === 0 ? "Nada suelto" : `${counted(count, "proceso", "procesos")} sin dueño`,
     none: "Nada suelto",
     noneBody: "Todo lo que escucha un puerto pertenece a un proyecto.",
     adopt: "Adoptar",
@@ -320,8 +324,8 @@ export const text = {
   activity: {
     title: "Actividad",
     summary: (count: number) =>
-      count === 0 ? "Sin actividad en 24 h" : plural(count, "evento", "eventos"),
-    of: (shown: number, total: number) => `${shown} de ${plural(total, "evento", "eventos")}`,
+      count === 0 ? "Sin actividad en 24 h" : counted(count, "evento", "eventos"),
+    of: (shown: number, total: number) => `${shown} de ${counted(total, "evento", "eventos")}`,
     window: "Últimas 24 h",
     loading: "Cargando actividad…",
     unreadable: "No se pudo leer",
@@ -333,13 +337,28 @@ export const text = {
     noneWindowBody:
       "Aquí aparecen los arranques, rechazos, vencimientos y avisos de tus servidores.",
     noMatch: (total: number) =>
-      `Ningún evento coincide con este filtro (hay ${plural(total, "evento", "eventos")} en total).`,
+      `Ningún evento coincide con este filtro (hay ${counted(total, "evento", "eventos")} en total).`,
     showAll: "Ver todo",
     all: "Todo",
     rejections: "Rechazos",
     temporals: "Temporales",
     alerts: "Alertas",
     none: "Sin actividad en este filtro",
+    labels: {
+      rejection: "RECHAZO",
+      temporal: "TEMPORAL",
+      primary: "PRINCIPAL",
+      warned: "AVISO",
+      extended: "EXTENDIDO",
+      expired: "VENCIÓ",
+      unregistered: "SIN REGISTRAR",
+      adopted: "ADOPTADO",
+      kept: "CONSERVADO",
+      restored: "RESTAURADO",
+      reclassified: "CLASIFICADO",
+      stopped: "DETENIDO",
+      alert: "ALERTA",
+    },
   },
   operations: {
     title: "Operaciones recientes",
@@ -358,6 +377,7 @@ export const text = {
     running: "En curso…",
     succeeded: "Completado",
     retry: "Reintentar fallidos",
+    failed: "Falló",
     adopted: (project: string, service: string) => `Agregado a ${project} · ${service}`,
   },
   confirm: {
@@ -415,9 +435,11 @@ export const text = {
     retry: "Reintentar",
     retryNow: "Reintentar ahora",
     problems: (count: number) =>
-      count === 1
-        ? "1 aviso de configuración o manifiestos"
-        : `${count} avisos de configuración o manifiestos`,
+      pick(
+        count,
+        "1 aviso de configuración o manifiestos",
+        `${count} avisos de configuración o manifiestos`,
+      ),
     details: "Ver detalle",
     state: "Estado",
     core: "Núcleo",
@@ -430,14 +452,35 @@ export const text = {
     noProblems: "Sin avisos de configuración ni de manifiestos.",
     problemsTitle: "Avisos",
   },
-  relative: {
-    now: "ahora",
-    minutes: (n: number) => `hace ${n} min`,
-    hours: (n: number) => `hace ${n} h`,
-    days: (n: number) => `hace ${n} d`,
+  errors: {
+    settings: {
+      invalidRoots: "Hay carpetas que no se pueden usar. Corrígelas y vuelve a revisar.",
+      documentChanged: (path: string) =>
+        `${path} cambió desde que lo revisaste. Vuelve a leer la configuración antes de guardar.`,
+    },
+    adoption: {
+      documentChanged: (path: string) =>
+        `${path} cambió. Prepara una nueva revisión antes de guardar.`,
+      targetChanged: "La instancia o su destino cambiaron. Vuelve a revisar la propuesta.",
+      previewExpired: "La revisión caducó. Tus campos se conservan; prepara otra revisión.",
+      requestChanged:
+        "Esta revisión ya pertenece a otro guardado. Consulta su resultado o prepara otra revisión.",
+      atCapacity: "Hay demasiadas operaciones en curso. Espera y vuelve a intentarlo.",
+    },
+    uses: {
+      unknownShared: (name: string) =>
+        `«${name}» ya no está definido en shared.yml. Decláralo antes de asociarlo.`,
+      unknownProject: (project: string) => `El proyecto «${project}» ya no existe.`,
+      documentChanged: (path: string) =>
+        `${path} cambió desde que lo revisaste. Consulta de nuevo antes de guardar.`,
+      blocked: "No se escribió nada: otro proyecto de esta selección no pasó la validación.",
+    },
   },
-} as const;
+  a11y: {
+    operations: "Operaciones",
+    sections: "Secciones",
+    filter: "Filtro",
+  },
+};
 
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
+export type Catalog = typeof es;

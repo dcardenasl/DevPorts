@@ -5,6 +5,7 @@ import { mockAdoption } from "./mock-adoption";
 import { mockClassify } from "./mock-classify";
 import { mockConsumers } from "./mock-consumers";
 import { mockIgnored } from "./mock-ignored";
+import { es } from "./i18n/es";
 import { mockPreferences } from "./mock-preferences";
 import { mockSettings } from "./mock-settings";
 import { adoptionFailure, adoptionMessage } from "./adoption";
@@ -171,7 +172,7 @@ export function mockBackend(): Backend {
           if (result) {
             result.status = "failed";
             result.adoptionError = adoptionFailure(error);
-            result.error = adoptionMessage(result.adoptionError);
+            result.error = adoptionMessage(result.adoptionError, es);
           }
         }
       }

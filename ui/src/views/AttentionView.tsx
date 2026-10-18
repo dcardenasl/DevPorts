@@ -2,18 +2,20 @@ import type { ReactElement } from "react";
 
 import type { Actions } from "../actions";
 import { buildAttention, whoAsked } from "../model";
-import { text } from "../text";
+import type { Catalog } from "../i18n/es";
+import { useI18n } from "../i18n/provider";
 import { ago, clock, countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
 import { InstanceDetails } from "./InstanceDetails";
 import { instanceTitle, stateLabel, dotFor } from "../instance";
 import { Dot } from "./shared-parts";
 
-export function attentionSubtitle(count: number): string {
+export function attentionSubtitle(count: number, text: Catalog): string {
   return count === 0 ? text.attention.allClear : text.attention.waiting(count);
 }
 
 export function AttentionView({ actions }: { actions: Actions }): ReactElement {
+  const { text, locale } = useI18n();
   const { snapshot, now } = actions;
   const model = buildAttention(snapshot);
   const empty = snapshot.attention.length === 0;
@@ -53,10 +55,10 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
                     <Dot kind="coral" />
                     <span className="mono coral-text">:{view.port ?? "—"}</span>
                   </span>
-                  <span className="ellipsis soft" title={instanceTitle(view)}>
-                    {instanceTitle(view)}
+                  <span className="ellipsis soft" title={instanceTitle(view, text)}>
+                    {instanceTitle(view, text)}
                   </span>
-                  <span className="dim">{ago(view.started_at, now)}</span>
+                  <span className="dim">{ago(view.started_at, now, locale)}</span>
                 </div>
                 <InstanceDetails view={view} />
               </div>
@@ -91,6 +93,7 @@ export function AttentionView({ actions }: { actions: Actions }): ReactElement {
 }
 
 function Official({ view, now }: { view: InstanceView; now: number }): ReactElement {
+  const { text, locale } = useI18n();
   const branch = view.branch === null ? "" : ` · ${view.branch}`;
   return (
     <div
@@ -108,8 +111,9 @@ function Official({ view, now }: { view: InstanceView; now: number }): ReactElem
       </div>
       <div className="soft mono" style={{ marginTop: 6 }}>
         :{view.port}
-        {branch} · {text.attention.since(clock(view.started_at) || ago(view.started_at, now))} ·{" "}
-        {stateLabel(view.state)}
+        {branch} ·{" "}
+        {text.attention.since(clock(view.started_at, locale) || ago(view.started_at, now, locale))}{" "}
+        · {stateLabel(view.state, text)}
       </div>
       <InstanceDetails view={view} />
     </div>
@@ -117,6 +121,7 @@ function Official({ view, now }: { view: InstanceView; now: number }): ReactElem
 }
 
 function Hung({ view, actions }: { view: InstanceView; actions: Actions }): ReactElement {
+  const { text } = useI18n();
   return (
     <div className="card coral">
       <div className="eyebrow coral-text">{text.attention.hung}</div>
@@ -126,7 +131,7 @@ function Hung({ view, actions }: { view: InstanceView; actions: Actions }): Reac
         <span className="soft">{view.project}</span>
       </div>
       <div className="soft mono ellipsis" style={{ marginTop: 4 }}>
-        :{view.port} · {instanceTitle(view)}
+        :{view.port} · {instanceTitle(view, text)}
       </div>
       <InstanceDetails view={view} />
       <div className="row" style={{ marginTop: 10 }}>
@@ -145,6 +150,7 @@ function Hung({ view, actions }: { view: InstanceView; actions: Actions }): Reac
 }
 
 function Expiring({ view, actions }: { view: InstanceView; actions: Actions }): ReactElement {
+  const { text } = useI18n();
   const left = secondsUntil(view.expires_at, actions.now) ?? 0;
   const total = Math.max(
     1,

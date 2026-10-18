@@ -20,7 +20,8 @@ import {
   type ServiceNode,
 } from "../model";
 import { isOpen, revealed, setAll, toggled, type ProjectFolds } from "../projectFolds";
-import { text } from "../text";
+import type { Catalog } from "../i18n/es";
+import { useI18n } from "../i18n/provider";
 import { countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
 import { canRequestStop, instanceTitle } from "../instance";
@@ -35,7 +36,7 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-export function projectsSubtitle(actions: Actions): string {
+export function projectsSubtitle(actions: Actions, text: Catalog): string {
   const nodes = buildProjects(actions.snapshot);
   const repos = nodes.reduce((sum, node) => sum + node.repos.length, 0);
   const services = nodes.reduce((sum, node) => sum + node.serviceCount, 0);
@@ -53,6 +54,7 @@ export function ProjectsView({
   folds: ProjectFolds;
   onFoldsChange: (folds: ProjectFolds) => void;
 }): ReactElement {
+  const { text } = useI18n();
   const nodes = useMemo(() => orderProjects(buildProjects(actions.snapshot)), [actions.snapshot]);
 
   // Showing a service from "Atención" opens its project and leaves the others as they are.
@@ -118,6 +120,7 @@ function ProjectCard({
   actions: Actions;
   highlight: string | undefined;
 }): ReactElement {
+  const { text } = useI18n();
   const quiet = node.runningCount === 0 && node.unknownCount === 0;
   const ports = occupiedPorts(node);
   const single = node.repos.length === 1 ? node.repos[0]?.repo : undefined;
@@ -244,6 +247,7 @@ function ServiceRows({
   actions: Actions;
   highlight: string | undefined;
 }): ReactElement {
+  const { text } = useI18n();
   const principal = service.principal;
   const ref = useRef<HTMLDivElement>(null);
   const flagged = highlight !== undefined && principal?.ref === highlight;
@@ -351,6 +355,7 @@ function DetailedRow({
   main: ReactElement;
   side: ReactElement;
 }): ReactElement {
+  const { text } = useI18n();
   const factsId = useId();
   const [open, setOpen] = useState(false);
   return (
@@ -361,7 +366,7 @@ function DetailedRow({
           className="svc-main"
           aria-expanded={open}
           aria-controls={factsId}
-          aria-label={text.instance.detailsIdentity(instanceTitle(view), view.ref)}
+          aria-label={text.instance.detailsIdentity(instanceTitle(view, text), view.ref)}
           onClick={() => {
             setOpen(!open);
           }}
@@ -386,6 +391,7 @@ function ServiceSummary({
   service: ServiceNode;
   branch: string | null;
 }): ReactElement {
+  const { text } = useI18n();
   const principal = service.principal;
   const port = principal?.port ?? service.port;
   return (
@@ -405,7 +411,7 @@ function ServiceSummary({
         }
         style={{ fontSize: 12 }}
       >
-        {principal === undefined ? stateLabel("down") : stateLabel(principal.state)}
+        {principal === undefined ? stateLabel("down", text) : stateLabel(principal.state, text)}
       </span>
       <span className="grow" />
       <span className="mono soft">{port === null ? "" : `:${port}`}</span>
@@ -422,6 +428,7 @@ function ServiceButtons({
   service: ServiceNode;
   actions: Actions;
 }): ReactElement {
+  const { text } = useI18n();
   const principal = service.principal;
   const running = canRequestStop(principal);
   return (
@@ -462,6 +469,7 @@ function ServiceButtons({
 }
 
 function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }): ReactElement {
+  const { text } = useI18n();
   const left = secondsUntil(view.expires_at, actions.now) ?? 0;
   return (
     <DetailedRow
@@ -477,7 +485,7 @@ function TemporalRow({ view, actions }: { view: InstanceView; actions: Actions }
           <span className="mono amber-text">
             {view.state === "healthy" || view.state === "unhealthy"
               ? countdown(left)
-              : stateLabel(view.state)}
+              : stateLabel(view.state, text)}
           </span>
         </>
       }

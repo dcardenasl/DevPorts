@@ -1,6 +1,7 @@
 // Browser-only fixture for consumer changes. Manifest validation stays the Rust core's job;
 // this keeps the catalog and snapshot coherent so the panel can be developed without Tauri.
 import { usesMessage } from "./consumers";
+import { es } from "./i18n/es";
 import type {
   ConsumerOptions,
   OperationRequest,
@@ -88,7 +89,7 @@ export function mockConsumers(get: () => Snapshot, publish: (next: Snapshot) => 
           ? {
               consumers,
               status: "failed",
-              error: usesMessage(outcome.error),
+              error: usesMessage(outcome.error, es),
               usesError: outcome.error,
             }
           : { consumers, status: "succeeded", error: null, usesError: null };

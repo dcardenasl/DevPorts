@@ -449,7 +449,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** lista final de tokens, `createThemeController`/`appTheme` y cómo fija el tema una prueba.
 
-- [ ] **UXR-9.3 — Catálogo i18n tipado del panel (es + en).**
+- [x] **UXR-9.3 — Catálogo i18n tipado del panel (es + en).**
 
   **Dependencias:** UXR-9.1. **Plan:** [Diseño C](docs/plan/tema-e-idioma.md#c-i18n-del-panel-sin-librería-catálogo-tipado-coherente-con-textts). **Contexto:** ADR-041, regla 10 (cero `any`, `strict`).
 
@@ -462,6 +462,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `pnpm` completo; `tools/check.sh full`; capturas es/en de cada pestaña en el navegador de desarrollo.
 
   **Commits previstos:** `refactor(ui): replace the text module with a typed catalog` → `feat(ui): add the english catalog and intl formatting`.
+
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.3».
 
   **Entrega a la próxima sesión:** API de `useI18n`, cómo añadir un idioma y qué textos del núcleo siguen en español (insumo de 9.4).
 
