@@ -20,6 +20,7 @@ App de barra de menús para macOS que mantiene el orden de los servidores de des
 | `docs/DECISIONES.md` | Siempre antes de implementar. **Fuente de verdad** (ADR-001..) |
 | `docs/PRD.md` | Validar alcance y criterios (RF/NF) |
 | `docs/ARQUITECTURA.md` | Construir núcleo, IPC, datos, UI shell; verificaciones V1–V12 |
+| `docs/MAPA-DEL-CODIGO.md` | Orientarse en las carpetas: qué módulo hace qué, en qué orden leerlos, dónde tocar para cada cambio |
 | `docs/MANIFIESTO.md` | Parsers, identidad, `adopt` |
 | `docs/CLI.md` | Comandos, códigos de salida, mensajes |
 | `docs/PRUEBAS.md` | Escribir pruebas; matriz requisito→prueba |
