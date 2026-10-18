@@ -14,6 +14,9 @@ import type {
   Snapshot,
 } from "./types";
 
+/** How long a finished operation stays on screen; failures and pending work stay until settled. */
+export const RECENT_SUCCESS_MS = 6000;
+
 /** Milliseconds since the epoch, refreshed every `everyMs`. */
 export function useNow(everyMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
@@ -287,22 +290,75 @@ export function useOperations(
   epoch = 0,
 ): {
   operations: OperationView[];
+  /** What the panel shows: pending and failed work, and a success only for a moment. */
+  visible: OperationView[];
   /** Starts the operation, or returns the equal one still waiting for a retry. */
   start: (request: Omit<OperationRequest, "id">) => Promise<OperationView | undefined>;
   retry: (id: string) => Promise<void>;
 } {
   const [operations, setOperations] = useState<OperationView[]>([]);
+  const [retired, setRetired] = useState<ReadonlySet<string>>(new Set());
   const busy = useRef(new Set<string>());
-  const merge = useCallback((next: OperationView) => {
-    setOperations((current) => {
-      const prior = current.find((item) => item.id === next.id);
-      if (prior && prior.revision > next.revision) return current;
-      return [next, ...current.filter((item) => item.id !== next.id)].slice(0, 48);
-    });
+  const timers = useRef(new Map<string, number>());
+  const live = useRef(new Set<string>());
+  const retire = useCallback((id: string) => {
+    setRetired((current) => new Set(current).add(id));
+  }, []);
+  const settle = useCallback(
+    (next: OperationView, fromHistory: boolean) => {
+      const timer = timers.current.get(next.id);
+      if (next.status !== "succeeded") {
+        // Work that came back (a retry) is shown again until it succeeds anew.
+        if (timer !== undefined) window.clearTimeout(timer);
+        timers.current.delete(next.id);
+        setRetired((current) => {
+          if (!current.has(next.id)) return current;
+          const rest = new Set(current);
+          rest.delete(next.id);
+          return rest;
+        });
+        return;
+      }
+      if (timer !== undefined) return;
+      if (fromHistory && !live.current.has(next.id)) {
+        retire(next.id);
+        return;
+      }
+      timers.current.set(
+        next.id,
+        window.setTimeout(() => {
+          timers.current.delete(next.id);
+          retire(next.id);
+        }, RECENT_SUCCESS_MS),
+      );
+    },
+    [retire],
+  );
+  const merge = useCallback(
+    (next: OperationView, fromHistory = false) => {
+      if (!fromHistory) live.current.add(next.id);
+      setOperations((current) => {
+        const prior = current.find((item) => item.id === next.id);
+        if (prior && prior.revision > next.revision) return current;
+        return [next, ...current.filter((item) => item.id !== next.id)].slice(0, 48);
+      });
+      settle(next, fromHistory);
+    },
+    [settle],
+  );
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      pending.forEach((timer) => {
+        window.clearTimeout(timer);
+      });
+      pending.clear();
+    };
   }, []);
   useEffect(() => {
     if (!api) return;
     const life = { active: true };
+    const isActive = (): boolean => life.active;
     let unsubscribe: (() => void) | undefined;
     void (async () => {
       const stop = await api.subscribeOperations((item) => {
@@ -314,13 +370,19 @@ export function useOperations(
       }
       unsubscribe = stop;
       const all = await api.operations();
-      all.forEach(merge);
+      if (isActive())
+        all.forEach((item) => {
+          merge(item, true);
+        });
     })().catch(() => undefined);
     return () => {
       life.active = false;
       unsubscribe?.();
     };
   }, [api, merge, epoch]);
+  const visible = operations.filter(
+    (item) => !(item.status === "succeeded" && retired.has(item.id)),
+  );
   const start = useCallback(
     async (request: Omit<OperationRequest, "id">) => {
       if (!api) return undefined;
@@ -363,7 +425,7 @@ export function useOperations(
     },
     [api, merge],
   );
-  return { operations, start, retry };
+  return { operations, visible, start, retry };
 }
 
 const SYSTEM_PREFERENCES: Preferences = { theme: "system", language: "system" };

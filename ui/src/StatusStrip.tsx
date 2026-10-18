@@ -65,12 +65,16 @@ export function StatusStrip({
             <div className="item-main">
               <div className="item-title">{text.status.dockerDown}</div>
               <div className="item-sub">{text.status.dockerDownBody}</div>
-              {snapshot.docker_error !== null && (
-                <div className="item-sub mono">
-                  {shortReason(dockerProblemText(snapshot.docker_error, text))}
-                </div>
-              )}
             </div>
+            <button
+              type="button"
+              className="btn"
+              onClick={(event) => {
+                onDetails(event.currentTarget);
+              }}
+            >
+              {t.details}
+            </button>
           </div>
         </section>
       )}

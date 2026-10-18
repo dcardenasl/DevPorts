@@ -134,7 +134,7 @@ function Panel({
   const { panelState, persist: persistPanelState } = usePanelStore(api, hydratedState);
   const tab = panelState?.tab ?? initialTab();
   const operationState = useOperations(api, link.epoch);
-  const { start: startOperation, retry: retryOperation, operations } = operationState;
+  const { start: startOperation, retry: retryOperation, operations, visible } = operationState;
   const runOperation = useCallback(
     (kind: "extend" | "keep", reference: string): void => {
       void startOperation({
@@ -357,11 +357,11 @@ function Panel({
         onRetry={retryConnection}
         onDetails={actions.openSettings}
       />
-      {operations.length > 0 && (
+      {visible.length > 0 && (
         <section className="section" aria-label={text.a11y.operations}>
           <h2 className="section-title">{text.operations.title}</h2>
           <div className="group">
-            {operations.slice(0, 5).map((operation) => (
+            {visible.slice(0, 5).map((operation) => (
               <div key={operation.id} className="item-note">
                 <strong>{text.operations.kind[operation.kind]}</strong>
                 {operation.targets.map((target) => (
