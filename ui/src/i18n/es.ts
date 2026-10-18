@@ -170,8 +170,17 @@ export const es = {
     data: "datos",
     docker: "docker",
   },
+  preferences: {
+    appearance: "Apariencia",
+    theme: "Tema",
+    themes: { system: "Sistema", light: "Claro", dark: "Oscuro" },
+    language: "Idioma",
+    languages: { system: "Sistema", es: "Español", en: "English" },
+    saveFailed: "No se pudo guardar. Se mantiene lo que había.",
+  },
   settings: {
     open: "Configuración",
+    sheetTitle: "Configuración",
     title: "Carpetas de exploración",
     description:
       "DevPorts busca proyectos (.devports.yml) en estas carpetas. Quitar una solo deja de buscar en ella: no borra archivos ni detiene procesos.",

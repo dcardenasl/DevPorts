@@ -10,7 +10,15 @@ import { SettingsSheet } from "./SettingsSheet";
 import { IgnoreConfirm, IgnoredList } from "./IgnoreSheets";
 import { consumersDraft } from "./consumers";
 import { revealed, type ProjectFolds } from "./projectFolds";
-import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
+import { appTheme } from "./boot";
+import {
+  useConnection,
+  useNow,
+  useOperations,
+  usePanelStore,
+  usePreferences,
+  useToast,
+} from "./hooks";
 import {
   BellIcon,
   CheckIcon,
@@ -87,14 +95,19 @@ export function App({
 }: {
   initialLanguage?: LanguagePreference;
 }): ReactElement {
+  const [language, setLanguage] = useState(initialLanguage);
   return (
-    <I18nProvider preference={initialLanguage}>
-      <Panel />
+    <I18nProvider preference={language}>
+      <Panel onLanguage={setLanguage} />
     </I18nProvider>
   );
 }
 
-function Panel(): ReactElement {
+function Panel({
+  onLanguage,
+}: {
+  onLanguage: (language: LanguagePreference) => void;
+}): ReactElement {
   const { text } = useI18n();
   const {
     api,
@@ -105,6 +118,7 @@ function Panel(): ReactElement {
     missingDraft,
   } = useConnection();
   const now = useNow();
+  const preferences = usePreferences(api, appTheme, onLanguage);
   const [highlight, setHighlight] = useState<string>();
   const [dialog, setDialog] = useState<DialogRequest>();
   const [ignoreRequest, setIgnoreRequest] = useState<IgnoreRequest>();
@@ -543,6 +557,9 @@ function Panel(): ReactElement {
               link={link}
               snapshot={snapshot}
               draft={settingsDraft}
+              preferences={preferences.preferences}
+              preferencesFailed={preferences.failed}
+              onPreferences={preferences.change}
               returnFocusTo={draftInvoker}
               onCopy={actions.copy}
               onClose={() => {

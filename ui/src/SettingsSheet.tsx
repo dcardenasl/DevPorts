@@ -7,7 +7,9 @@ import { Modal } from "./Modal";
 import { configuredRoots, rootsChanged, settingsFailure, settingsMessage } from "./settings";
 import { StatusDetails } from "./StatusStrip";
 import { useI18n } from "./i18n/provider";
+import { PreferencesSection } from "./PreferencesSection";
 import type {
+  Preferences,
   RootProblem,
   ScanFolders,
   ScanPreview,
@@ -26,6 +28,9 @@ export function SettingsSheet({
   link,
   snapshot,
   draft,
+  preferences,
+  preferencesFailed,
+  onPreferences,
   onClose,
   onCopy,
   onDraftChange,
@@ -35,6 +40,9 @@ export function SettingsSheet({
   link: Link;
   snapshot: Snapshot;
   draft: SettingsDraft;
+  preferences: Preferences;
+  preferencesFailed: boolean;
+  onPreferences: (next: Preferences) => void;
   onClose: () => void;
   onCopy: (value: string) => void;
   onDraftChange: (draft: SettingsDraft) => Promise<void>;
@@ -203,8 +211,8 @@ export function SettingsSheet({
 
   return (
     <Modal
-      title={reviewing ? t.reviewTitle : t.title}
-      description={reviewing ? t.reviewBody : t.description}
+      title={reviewing ? t.reviewTitle : t.sheetTitle}
+      {...(reviewing ? { description: t.reviewBody } : {})}
       bottom
       onCancel={onClose}
       returnFocusTo={returnFocusTo}
@@ -243,6 +251,8 @@ export function SettingsSheet({
 
       {!sent && folders !== undefined && !reviewing && (
         <div className="stack">
+          <h3 className="eyebrow soft">{t.title}</h3>
+          <p className="soft">{t.description}</p>
           {folders.fromDefaults && <p className="soft">{t.fromDefaults}</p>}
           <ul className="consumers" aria-label={t.title}>
             {draft.roots.map((root, index) => {
@@ -323,6 +333,14 @@ export function SettingsSheet({
             </button>
           </p>
         </div>
+      )}
+
+      {!reviewing && (
+        <PreferencesSection
+          preferences={preferences}
+          failed={preferencesFailed}
+          onChange={onPreferences}
+        />
       )}
 
       {reviewing && preview !== undefined && (

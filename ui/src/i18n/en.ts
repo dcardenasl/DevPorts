@@ -155,8 +155,17 @@ export const en: Catalog = {
     data: "data",
     docker: "docker",
   },
+  preferences: {
+    appearance: "Appearance",
+    theme: "Theme",
+    themes: { system: "System", light: "Light", dark: "Dark" },
+    language: "Language",
+    languages: { system: "System", es: "Español", en: "English" },
+    saveFailed: "It could not be saved. What was there is kept.",
+  },
   settings: {
     open: "Settings",
+    sheetTitle: "Settings",
     title: "Scan folders",
     description:
       "DevPorts looks for projects (.devports.yml) in these folders. Removing one only stops looking in it: no files are deleted and no processes are stopped.",

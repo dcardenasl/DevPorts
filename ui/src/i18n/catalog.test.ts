@@ -37,9 +37,10 @@ describe("the catalogs", () => {
       if (typeof value === "string") expect(value.trim(), path).not.toBe("");
   });
 
-  it("keep Spanish out of the English one", () => {
+  it("keep Spanish out of the English one, but for the name of Spanish in Spanish", () => {
     for (const [path, value] of english)
-      if (typeof value === "string") expect(value, path).not.toMatch(/[áéíóúñ¿¡«»]/);
+      if (typeof value === "string" && path !== "preferences.languages.es")
+        expect(value, path).not.toMatch(/[áéíóúñ¿¡«»]/);
   });
 
   it("count in each language's own way", () => {
