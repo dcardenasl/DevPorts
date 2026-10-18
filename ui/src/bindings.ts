@@ -149,6 +149,38 @@ export type ConsumerOptions = {
 	consumers: ConsumerChoice[],
 };
 
+/**  What a rule keeps out of the way. */
+export type IgnoreKind =
+/**  A command line started in a folder. */
+"process" |
+/**  A container on a Docker context. */
+"container" |
+/**  A stored key this build cannot read; it is still listed and restorable. */
+"unknown";
+
+/**  A rule as the person sees it. */
+export type IgnoreRule = {
+	/**  Stable handle for restoring; derived from the stored key. */
+	id: string,
+	/**  What kind of thing it matches. */
+	kind: IgnoreKind,
+	/**  Working directory a process must have started in. */
+	folder: string | null,
+	/**
+	 *  Exact command line, program first. For rules from earlier builds the
+	 *  arguments are split on spaces for display only.
+	 */
+	command: string[],
+	/**  Container name. */
+	container: string | null,
+	/**  Docker context the container lives on, when the rule records one. */
+	context: string | null,
+	/**  Written by an earlier build: matches as it always did and is never widened. */
+	legacy: boolean,
+	/**  When the rule was saved, ISO 8601; absent for a preview. */
+	createdAt: string | null,
+};
+
 /**  What kind of instance this is. */
 export type InstanceRole =
 /**

@@ -204,7 +204,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .find(|view| view.instance_ref == reference)
             .cloned()
             .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
-        let key = super::ignore_key(&view).ok_or_else(|| {
+        let key = crate::ignore::rule_key(&view, &self.docker_context).ok_or_else(|| {
             ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
         })?;
         let now = self.now();
@@ -219,6 +219,73 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             Some(reference),
             &json!({"port": view.port}),
         );
+        self.rebuild_views();
+        Ok(())
+    }
+
+    /// The rule that ignoring `reference` would save, exactly as it would be stored.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError`] if the instance does not exist or cannot be told apart.
+    pub fn ignore_preview(
+        &self,
+        reference: &str,
+    ) -> Result<crate::ignore::IgnoreRule, ActionError> {
+        let view = self
+            .views
+            .iter()
+            .find(|view| view.instance_ref == reference)
+            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+        let key = crate::ignore::rule_key(view, &self.docker_context).ok_or_else(|| {
+            ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
+        })?;
+        Ok(crate::ignore::describe(&key, 0))
+    }
+
+    /// Every saved rule, newest first, including those no live instance matches.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError::Refused`] if the store cannot be read.
+    pub fn ignored_rules(&self) -> Result<Vec<crate::ignore::IgnoreRule>, ActionError> {
+        let mut rules: Vec<_> = self
+            .store
+            .ignored_rules()
+            .map_err(|error| ActionError::Refused(error.to_string()))?
+            .into_iter()
+            .map(|(key, at)| crate::ignore::describe(&key, at))
+            .collect();
+        rules.sort_by(|a, b| {
+            b.created_at
+                .cmp(&a.created_at)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        Ok(rules)
+    }
+
+    /// Forgets one saved rule so what it kept out of the way is observed again.
+    /// Restoring a rule that is already gone succeeds without changing anything.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError::Refused`] if the store cannot be read or written.
+    pub fn restore_ignored(&mut self, id: &str) -> Result<(), ActionError> {
+        let found = self
+            .store
+            .ignored_rules()
+            .map_err(|error| ActionError::Refused(error.to_string()))?
+            .into_iter()
+            .map(|(key, _)| key)
+            .find(|key| crate::ignore::rule_id(key) == id);
+        let Some(key) = found else {
+            return Ok(());
+        };
+        self.store
+            .remove_ignored(&key)
+            .map_err(|error| ActionError::Refused(error.to_string()))?;
+        self.ignored.remove(&key);
+        self.event("restored", None, None, None, &json!({"rule": id}));
         self.rebuild_views();
         Ok(())
     }

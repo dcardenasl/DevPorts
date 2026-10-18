@@ -554,6 +554,23 @@ impl Store {
         Ok(keys)
     }
 
+    /// Every saved rule with the moment it was saved.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn ignored_rules(&self) -> Result<Vec<(String, i64)>, StoreError> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT key, created_at FROM ignored")?;
+        let rules = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rules)
+    }
+
     /// Remembers that the person chose to keep the thing with this key.
     ///
     /// # Errors

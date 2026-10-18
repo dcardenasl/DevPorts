@@ -16,12 +16,14 @@
 //! [`Notice`]s from a `broadcast` channel; it never touches the engine.
 
 mod adoption;
+mod ignored;
 mod probe;
 mod uses;
 
 use crate::adopt::review::AdoptionBook;
 pub use crate::adopt::review::AdoptionTarget as AdoptTarget;
 use adoption::AdoptionMsg;
+use ignored::IgnoredMsg;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -237,6 +239,7 @@ enum Msg {
     Adopted(Applied),
     Adoption(AdoptionMsg),
     UsesContext(oneshot::Sender<uses::UsesContext>),
+    Ignored(IgnoredMsg),
 }
 
 /// What an adoption needs to know about the thing being adopted.
@@ -779,6 +782,10 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 self.finish_stop(&reference, outcome);
                 Vec::new()
             }
+            Msg::Ignored(message) => {
+                self.handle_ignored(message);
+                Vec::new()
+            }
             Msg::Ignore(reference, reply) => {
                 let _ = reply.send(self.engine.ignore_instance(&reference));
                 Vec::new()
@@ -1018,6 +1025,15 @@ async fn supervise_docker(
                 attempt = 0;
                 let source = Arc::new(source);
                 let _ = shared.send(Some(Arc::clone(&source)));
+                // Container rules are scoped to the context, so it is known first.
+                let context = source.context().name.clone();
+                if messages
+                    .send(Msg::Ignored(IgnoredMsg::DockerContext(context)))
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
                 // Subscribe before listing so nothing between the two is lost.
                 let events = source.events();
                 futures_util::pin_mut!(events);

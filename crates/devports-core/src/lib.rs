@@ -18,6 +18,7 @@ pub mod fingerprint;
 pub mod gitinfo;
 pub mod hash;
 pub mod ids;
+pub mod ignore;
 pub mod ipc;
 pub mod manifest;
 pub mod messages;

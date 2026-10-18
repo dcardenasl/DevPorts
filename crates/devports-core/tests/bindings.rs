@@ -23,6 +23,7 @@ fn generated() -> String {
         .register::<devports_core::uses::ConsumerOptions>()
         .register::<devports_core::uses::UseRequest>()
         .register::<devports_core::uses::UsesError>()
+        .register::<devports_core::ignore::IgnoreRule>()
         .register::<InstanceView>()
         .register::<LogEntry>();
     let body = Typescript::default()

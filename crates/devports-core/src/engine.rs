@@ -96,22 +96,6 @@ impl StopExpectation {
 /// How long repository facts (branch, last change) are trusted.
 const GIT_TTL_SECONDS: i64 = 10;
 
-/// The stable identity of something the person may choose to keep: the same
-/// command in the same folder, or the same container, survives restarts and
-/// changes of pid and port.
-#[must_use]
-pub fn ignore_key(view: &InstanceView) -> Option<String> {
-    if let Some(container) = &view.container {
-        return Some(format!("container:{container}"));
-    }
-    let cwd = view.cwd.as_deref()?;
-    let program = view.argv.first()?;
-    Some(format!(
-        "process:{cwd}\u{1f}{program}\u{1f}{}",
-        view.argv.join(" ")
-    ))
-}
-
 /// One instance whose health the prober must check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HealthTarget {
@@ -273,8 +257,10 @@ pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
     /// views are rebuilt every second and must not touch the disk each time.
     pub(crate) git_cache:
         std::cell::RefCell<BTreeMap<std::path::PathBuf, (i64, Option<crate::gitinfo::GitInfo>)>>,
-    /// What the person chose to keep, by [`ignore_key`].
+    /// What the person chose to keep, by [`crate::ignore::rule_key`].
     pub(crate) ignored: BTreeSet<String>,
+    /// The Docker context the containers come from; part of a container's rule.
+    pub(crate) docker_context: String,
     pub(crate) views: Vec<InstanceView>,
     /// Changes whenever [`Engine::views`] changes, so a caller can tell cheaply.
     pub(crate) views_revision: u64,
@@ -313,6 +299,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             containers: None,
             health: BTreeMap::new(),
             ignored: ignored_keys.into_iter().collect(),
+            docker_context: crate::ignore::DEFAULT_CONTEXT.to_owned(),
             git_cache: std::cell::RefCell::new(BTreeMap::new()),
             views: Vec::new(),
             views_revision: 0,
@@ -469,6 +456,15 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 }
             })
             .collect()
+    }
+
+    /// Records which Docker context the containers come from. Rules for
+    /// containers are scoped to it, so the views are rebuilt when it changes.
+    pub fn set_docker_context(&mut self, context: &str) {
+        if self.docker_context != context {
+            context.clone_into(&mut self.docker_context);
+            self.rebuild_views();
+        }
     }
 
     /// The services of `shared.yml` with what the person declared for them.

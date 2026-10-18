@@ -346,6 +346,7 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
             "Conservaste {service} {} aunque duplica a la Principal",
             port.unwrap_or_default()
         ),
+        "restored" => "Restauraste un servicio ignorado".to_owned(),
         "adopted" => format!("Adoptaste {service} en un manifiesto"),
         "unregistered_seen" => format!(
             "Apareció un proceso sin registrar {}",

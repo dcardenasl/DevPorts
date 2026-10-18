@@ -171,7 +171,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         self.add_declared_but_down(&mut views);
         for view in &mut views {
             view.ignored = view.role == InstanceRole::Unregistered
-                && super::ignore_key(view).is_some_and(|key| self.ignored.contains(&key));
+                && crate::ignore::is_ignored(&self.ignored, view, &self.docker_context);
         }
         views.sort_by(sort_key);
         if views != self.views {
