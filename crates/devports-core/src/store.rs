@@ -12,11 +12,12 @@
 
 use std::path::Path;
 
+use devports_proto::{LanguagePreference, Preferences, ThemePreference};
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
 /// The schema, one entry per version. Never edit an entry that has shipped:
 /// append a new one.
-const MIGRATIONS: [&str; 3] = [
+const MIGRATIONS: [&str; 4] = [
     "
     CREATE TABLE instances (
       id INTEGER PRIMARY KEY,
@@ -62,6 +63,16 @@ const MIGRATIONS: [&str; 3] = [
       key TEXT PRIMARY KEY,
       class TEXT NOT NULL CHECK (class IN ('project','auxiliary','unclassified')),
       created_at INTEGER NOT NULL
+    );
+    ",
+    "
+    CREATE TABLE preferences (
+      key TEXT PRIMARY KEY CHECK (key IN ('theme','language')),
+      value TEXT NOT NULL CHECK (
+        (key = 'theme' AND value IN ('system','light','dark'))
+        OR (key = 'language' AND value IN ('system','es','en'))
+      ),
+      updated_at INTEGER NOT NULL
     );
     ",
 ];
@@ -600,6 +611,56 @@ impl Store {
     pub fn clear_classification(&self, key: &str) -> Result<(), StoreError> {
         self.connection
             .execute("DELETE FROM classifications WHERE key = ?1", [key])?;
+        Ok(())
+    }
+
+    /// The saved preferences. A key never saved, or saved with a value this build
+    /// does not know, reads as `system`: a preference can never stop DevPorts from
+    /// starting.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn preferences(&self) -> Result<Preferences, StoreError> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT key, value FROM preferences")?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut preferences = Preferences::default();
+        for (key, value) in rows {
+            match key.as_str() {
+                "theme" => preferences.theme = ThemePreference::parse(&value).unwrap_or_default(),
+                "language" => {
+                    preferences.language = LanguagePreference::parse(&value).unwrap_or_default();
+                }
+                _ => {}
+            }
+        }
+        Ok(preferences)
+    }
+
+    /// Saves both preferences at once, so a reader never sees half of a change.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn set_preferences(&self, preferences: Preferences, at: i64) -> Result<(), StoreError> {
+        let transaction = self.connection.unchecked_transaction()?;
+        for (key, value) in [
+            ("theme", preferences.theme.as_str()),
+            ("language", preferences.language.as_str()),
+        ] {
+            transaction.execute(
+                "INSERT INTO preferences (key, value, updated_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                params![key, value, at],
+            )?;
+        }
+        transaction.commit()?;
         Ok(())
     }
 

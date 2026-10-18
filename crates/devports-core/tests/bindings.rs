@@ -30,6 +30,7 @@ fn generated() -> String {
         .register::<devports_core::settings::SettingsError>()
         .register::<devports_core::classify::Classification>()
         .register::<devports_core::classify::ProcessClass>()
+        .register::<devports_proto::Preferences>()
         .register::<InstanceView>()
         .register::<LogEntry>();
     let body = Typescript::default()

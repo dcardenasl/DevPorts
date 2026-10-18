@@ -248,3 +248,94 @@ fn old_events_are_pruned() {
     assert_eq!(left, [30, 40]);
     assert_eq!(store.prune_events(0).unwrap(), 0);
 }
+
+// covers: UXR-9.1
+#[test]
+fn preferences_read_as_system_until_saved() {
+    let dir = TempDir::new().unwrap();
+    let store = Store::open(&dir.path().join("devports.db")).unwrap();
+    assert_eq!(store.preferences().unwrap(), Preferences::default());
+}
+
+// covers: UXR-9.1
+#[test]
+fn preferences_survive_closing_and_reopening_the_file() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("devports.db");
+    let chosen = Preferences {
+        theme: ThemePreference::Dark,
+        language: LanguagePreference::En,
+    };
+    let store = Store::open(&path).unwrap();
+    store.set_preferences(chosen, 10).unwrap();
+    store
+        .set_preferences(
+            Preferences {
+                theme: ThemePreference::Light,
+                ..chosen
+            },
+            20,
+        )
+        .unwrap();
+    drop(store);
+    let reopened = Store::open(&path).unwrap();
+    assert_eq!(
+        reopened.preferences().unwrap(),
+        Preferences {
+            theme: ThemePreference::Light,
+            language: LanguagePreference::En,
+        }
+    );
+}
+
+// covers: UXR-9.1
+#[test]
+fn a_database_at_schema_3_migrates_to_4_keeping_its_data() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("devports.db");
+    let connection = Connection::open(&path).unwrap();
+    for migration in MIGRATIONS.iter().take(3) {
+        connection.execute_batch(migration).unwrap();
+    }
+    connection.pragma_update(None, "user_version", 3).unwrap();
+    connection
+        .execute("INSERT INTO ignored (key, created_at) VALUES ('k', 1)", [])
+        .unwrap();
+    drop(connection);
+
+    let store = Store::open(&path).unwrap();
+
+    assert_eq!(store.schema_version().unwrap(), 4);
+    assert_eq!(store.ignored_keys().unwrap(), vec!["k".to_owned()]);
+    assert_eq!(store.preferences().unwrap(), Preferences::default());
+}
+
+// covers: UXR-9.1
+#[test]
+fn an_unreadable_preference_reads_as_system_and_the_table_refuses_new_ones() {
+    let dir = TempDir::new().unwrap();
+    let store = Store::open(&dir.path().join("devports.db")).unwrap();
+    // The CHECK refuses a value or key this build does not know...
+    assert!(
+        store
+            .connection
+            .execute("INSERT INTO preferences VALUES ('theme', 'sepia', 1)", [])
+            .is_err()
+    );
+    assert!(
+        store
+            .connection
+            .execute("INSERT INTO preferences VALUES ('font', 'serif', 1)", [])
+            .is_err()
+    );
+    // ...and a value written by a newer build (a theme added later) is read as system.
+    store
+        .connection
+        .execute_batch("PRAGMA ignore_check_constraints = ON")
+        .unwrap();
+    store
+        .connection
+        .execute("INSERT INTO preferences VALUES ('theme', 'sepia', 1)", [])
+        .unwrap();
+    assert_eq!(store.preferences().unwrap().theme, ThemePreference::System);
+}

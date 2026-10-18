@@ -295,6 +295,15 @@ export type InstanceView = {
 	ignored: boolean,
 };
 
+/**  Which language the panel, the tray and the notifications use. */
+export type LanguagePreference =
+/**  Follow the system's preferred languages. */
+"system" |
+/**  Spanish. */
+"es" |
+/**  English. */
+"en";
+
 /**  One line of the activity log. */
 export type LogEntry = {
 	/**  When it happened, ISO 8601 with offset. */
@@ -331,6 +340,14 @@ export type LogTopic =
 "alert" |
 /**  A `devports run` that was refused. */
 "rejection";
+
+/**  Every preference, with `system` for anything never chosen. */
+export type Preferences = {
+	/**  The theme. */
+	theme: ThemePreference,
+	/**  The language. */
+	language: LanguagePreference,
+};
 
 /**  Where a loose listener is placed in the panel. */
 export type ProcessClass =
@@ -521,6 +538,15 @@ export type Snapshot = {
 	/**  Minutes an "extend" adds, for the button's label. */
 	extend_minutes: number,
 };
+
+/**  Which theme the panel wears. */
+export type ThemePreference =
+/**  Follow the system appearance. */
+"system" |
+/**  Always light. */
+"light" |
+/**  Always dark. */
+"dark";
 
 /**  The confirmed state of one project: declare the service or stop declaring it. */
 export type UseRequest = {

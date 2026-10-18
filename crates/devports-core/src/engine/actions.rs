@@ -335,6 +335,34 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         Ok(())
     }
 
+    /// The saved appearance and language preferences.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError::Refused`] if the store cannot be read.
+    pub fn preferences(&self) -> Result<devports_proto::Preferences, ActionError> {
+        self.store
+            .preferences()
+            .map_err(|error| ActionError::Refused(error.to_string()))
+    }
+
+    /// Saves the preferences and returns what is now stored. It is not an event of
+    /// the activity log: it acts on no process.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError::Refused`] if the store cannot be written.
+    pub fn set_preferences(
+        &mut self,
+        preferences: devports_proto::Preferences,
+    ) -> Result<devports_proto::Preferences, ActionError> {
+        let now = self.now();
+        self.store
+            .set_preferences(preferences, now)
+            .map_err(|error| ActionError::Refused(error.to_string()))?;
+        Ok(preferences)
+    }
+
     /// Every saved rule, newest first, including those no live instance matches.
     ///
     /// # Errors

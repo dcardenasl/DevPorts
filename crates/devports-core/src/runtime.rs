@@ -17,6 +17,7 @@
 
 mod adoption;
 mod folders;
+mod preferences;
 mod probe;
 mod rules;
 mod uses;
@@ -24,6 +25,7 @@ mod uses;
 use crate::adopt::review::AdoptionBook;
 pub use crate::adopt::review::AdoptionTarget as AdoptTarget;
 use adoption::AdoptionMsg;
+use preferences::PreferencesMsg;
 use rules::RulesMsg;
 
 use std::path::PathBuf;
@@ -244,6 +246,7 @@ enum Msg {
     Adoption(AdoptionMsg),
     UsesContext(oneshot::Sender<uses::UsesContext>),
     Rules(RulesMsg),
+    Preferences(PreferencesMsg),
 }
 
 /// What an adoption needs to know about the thing being adopted.
@@ -794,6 +797,10 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             }
             Msg::Rules(message) => {
                 self.handle_rules(message);
+                Vec::new()
+            }
+            Msg::Preferences(message) => {
+                self.handle_preferences(message);
                 Vec::new()
             }
             Msg::Ignore(reference, reply) => {
