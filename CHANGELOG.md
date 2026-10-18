@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Panel polish** — the Docker notice is one compact row with a details button instead of a third of the panel, finished operations leave the panel after a few seconds, shared service rows no longer break their lines, activity times stay on one line, project folders show in full on hover and the tab bar focus ring is rounded.
+
 ### Changed
 
 - **System look** — the panel now looks like a macOS grouped list: one rounded group per section, hairline separators, status colour only on the status dot, one accent for the primary action, SF typography and no entrance fades.

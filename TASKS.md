@@ -609,7 +609,7 @@ Origen: revisión nativa del 2026-10-18 con la app instalada (panel 380×520, Do
 
   **Dependencias:** ninguna. **Leer código:** `ui/src/styles.css` (`.tab`, `:focus-visible` global), `docs/UI-REFERENCIA.md` §6. **Trabajo:** el foco de teclado de `.tab` usa el mismo radio y desplazamiento negativo que el resto de controles, sin invadir el borde del panel; el mismo token de color del sistema. **Hecho cuando:** con Tab del teclado, el anillo es redondeado y queda dentro de la pestaña en ambos temas; sin colores literales. **Commits:** `fix(ui): round the focus ring of the tab bar`.
 
-- [ ] **UXR-11.7 — Comprobación nativa y cierre.**
+- [x] **UXR-11.7 — Comprobación nativa y cierre.**
 
   **Dependencias:** UXR-11.1 a 11.6. **Trabajo:** `tools/check.sh full` y los cuatro scripts pnpm en verde; reinstalar con `tools/install.sh` y comprobar en la app nativa (clic en la bandeja con `osascript` + `screencapture`, ver `memory` «native-panel-access») las cinco pestañas con Docker apagado, en es y en; capturas en `docs/audits/evidencia/uxr-11/`; `UI-REFERENCIA.md` y DESIGN.md solo si cambia una regla; entradas en ARCHIVES, SNAPSHOT y CHANGELOG (`fix`), sin inventar versión. Solo recursos propios. **Commits:** `docs: close uxr-11 with evidence`.
 
