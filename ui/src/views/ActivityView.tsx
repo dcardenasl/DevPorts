@@ -222,7 +222,7 @@ export function ActivityView({
                 const tag = label(entry, text);
                 return (
                   <div className="log-row" key={`${entry.at}-${index}`}>
-                    <span className="mono dim">{clock(entry.at, locale)}</span>
+                    <span className="mono dim log-time">{clock(entry.at, locale)}</span>
                     <span className={`label sentence ${TONE_CLASS[tag.tone]}`}>{tag.word}</span>
                     <span>{eventSentence(entry, text, locale)}</span>
                   </div>

@@ -80,7 +80,7 @@ export const en: Catalog = {
       starting: "Starting",
       stopping: "Stopping",
       forgotten: "Forgotten · still running",
-      unknown: "Unknown · not being observed right now",
+      unknown: "Not confirmed",
     },
     roles: { principal: "Primary", temporal: "Temporary", unregistered: "Unregistered" },
     details: (name: string) => `Details of ${name}`,

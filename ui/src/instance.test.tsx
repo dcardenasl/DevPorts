@@ -28,7 +28,7 @@ describe("instance diagnostics", () => {
       healthy: "Sana",
       down: "Detenido",
       unhealthy: "Colgada · no responde",
-      unknown: "Desconocido · sin observación actual",
+      unknown: "Sin confirmar",
       starting: "Iniciando",
       stopping: "Deteniendo",
       forgotten: "Olvidada · sigue activa",
@@ -122,7 +122,7 @@ describe("instance diagnostics", () => {
     await userEvent.setup().click(screen.getByText("Detalles de api"));
     expect(screen.getByText("Lanzador no disponible; no se infiere su origen")).toBeVisible();
     expect(screen.getByText("Sin puertos observados en la instantánea actual")).toBeVisible();
-    expect(screen.getByText("Desconocido · sin observación actual")).toBeVisible();
+    expect(screen.getByText("Sin confirmar")).toBeVisible();
     expect(screen.queryByText("Detenido")).not.toBeInTheDocument();
     expect(screen.getByText("8080")).toBeVisible();
   });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  shortPath,
   buildAttention,
   buildOrphans,
   buildProjects,
@@ -67,5 +68,17 @@ describe("model", () => {
       "cd /work/tienda-demo && devports run api",
     );
     expect(startCommand(undefined, "api")).toBe("devports run api");
+  });
+});
+
+describe("shortPath", () => {
+  // covers: UXR-11.5
+  it("keeps the last two folders and tolerates odd input", () => {
+    expect(shortPath("/Users/me/dev/ci4-website-starter/ci4-website-suite")).toBe(
+      "ci4-website-starter/ci4-website-suite",
+    );
+    expect(shortPath("/work/app/")).toBe("work/app");
+    expect(shortPath("/solo")).toBe("solo");
+    expect(shortPath("")).toBe("");
   });
 });

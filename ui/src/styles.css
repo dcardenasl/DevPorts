@@ -106,6 +106,10 @@ button {
   cursor: pointer;
   position: relative;
 }
+.tab:focus-visible {
+  outline-offset: -4px;
+  border-radius: 12px;
+}
 .tab[aria-selected="true"] {
   color: var(--accent);
 }
@@ -221,6 +225,18 @@ button.item:focus-visible {
   color: var(--text-soft);
   overflow-wrap: anywhere;
 }
+.place {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.place-branch {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .item-end {
   display: flex;
   align-items: center;
@@ -280,10 +296,13 @@ button.item-line {
 }
 .log-row {
   display: grid;
-  grid-template-columns: 42px 86px 1fr;
+  grid-template-columns: max-content 86px 1fr;
   gap: 8px;
   padding: 9px var(--inset);
   align-items: start;
+}
+.log-time {
+  white-space: nowrap;
 }
 .item-note {
   padding: 8px var(--inset);
@@ -307,8 +326,10 @@ button.item-line {
   font-variant-numeric: tabular-nums;
 }
 .data {
+  flex: none;
   font: 500 12px var(--mono);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .soft {
   color: var(--text-soft);

@@ -18,6 +18,7 @@ import {
   startCommand,
   type ProjectNode,
   type ServiceNode,
+  shortPath,
 } from "../model";
 import { isOpen, revealed, setAll, toggled, type ProjectFolds } from "../projectFolds";
 import type { Catalog } from "../i18n/es";
@@ -129,9 +130,6 @@ function ProjectCard({
     node.repos.flatMap((repo) => (repo.repo.branch === null ? [] : [repo.repo.branch])),
   );
   const sharedBranch = branches.size === 1 ? ([...branches][0] ?? null) : null;
-  const place = [shortPath(node.summary.root), sharedBranch]
-    .filter((part) => part !== null && part.length > 0)
-    .join(" · ");
   return (
     <section className={quiet ? "group quiet" : "group"}>
       <button type="button" className="item" aria-expanded={open} onClick={onToggle}>
@@ -142,7 +140,14 @@ function ProjectCard({
           <span className="item-title">
             <span className="ellipsis">{node.summary.name}</span>
           </span>
-          <span className="item-sub mono ellipsis">{place}</span>
+          <span className="item-sub place">
+            <span className="mono ellipsis" title={node.summary.root}>
+              {shortPath(node.summary.root)}
+            </span>
+            {sharedBranch !== null && sharedBranch.length > 0 && (
+              <span className="mono place-branch">· {sharedBranch}</span>
+            )}
+          </span>
         </span>
         {ports.length > 0 ? (
           <span className="item-end">
@@ -514,9 +519,4 @@ export function IconButton({
       {children}
     </button>
   );
-}
-
-function shortPath(path: string): string {
-  const parts = path.split("/").filter((part) => part.length > 0);
-  return parts.slice(-2).join("/");
 }

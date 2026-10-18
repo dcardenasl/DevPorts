@@ -43,9 +43,11 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                   <span>{node.name}</span>
                   {view.kind === "data" && <Tag>{text.shared.data}</Tag>}
                 </div>
-                <div className="item-sub mono">
+                <div className="item-sub mono ellipsis">
                   {text.shared.docker} · {view.container ?? view.image ?? "—"}
-                  {` · ${stateLabel(view.state, text)}`}
+                </div>
+                <div className="item-sub">
+                  {stateLabel(view.state, text)}
                   {running ? ` · ${ago(view.started_at, actions.now, locale)}` : ""}
                 </div>
               </div>

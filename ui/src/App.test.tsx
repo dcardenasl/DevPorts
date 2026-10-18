@@ -287,9 +287,7 @@ describe("the panel", () => {
     expect(official?.querySelector(".item-sub.mono")).toHaveTextContent("Colgada · no responde");
     expect(official?.querySelector(".item-sub.mono")).not.toHaveTextContent("Sana");
     await user.click(tab(/Compartidos/));
-    expect(
-      screen.getByText(/Desconocido · sin observación actual/, { selector: ".item-sub.mono" }),
-    ).toBeVisible();
+    expect(screen.getByText(/Sin confirmar/, { selector: ".item-sub" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Detener mysql" })).not.toBeInTheDocument();
   });
 
@@ -1511,11 +1509,34 @@ describe("the panel", () => {
     const { user } = await open(snapshot);
     expect(screen.getByText("Docker no responde")).toBeInTheDocument();
     expect(screen.getByText(/no como detenidos/)).toBeInTheDocument();
+    // The strip says what to do; the technical reason lives only in Configuración.
+    expect(screen.queryByText(/no se pudo conectar/)).toBeNull();
     await user.click(tab(/Compartidos/));
     expect(screen.getAllByText("Docker no responde")).toHaveLength(1);
     expect(screen.queryByText("Detenido")).toBeNull();
-    expect(screen.getAllByText(/Desconocido/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Sin confirmar/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Copiar comando de inicio" })).toBeNull();
+  });
+
+  // covers: UI, UXR-11.5
+  it("gives each project row its full folder on hover", async () => {
+    const { user } = await open();
+    await user.click(tab(/Proyectos/));
+    expect(screen.getByTitle("/work/tienda-demo")).toHaveTextContent("work/tienda-demo");
+  });
+
+  // covers: UI, UXR-11.1
+  it("opens the Docker reason in Configuración from the strip's detail button", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.docker_reachable = false;
+    snapshot.docker_error = {
+      code: "unreachable",
+      detail: "no se pudo conectar con /var/run/docker.sock",
+    };
+    const { user } = await open(snapshot);
+    await user.click(screen.getByRole("button", { name: "Ver detalle" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/no se pudo conectar/)).toBeInTheDocument();
   });
 
   // covers: UI, UXR-6.2

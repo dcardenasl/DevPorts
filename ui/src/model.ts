@@ -283,3 +283,9 @@ export function draftTargetExists(draft: PanelDraft, snapshot: Snapshot): boolea
     ? snapshot.instances.some((view) => view.ref === draft.reference)
     : snapshot.shared.some((item) => item.name === draft.shared);
 }
+
+/** The last two folders of a path, enough to tell projects apart in one line. */
+export function shortPath(path: string): string {
+  const parts = path.split("/").filter((part) => part.length > 0);
+  return parts.slice(-2).join("/");
+}

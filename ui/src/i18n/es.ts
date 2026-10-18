@@ -95,7 +95,7 @@ export const es = {
       starting: "Iniciando",
       stopping: "Deteniendo",
       forgotten: "Olvidada · sigue activa",
-      unknown: "Desconocido · sin observación actual",
+      unknown: "Sin confirmar",
     },
     roles: { principal: "Principal", temporal: "Temporal", unregistered: "Sin registrar" },
     details: (name: string) => `Detalles de ${name}`,
