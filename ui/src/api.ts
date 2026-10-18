@@ -15,6 +15,7 @@ import type {
   OperationRequest,
   OperationView,
   PanelState,
+  Preferences,
   Snapshot,
 } from "./types";
 
@@ -34,6 +35,10 @@ export interface Backend {
   previewScanFolders(roots: string[]): Promise<ScanPreview>;
   /** Every saved ignore rule, with or without a running instance. */
   ignoredRules(): Promise<IgnoreRule[]>;
+  /** The saved theme and language; `system` for what was never chosen. */
+  preferences(): Promise<Preferences>;
+  /** Saves both preferences and resolves to what is now stored. */
+  setPreferences(preferences: Preferences): Promise<Preferences>;
   panelState(): Promise<PanelState>;
   savePanelState(state: PanelState): Promise<void>;
   operations(): Promise<OperationView[]>;
@@ -82,6 +87,8 @@ export function createTauriBackend(tauri: TauriGlobal): Backend {
     ignoredRules: () => invoke<IgnoreRule[]>("ignored_rules"),
     scanFolders: () => invoke<ScanFolders>("scan_folders"),
     previewScanFolders: (roots) => invoke<ScanPreview>("preview_scan_folders", { roots }),
+    preferences: () => invoke<Preferences>("get_preferences"),
+    setPreferences: (preferences) => invoke<Preferences>("set_preferences", { preferences }),
     panelState: () => invoke<PanelState>("get_panel_state"),
     savePanelState: (state) => {
       stateWrites = stateWrites

@@ -73,3 +73,27 @@ describe("the backend lookup", () => {
     expect(await backend()).toBe(second);
   });
 });
+
+describe("the preferences commands", () => {
+  // covers: UXR-9.1
+  it("reads and saves through the two commands and sends the preferences as one value", async () => {
+    const calls: [string, Record<string, unknown> | undefined][] = [];
+    const backend = createTauriBackend({
+      core: {
+        invoke: <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
+          calls.push([command, args]);
+          return Promise.resolve({ theme: "dark", language: "en" } as T);
+        },
+      },
+      event: { listen: () => Promise.resolve(() => undefined) },
+    });
+
+    await expect(backend.preferences()).resolves.toEqual({ theme: "dark", language: "en" });
+    await backend.setPreferences({ theme: "dark", language: "en" });
+
+    expect(calls).toEqual([
+      ["get_preferences", undefined],
+      ["set_preferences", { preferences: { theme: "dark", language: "en" } }],
+    ]);
+  });
+});

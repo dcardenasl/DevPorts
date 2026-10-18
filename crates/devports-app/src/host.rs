@@ -10,9 +10,10 @@ use std::time::{Duration, Instant};
 
 use devports_core::engine::Notice;
 use devports_core::runtime::{Core, CoreHandle, CoreOptions, RuntimeError};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::notifications::{Notifier, Response};
+use crate::preferences::PreferencesStore;
 
 /// Event the panel listens to.
 const SNAPSHOT_EVENT: &str = "snapshot";
@@ -54,6 +55,7 @@ pub fn start(app: &AppHandle) -> Result<CoreHandle, HostError> {
             },
         )?;
     let handle = core.handle();
+    load_preferences(app, &handle);
     // The core's own tasks live on Tauri's runtime until the process ends.
     tauri::async_runtime::spawn(core.wait());
 
@@ -61,6 +63,15 @@ pub fn start(app: &AppHandle) -> Result<CoreHandle, HostError> {
     spawn_snapshot_bridge(app.clone(), handle.clone());
     spawn_notice_bridge(app, &handle);
     Ok(handle)
+}
+
+/// Copies the saved preferences into the shell before any panel can open. A store that
+/// cannot be read leaves the defaults (`system`): a preference never stops the app.
+fn load_preferences(app: &AppHandle, handle: &CoreHandle) {
+    match tauri::async_runtime::block_on(handle.preferences()) {
+        Ok(preferences) => app.state::<PreferencesStore>().replace(preferences),
+        Err(error) => crate::diagnostics::report(&error),
+    }
 }
 
 /// `SIGTERM` (what `launchctl bootout` and a system shutdown send) and `SIGINT`

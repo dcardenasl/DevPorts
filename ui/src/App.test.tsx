@@ -8,6 +8,7 @@ import { mockAdoption } from "./mock-adoption";
 import { mockClassify } from "./mock-classify";
 import { mockConsumers } from "./mock-consumers";
 import { mockIgnored } from "./mock-ignored";
+import { mockPreferences } from "./mock-preferences";
 import { mockSettings } from "./mock-settings";
 import { sampleLog, sampleSnapshot } from "./sample";
 import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
@@ -47,6 +48,7 @@ function fakeBackend(
   const ignored = mockIgnored(() => currentSnapshot, publish);
   const classify = mockClassify(() => currentSnapshot, publish);
   const settings = mockSettings();
+  const preferences = mockPreferences();
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -66,6 +68,8 @@ function fakeBackend(
     sharedConsumers: consumers.sharedConsumers,
     rulePreview: ignored.rulePreview,
     ignoredRules: ignored.ignoredRules,
+    preferences: preferences.preferences,
+    setPreferences: preferences.setPreferences,
     scanFolders: settings.scanFolders,
     previewScanFolders: settings.previewScanFolders,
     previewProjectStop: (project) => {

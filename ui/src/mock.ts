@@ -5,6 +5,7 @@ import { mockAdoption } from "./mock-adoption";
 import { mockClassify } from "./mock-classify";
 import { mockConsumers } from "./mock-consumers";
 import { mockIgnored } from "./mock-ignored";
+import { mockPreferences } from "./mock-preferences";
 import { mockSettings } from "./mock-settings";
 import { adoptionFailure, adoptionMessage } from "./adoption";
 import type { Backend } from "./api";
@@ -44,6 +45,7 @@ export function mockBackend(): Backend {
   const ignored = mockIgnored(() => state, publish);
   const classify = mockClassify(() => state, publish);
   const settings = mockSettings();
+  const preferences = mockPreferences();
   return {
     adoptionOptions: adoption.adoptionOptions,
     previewAdoption: adoption.previewAdoption,
@@ -51,6 +53,8 @@ export function mockBackend(): Backend {
     sharedConsumers: consumers.sharedConsumers,
     rulePreview: ignored.rulePreview,
     ignoredRules: ignored.ignoredRules,
+    preferences: preferences.preferences,
+    setPreferences: preferences.setPreferences,
     scanFolders: settings.scanFolders,
     previewScanFolders: settings.previewScanFolders,
     snapshot: () => Promise.resolve(state),

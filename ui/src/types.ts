@@ -28,12 +28,15 @@ export type {
   InstanceView,
   LogEntry,
   LogError,
+  LanguagePreference,
   LogTopic,
+  Preferences,
   ProjectSummary,
   RepoSummary,
   ServiceSummary,
   SharedSummary,
   Snapshot,
+  ThemePreference,
 } from "./bindings";
 
 /** Where an adoption goes: an existing project, a new one, or `shared.yml`. */

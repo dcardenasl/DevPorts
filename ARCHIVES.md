@@ -3,6 +3,16 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.1 — Preferencias persistentes · 2026-10-18
+- **Resultado:** tema e idioma se guardan en SQLite (migración 4) y se leen/escriben con comandos de Tauri; el socket no expone nada nuevo.
+- **Contrato:**
+  - proto: `devports_proto::{Preferences, ThemePreference (system|light|dark), LanguagePreference (system|es|en)}`, `as_str()`/`parse()`, JSON `{"theme":"dark","language":"es"}`.
+  - core: tabla `preferences(key CHECK theme|language, value CHECK por clave, updated_at)`; `Store::preferences()` (ausente o ilegible → `system`) y `Store::set_preferences(prefs, at)` (transacción de ambas claves); `CoreHandle::preferences()` / `set_preferences(Preferences) -> Preferences` por el actor (`Msg::Preferences`, `runtime/preferences.rs`); sin evento de log.
+  - app: `PreferencesStore` (copia del shell, cargada en `host::start` y reemplazada solo tras guardar en el núcleo), comandos `get_preferences() -> Preferences` y `set_preferences(preferences) -> Preferences`. Errores como `String` hasta UXR-9.4 (`CommandError`).
+  - ui: `Backend.preferences()` / `setPreferences(preferences)` en `api.ts`, `mock-preferences.ts`, tipos reexportados en `types.ts`, `bindings.ts` regenerado.
+- **Pendiente para 9.5:** reconstruir la bandeja al guardar; 9.2 lee la copia del shell (`PreferencesStore::get`) al abrir el panel.
+- **Verificación:** `tools/check.sh full` verde; UI typecheck, lint, format y 119/119 pruebas (4 nuevas en UI, 4 en el almacén, 1 de integración, 3 en proto, 1 en la app).
+
 ## UXR-9.0 — Decisiones de tema e idioma · 2026-10-18
 - **Resultado:** ADR-040 (tema sistema/claro/oscuro, resolución síncrona por URL + `boot.js`, `data-theme` explícito, tokens por tema, AA por tema) y ADR-041 (es + en, catálogo tipado sin librería, `Intl`, preferencias en SQLite `preferences`, núcleo → datos tipados; CLI, `--json`, goldens y `docs/` siguen en español; respaldo de locale: `es*`→es, `en*`→en, otro→en).
 - **Archivos:** `docs/DECISIONES.md` (ADR-040/041, nota en ADR-025.6), `docs/PRD.md` (NF-10 acotado, NF-11), `docs/PRUEBAS.md` (M-16, fila NF-11), `docs/UI-REFERENCIA.md` §6 (tabla de tokens por tema; paleta clara con contrastes), `CLAUDE.md` (Idioma).

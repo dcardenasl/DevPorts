@@ -13,6 +13,7 @@ mod notifications;
 mod operations;
 mod panel;
 mod panel_state;
+mod preferences;
 mod tray;
 #[cfg(target_os = "macos")]
 mod window_style;
@@ -25,6 +26,7 @@ fn main() {
         .manage(panel::PanelState::default())
         .manage(panel::Revealed::default())
         .manage(panel_state::PanelStateStore::default())
+        .manage(preferences::PreferencesStore::default())
         .manage(operations::OperationStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
@@ -39,6 +41,8 @@ fn main() {
             commands::preview_scan_folders,
             commands::get_panel_state,
             commands::set_panel_state,
+            commands::get_preferences,
+            commands::set_preferences,
             commands::get_operations,
             commands::get_operation,
             commands::start_operation,

@@ -413,7 +413,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** ADR y paleta citados por número/sección en ARCHIVES para UXR-9.1 y 9.2.
 
-- [ ] **UXR-9.1 — Preferencias persistentes (proto, núcleo y comandos).**
+- [x] **UXR-9.1 — Preferencias persistentes (proto, núcleo y comandos).**
 
   **Dependencias:** UXR-9.0. **Plan:** [Diseño A](docs/plan/tema-e-idioma.md#a-preferencias-fuente-única). **Contexto:** ADR-040/041, reglas 1, 6, 8 y 10 de CLAUDE.md.
 
@@ -426,6 +426,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `tools/check.sh full`; pruebas de núcleo/app/UI con `// covers:`; `pnpm` completo.
 
   **Commits previstos:** `feat(proto): add the preferences types` → `feat(core): store preferences in sqlite with migration 4` → `feat(app): add the preferences commands`.
+
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.1». Tipos en proto, migración 4, mensajes del actor, comandos y `Backend.preferences()/setPreferences()`.
 
   **Entrega a la próxima sesión:** firmas exactas de los comandos y tipos en ARCHIVES (las consumen 9.2, 9.3, 9.5 y 9.6).
 

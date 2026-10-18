@@ -6,13 +6,14 @@
 )]
 
 use devports_core::runtime::Snapshot;
-use devports_proto::LogArgs;
 use devports_proto::views::LogEntry;
+use devports_proto::{LogArgs, Preferences};
 use tauri::{AppHandle, State};
 
 use crate::host::CoreState;
 use crate::operations::{self, OperationRequest, OperationStore, OperationView};
 use crate::panel_state::{PanelState, PanelStateStore};
+use crate::preferences::PreferencesStore;
 
 #[tauri::command]
 pub fn get_snapshot(core: State<'_, CoreState>) -> Snapshot {
@@ -125,6 +126,27 @@ pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
 #[tauri::command]
 pub fn set_panel_state(store: State<'_, PanelStateStore>, state: PanelState) -> Result<(), String> {
     store.set(state).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub fn get_preferences(store: State<'_, PreferencesStore>) -> Preferences {
+    store.get()
+}
+
+/// Saves the preferences in the core and, once it has, in the shell's copy.
+#[tauri::command]
+pub async fn set_preferences(
+    core: State<'_, CoreState>,
+    store: State<'_, PreferencesStore>,
+    preferences: Preferences,
+) -> Result<Preferences, String> {
+    let saved = core
+        .0
+        .set_preferences(preferences)
+        .await
+        .map_err(|error| error.to_string())?;
+    store.replace(saved);
+    Ok(saved)
 }
 
 #[tauri::command]
