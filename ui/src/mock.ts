@@ -2,6 +2,7 @@
 // actions visibly work (stopping removes a row, extending adds time).
 
 import { mockAdoption } from "./mock-adoption";
+import { mockClassify } from "./mock-classify";
 import { mockConsumers } from "./mock-consumers";
 import { mockIgnored } from "./mock-ignored";
 import { adoptionFailure, adoptionMessage } from "./adoption";
@@ -40,12 +41,13 @@ export function mockBackend(): Backend {
   const adoption = mockAdoption(() => state, publish);
   const consumers = mockConsumers(() => state, publish);
   const ignored = mockIgnored(() => state, publish);
+  const classify = mockClassify(() => state, publish);
   return {
     adoptionOptions: adoption.adoptionOptions,
     previewAdoption: adoption.previewAdoption,
     validateAdoption: adoption.validateAdoption,
     sharedConsumers: consumers.sharedConsumers,
-    ignorePreview: ignored.ignorePreview,
+    rulePreview: ignored.rulePreview,
     ignoredRules: ignored.ignoredRules,
     snapshot: () => Promise.resolve(state),
     previewProjectStop: (project) =>
@@ -119,6 +121,8 @@ export function mockBackend(): Backend {
             ignored.keep(ref);
           } else if (request.kind === "restore") {
             ignored.restore(ref);
+          } else if (request.kind === "classify") {
+            classify.set(ref, target.classification?.class ?? null);
           } else if (request.kind === "extend") {
             const view = find(ref);
             const end = Date.parse(view.expires_at ?? "") + state.extend_minutes * 60_000;

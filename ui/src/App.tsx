@@ -4,6 +4,7 @@ import type { Actions } from "./actions";
 import { ConfirmStop } from "./dialogs";
 import { AdoptSheet } from "./AdoptSheet";
 import { ConsumersSheet } from "./ConsumersSheet";
+import { ClassifySheet } from "./ClassifySheet";
 import { IgnoreConfirm, IgnoredList } from "./IgnoreSheets";
 import { consumersDraft } from "./consumers";
 import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
@@ -53,6 +54,7 @@ export function App(): ReactElement {
   const [highlight, setHighlight] = useState<string>();
   const [dialog, setDialog] = useState<DialogRequest>();
   const [ignoreRequest, setIgnoreRequest] = useState<IgnoreRequest>();
+  const [classifyRequest, setClassifyRequest] = useState<IgnoreRequest>();
   const [listInvoker, setListInvoker] = useState<HTMLButtonElement | null>();
   const [preparingProjectStop, setPreparingProjectStop] = useState(false);
   const [draftInvoker, setDraftInvoker] = useState<HTMLButtonElement | null>(null);
@@ -167,6 +169,9 @@ export function App(): ReactElement {
       },
       ignore: (view, invoker) => {
         setIgnoreRequest({ view, invoker });
+      },
+      classify: (view, invoker) => {
+        setClassifyRequest({ view, invoker });
       },
       showIgnored: (invoker) => {
         setListInvoker(invoker);
@@ -452,6 +457,31 @@ export function App(): ReactElement {
               onConfirm={() => {
                 setIgnoreRequest(undefined);
                 runOperation("keep", ignoreRequest.view.ref);
+              }}
+            />
+          )}
+          {classifyRequest !== undefined && (
+            <ClassifySheet
+              api={api}
+              reference={classifyRequest.view.ref}
+              classification={snapshot.classifications.find(
+                (item) => item.instanceRef === classifyRequest.view.ref,
+              )}
+              returnFocusTo={classifyRequest.invoker}
+              onCancel={() => {
+                setClassifyRequest(undefined);
+              }}
+              onSave={(choice) => {
+                setClassifyRequest(undefined);
+                void startOperation({
+                  kind: "classify",
+                  targets: [
+                    { reference: classifyRequest.view.ref, classification: { class: choice } },
+                  ],
+                }).catch((failure: unknown) => {
+                  setFailed(true);
+                  showToast(failure instanceof Error ? failure.message : String(failure));
+                });
               }}
             />
           )}

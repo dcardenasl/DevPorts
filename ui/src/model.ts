@@ -140,6 +140,23 @@ export function buildUndeclaredData(snapshot: Snapshot): InstanceView[] {
   );
 }
 
+/** Loose processes by where the panel lists them. Only the core's evidence classifies. */
+export interface OrphanGroups {
+  project: InstanceView[];
+  unclassified: InstanceView[];
+  auxiliary: InstanceView[];
+}
+
+/** Splits the loose processes by class; one with no classification stays unclassified. */
+export function groupOrphans(snapshot: Snapshot): OrphanGroups {
+  const byRef = new Map(snapshot.classifications.map((item) => [item.instanceRef, item]));
+  const groups: OrphanGroups = { project: [], unclassified: [], auxiliary: [] };
+  for (const view of buildOrphans(snapshot)) {
+    groups[byRef.get(view.ref)?.class ?? "unclassified"].push(view);
+  }
+  return groups;
+}
+
 /** Things that listen on a port and belong to no declared service. */
 export function buildOrphans(snapshot: Snapshot): InstanceView[] {
   const undeclared = new Set(buildUndeclaredData(snapshot).map((view) => view.ref));

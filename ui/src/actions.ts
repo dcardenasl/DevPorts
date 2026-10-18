@@ -12,6 +12,8 @@ export interface Actions {
   keep: (view: InstanceView) => void;
   /** Shows the exact rule and, once confirmed, ignores this service. */
   ignore: (view: InstanceView, invoker: HTMLButtonElement) => void;
+  /** Lets the person correct where this process is listed, with the exact scope shown. */
+  classify: (view: InstanceView, invoker: HTMLButtonElement) => void;
   /** Lists the saved ignore rules so each can be restored. */
   showIgnored: (invoker: HTMLButtonElement) => void;
   openUrl: (url: string) => void;

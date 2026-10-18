@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Auxiliary tools group** — loose processes are listed as development servers, unclassified, or «Posibles herramientas auxiliares» (folded, with their origin such as Homebrew or VS Code); the guess is advice only, can be corrected per exact folder and command, and never ignores, adopts or stops anything.
+
 - **Ignored services** — «Ignorar» is now its own action that shows the exact rule (folder and command, or container and Docker context) before saving, and «Ver ignorados» lists every saved rule, including ones from earlier versions, with a one-click restore that starts or stops nothing.
 
 - **Shared resources panel** — manage which projects use a shared service from its card or from a project, with a file-by-file review, per-project results and retry of pending ones; a stopped resource offers its declared start command, and a browser link only when `shared.yml` declares an HTTP endpoint.

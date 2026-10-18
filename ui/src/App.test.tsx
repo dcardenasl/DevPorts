@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Backend } from "./api";
 import { App } from "./App";
 import { mockAdoption } from "./mock-adoption";
+import { mockClassify } from "./mock-classify";
 import { mockConsumers } from "./mock-consumers";
 import { mockIgnored } from "./mock-ignored";
 import { sampleLog, sampleSnapshot } from "./sample";
@@ -43,6 +44,7 @@ function fakeBackend(
   const adoption = mockAdoption(() => currentSnapshot, publish);
   const consumers = mockConsumers(() => currentSnapshot, publish);
   const ignored = mockIgnored(() => currentSnapshot, publish);
+  const classify = mockClassify(() => currentSnapshot, publish);
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -60,7 +62,7 @@ function fakeBackend(
     },
     validateAdoption: adoption.validateAdoption,
     sharedConsumers: consumers.sharedConsumers,
-    ignorePreview: ignored.ignorePreview,
+    rulePreview: ignored.rulePreview,
     ignoredRules: ignored.ignoredRules,
     previewProjectStop: (project) => {
       void record("previewProjectStop")(project);
@@ -95,6 +97,8 @@ function fakeBackend(
       for (const target of request.targets) {
         if (request.kind === "keep") ignored.keep(target.reference);
         if (request.kind === "restore") ignored.restore(target.reference);
+        if (request.kind === "classify")
+          classify.set(target.reference, target.classification?.class ?? null);
       }
       const op: OperationView = {
         id: request.id,
@@ -1071,5 +1075,120 @@ describe("the panel", () => {
     const second = await open();
     await second.user.click(tab(/Compartidos/));
     expect(screen.queryByRole("button", { name: "Abrir" })).toBeNull();
+  });
+
+  // covers: UI, UXR-5.2
+  it("groups loose processes by evidence, keeps auxiliaries folded but reachable and unchanged in actions", async () => {
+    const snapshot = sampleSnapshot();
+    const loose = snapshot.instances.find((view) => view.ref === "z9y8") as InstanceView;
+    const fpm: InstanceView = {
+      ...loose,
+      ref: "f1f1",
+      pid: 7001,
+      port: 9100,
+      ports: [9100],
+      target_identity: "fpm-target",
+      cwd: "/opt/homebrew/var",
+      argv: ["/opt/homebrew/opt/php@8.3/sbin/php-fpm", "--nodaemonize"],
+    };
+    const server: InstanceView = {
+      ...loose,
+      ref: "s2s2",
+      pid: 7002,
+      port: 18080,
+      ports: [18080],
+      target_identity: "server-target",
+      cwd: "/work/shop-wt",
+      worktree: "/work/shop-wt",
+      branch: "feature",
+      argv: ["php", "-S", "localhost:18080"],
+    };
+    snapshot.instances.push(fpm, server);
+    snapshot.classifications.push(
+      {
+        instanceRef: "f1f1",
+        class: "auxiliary",
+        detected: "auxiliary",
+        program: "php-fpm",
+        origin: "Homebrew",
+        signals: ["homebrewDaemon"],
+        corrected: false,
+      },
+      {
+        instanceRef: "s2s2",
+        class: "project",
+        detected: "project",
+        program: "php",
+        origin: null,
+        signals: ["gitWorktree"],
+        corrected: false,
+      },
+    );
+    const { backend, user } = await open(snapshot);
+    await user.click(tab(/Sin proyecto/));
+    expect(screen.getByText("3 procesos sin dueño · 1 posible auxiliar")).toBeInTheDocument();
+    expect(screen.getByText(/Servidores de desarrollo · 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Sin clasificar · 1/)).toBeInTheDocument();
+    const group = screen.getByRole("button", { name: /Posibles herramientas auxiliares · 1/ });
+    expect(group).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Homebrew")).toBeNull();
+    await user.click(group);
+    expect(group).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Homebrew")).toBeInTheDocument();
+    expect(screen.getByText("php-fpm", { selector: ".tag" })).toBeInTheDocument();
+    expect(screen.getByText(/No es un hecho|una pista, no un hecho/)).toBeInTheDocument();
+    // Folding or classifying hides nothing: the same safe actions are on the card.
+    const card = screen.getByText("php-fpm", { selector: ".tag" }).closest(".card") as HTMLElement;
+    expect(within(card).getByRole("button", { name: "Detener" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Ignorar" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Adoptar" })).toBeInTheDocument();
+    expect(backend.calls.operation).toBeUndefined();
+  });
+
+  // covers: UI, UXR-5.2
+  it("corrects a classification with its exact scope shown, then resets it to automatic", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    expect(screen.getByText(/Sin clasificar · 1/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reclasificar" }));
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByText("/tmp/scratch")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Sin indicios/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/No lo ignora, adopta, detiene ni reinicia/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/solo para esta carpeta y este comando exactos/),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("radio", { name: "Herramienta auxiliar" }));
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => {
+      expect(backend.calls.operation).toHaveLength(1);
+    });
+    const sent = backend.calls.operation?.[0]?.[0] as OperationRequest;
+    expect(sent.kind).toBe("classify");
+    expect(sent.targets[0]).toMatchObject({
+      reference: "z9y8",
+      classification: { class: "auxiliary" },
+    });
+    // The process moved to the folded group; it was not ignored or stopped.
+    const group = await screen.findByRole("button", {
+      name: /Posibles herramientas auxiliares · 1/,
+    });
+    expect(screen.queryByText(/Sin clasificar · /)).toBeNull();
+    await user.click(group);
+    expect(screen.getByText("corregida")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reclasificar" }));
+    const again = screen.getByRole("dialog");
+    expect(within(again).getByRole("radio", { name: "Herramienta auxiliar" })).toBeChecked();
+    await user.click(within(again).getByRole("radio", { name: /Automática/ }));
+    await user.click(within(again).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => {
+      expect(backend.calls.operation).toHaveLength(2);
+    });
+    expect(
+      (backend.calls.operation?.[1]?.[0] as OperationRequest).targets[0]?.classification,
+    ).toEqual({ class: null });
+    expect(await screen.findByText(/Sin clasificar · 1/)).toBeInTheDocument();
   });
 });

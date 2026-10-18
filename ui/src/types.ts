@@ -7,8 +7,10 @@ export type {
   AdoptionError,
   AdoptionOptions,
   AdoptionPreview,
+  Classification,
   ConsumerChoice,
   IgnoreRule,
+  ProcessClass,
   ConsumerOptions,
   ServiceEdits,
   UseRequest,
@@ -70,7 +72,7 @@ export interface PanelState {
 }
 
 export type OperationKind =
-  "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers" | "restore";
+  "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers" | "restore" | "classify";
 export type OperationStatus = "queued" | "running" | "succeeded" | "partial" | "failed";
 export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed";
 export interface OperationTargetRequest {
@@ -80,6 +82,8 @@ export interface OperationTargetRequest {
   stopExpectation?: StopExpectation;
   /** Consumer change: `reference` is the project name; `base` comes from `ConsumerChoice`. */
   consumers?: { shared: string; include: boolean; base: string };
+  /** Classification change: `class: null` goes back to the automatic guess. */
+  classification?: { class: import("./bindings").ProcessClass | null };
 }
 export interface StopExpectation {
   targetIdentity: string | null;
@@ -105,6 +109,7 @@ export interface OperationTargetResult {
   adoptionError?: import("./bindings").AdoptionError | null;
   consumers?: { shared: string; include: boolean } | null;
   usesError?: import("./bindings").UsesError | null;
+  classification?: { class: import("./bindings").ProcessClass | null } | null;
   stopExpectation?: StopExpectation | null;
   status: OperationTargetStatus;
   error: string | null;

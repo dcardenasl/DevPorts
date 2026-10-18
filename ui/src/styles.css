@@ -671,3 +671,35 @@ button.tag.add {
   gap: 8px;
   min-height: 28px;
 }
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 2px;
+  background: none;
+  border: 0;
+  color: var(--text-soft);
+  font: 600 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.disclosure::before {
+  content: "▸";
+}
+.disclosure[aria-expanded="true"]::before {
+  content: "▾";
+}
+.choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.evidence {
+  margin: 0;
+  padding-left: 18px;
+}

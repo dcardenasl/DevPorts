@@ -37,7 +37,7 @@ export function mockIgnored(get: () => Snapshot, publish: (next: Snapshot) => vo
     });
   };
   return {
-    ignorePreview: async (reference: string): Promise<IgnoreRule> => {
+    rulePreview: async (reference: string): Promise<IgnoreRule> => {
       await Promise.resolve();
       return describe(find(reference));
     },

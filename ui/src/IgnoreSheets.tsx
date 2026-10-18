@@ -13,7 +13,7 @@ const failureText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /** The criterion of a rule, shown the same way before it is saved and when it is listed. */
-function Criterion({ rule }: { rule: IgnoreRule }): ReactElement {
+export function Criterion({ rule }: { rule: IgnoreRule }): ReactElement {
   return (
     <dl className="adoption-location">
       {rule.folder !== null && (
@@ -63,7 +63,7 @@ export function IgnoreConfirm({
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let active = true;
-    void api.ignorePreview(reference).then(
+    void api.rulePreview(reference).then(
       (next) => {
         if (active) setRule(next);
       },
