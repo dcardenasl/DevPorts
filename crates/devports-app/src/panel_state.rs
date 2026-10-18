@@ -90,6 +90,49 @@ pub enum PanelDraft {
         #[serde(default)]
         operation_id: Option<String>,
     },
+    /// Projects selected to consume one shared service. Holds names only: the
+    /// manifests, their versions and the delta are read again on restore.
+    Consumers {
+        /// The shared service being managed.
+        shared: String,
+        /// Projects the person ticked.
+        selected: Vec<String>,
+        /// Whether the person is looking at the file-by-file review.
+        reviewing: bool,
+        /// Project whose row should receive focus, when opened from its card.
+        focus: Option<String>,
+        /// Operation key sent for this selection, used only to query its result on restore.
+        #[serde(default)]
+        operation_id: Option<String>,
+    },
+}
+
+/// Most projects a consumers draft may name, matching one operation's capacity.
+const MAX_DRAFT_PROJECTS: usize = 64;
+/// Longest project or shared-service name (`^[a-z0-9][a-z0-9-]{0,62}$`).
+const MAX_NAME_BYTES: usize = 63;
+
+impl PanelDraft {
+    fn is_bounded(&self) -> bool {
+        match self {
+            Self::Adopt { .. } => true,
+            Self::Consumers {
+                shared,
+                selected,
+                focus,
+                operation_id,
+                ..
+            } => {
+                shared.len() <= MAX_NAME_BYTES
+                    && selected.len() <= MAX_DRAFT_PROJECTS
+                    && selected.iter().all(|name| name.len() <= MAX_NAME_BYTES)
+                    && focus
+                        .as_ref()
+                        .is_none_or(|name| name.len() <= MAX_NAME_BYTES)
+                    && operation_id.as_ref().is_none_or(|id| id.len() <= 64)
+            }
+        }
+    }
 }
 
 /// Minimal editable review context retained only while the application runs.
@@ -156,6 +199,13 @@ impl PanelStateStore {
         if state.version != 1 {
             return Err("unsupported panel state version");
         }
+        if state
+            .draft
+            .as_ref()
+            .is_some_and(|draft| !draft.is_bounded())
+        {
+            return Err("panel draft exceeds its limits");
+        }
         *self.0.lock().unwrap_or_else(PoisonError::into_inner) = state;
         Ok(())
     }
@@ -184,6 +234,48 @@ mod tests {
         let encoded = serde_json::to_string(&state).expect("serialize panel state");
         let decoded: PanelState = serde_json::from_str(&encoded).expect("deserialize panel state");
         assert_eq!(decoded, state);
+    }
+
+    #[test]
+    fn consumers_draft_round_trips_and_is_bounded() {
+        let draft = PanelDraft::Consumers {
+            shared: "mysql".to_owned(),
+            selected: vec!["shop".to_owned(), "blog".to_owned()],
+            reviewing: true,
+            focus: Some("shop".to_owned()),
+            operation_id: None,
+        };
+        let state = PanelState {
+            draft: Some(draft.clone()),
+            ..PanelState::default()
+        };
+        let encoded = serde_json::to_string(&state).expect("serialize");
+        assert!(encoded.contains("\"kind\":\"consumers\""));
+        assert_eq!(
+            serde_json::from_str::<PanelState>(&encoded).expect("deserialize"),
+            state
+        );
+        let store = PanelStateStore::default();
+        assert_eq!(store.set(state.clone()), Ok(()));
+        let PanelDraft::Consumers { shared, .. } = draft else {
+            return;
+        };
+        let oversized = PanelState {
+            draft: Some(PanelDraft::Consumers {
+                shared,
+                selected: (0..65).map(|index| format!("p{index}")).collect(),
+                reviewing: false,
+                focus: None,
+                operation_id: None,
+            }),
+            ..PanelState::default()
+        };
+        assert_eq!(store.set(oversized), Err("panel draft exceeds its limits"));
+        assert_eq!(
+            store.get(),
+            state,
+            "a rejected draft keeps the previous state"
+        );
     }
 
     #[test]
