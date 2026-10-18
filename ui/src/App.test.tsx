@@ -1460,4 +1460,106 @@ describe("the panel", () => {
     expect(screen.getByRole("button", { name: "Alertas" })).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByText(/1 de 4 eventos/)).toBeInTheDocument();
   });
+
+  // covers: UI, UXR-7.1
+  it("exposes the sections as tabs wired to their panel and moves between them with the arrows", async () => {
+    const { user } = await open();
+    const list = screen.getByRole("tablist", { name: "Secciones" });
+    const tabs = within(list).getAllByRole("tab");
+    expect(tabs).toHaveLength(5);
+    // Roving tabindex: only the selected tab is in the tab order.
+    expect(tabs.map((entry) => entry.tabIndex)).toEqual([0, -1, -1, -1, -1]);
+    const panel = screen.getByRole("tabpanel");
+    expect(tabs[0]).toHaveAttribute("aria-controls", panel.id);
+    expect(panel).toHaveAttribute("aria-labelledby", tabs[0]?.id);
+    tabs[0]?.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(tabs[1]).toHaveFocus();
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", tabs[1]?.id);
+    expect(tabs.map((entry) => entry.tabIndex)).toEqual([-1, 0, -1, -1, -1]);
+    await user.keyboard("{End}");
+    expect(tabs[4]).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(tabs[0]).toHaveFocus();
+    await user.keyboard("{ArrowLeft}");
+    expect(tabs[4]).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    // The tab bar is not a navigation landmark pretending to be a tab list.
+    expect(list.tagName).toBe("DIV");
+  });
+
+  // covers: UI, UXR-7.1
+  it("keeps the folded group's control pointing at an element that always exists", async () => {
+    const snapshot = sampleSnapshot();
+    const loose = snapshot.instances.find((view) => view.ref === "z9y8") as InstanceView;
+    snapshot.instances.push({ ...loose, ref: "f1f1", pid: 7001, port: 9100, ports: [9100] });
+    snapshot.classifications = [
+      {
+        instanceRef: "f1f1",
+        class: "auxiliary",
+        detected: "auxiliary",
+        program: "php-fpm",
+        origin: "Homebrew",
+        signals: ["homebrewDaemon"],
+        corrected: false,
+      },
+    ];
+    const { user } = await open(snapshot);
+    await user.click(tab(/Sin proyecto/));
+    const toggle = screen.getByRole("button", { name: /Posibles herramientas auxiliares/ });
+    const target = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
+    expect(target).not.toBeNull();
+    expect(target).toHaveAttribute("hidden");
+    await user.click(toggle);
+    expect(document.getElementById(toggle.getAttribute("aria-controls") ?? "")).not.toHaveAttribute(
+      "hidden",
+    );
+  });
+
+  // covers: UI, UXR-7.1
+  it("completes the new sheets from the keyboard alone and returns focus to where it started", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    // Ignore: open, land on Cancelar, reach the confirmation by Tab and activate it with Enter.
+    const ignore = screen.getByRole("button", { name: "Ignorar" });
+    ignore.focus();
+    await user.keyboard("{Enter}");
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("/tmp/scratch");
+    expect(within(dialog).getByRole("button", { name: "Cancelar" })).toHaveFocus();
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Ignorar este servicio" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(backend.calls.operation).toHaveLength(1);
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Settings: Escape leaves without effects and focus returns to the gear.
+    const gear = screen.getByRole("button", { name: "Configuración" });
+    gear.focus();
+    await user.keyboard("{Enter}");
+    await screen.findByLabelText("Carpeta 1");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(gear).toHaveFocus();
+    expect(backend.calls.operation).toHaveLength(1);
+  });
+
+  // covers: UI, UXR-7.1
+  it("announces errors and ties them to their field", async () => {
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: "Configuración" }));
+    const dialog = screen.getByRole("dialog");
+    await within(dialog).findByLabelText("Carpeta 1");
+    await user.click(within(dialog).getByRole("button", { name: "Añadir carpeta" }));
+    const field = within(dialog).getByLabelText("Carpeta 2");
+    await user.type(field, "/Users/demo/missing");
+    await user.click(within(dialog).getByRole("button", { name: "Revisar efecto" }));
+    const message = await within(dialog).findByText("la carpeta no existe");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAttribute("aria-describedby", message.id);
+  });
 });

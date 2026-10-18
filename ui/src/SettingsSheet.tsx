@@ -248,6 +248,9 @@ export function SettingsSheet({
                       className="input grow mono"
                       aria-label={t.folder(index + 1)}
                       aria-invalid={problem !== undefined}
+                      aria-describedby={
+                        problem === undefined ? undefined : `root-problem-${String(index)}`
+                      }
                       placeholder={t.placeholder}
                       value={root}
                       disabled={!editable}
@@ -275,7 +278,11 @@ export function SettingsSheet({
                       −
                     </button>
                   </div>
-                  {problem !== undefined && <p className="form-error">{problem.message}</p>}
+                  {problem !== undefined && (
+                    <p className="form-error" id={`root-problem-${String(index)}`}>
+                      {problem.message}
+                    </p>
+                  )}
                   {problem === undefined && state !== undefined && (
                     <p className="soft adoption-reason">
                       {state.exists ? `${t.exists} · ${t.projects(state.projects)}` : t.missing}

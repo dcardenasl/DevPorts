@@ -115,14 +115,16 @@ export function OrphansView({ actions }: { actions: Actions }): ReactElement {
           >
             {text.classify.groupAuxiliary} · {groups.auxiliary.length}
           </button>
-          {auxiliaryOpen && (
-            <div id="auxiliary-group" className="stack">
-              <div className="soft" style={{ fontSize: 12 }}>
-                {text.classify.auxiliaryBody}
-              </div>
-              {groups.auxiliary.map(card)}
-            </div>
-          )}
+          <div id="auxiliary-group" className="stack" hidden={!auxiliaryOpen}>
+            {auxiliaryOpen && (
+              <>
+                <div className="soft" style={{ fontSize: 12 }}>
+                  {text.classify.auxiliaryBody}
+                </div>
+                {groups.auxiliary.map(card)}
+              </>
+            )}
+          </div>
         </section>
       )}
       {ignored}

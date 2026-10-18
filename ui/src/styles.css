@@ -260,14 +260,15 @@ button {
 }
 
 .btn {
-  height: 30px;
-  padding: 0 14px;
+  min-height: 30px;
+  padding: 4px 14px;
   border-radius: 8px;
   border: 1px solid var(--line-strong);
   background: transparent;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
+  /* Long labels wrap instead of pushing the sheet wider than the panel. */
+  white-space: normal;
 }
 .btn:hover {
   background: rgba(255, 255, 255, 0.06);
@@ -459,6 +460,7 @@ button {
   min-height: 0;
   max-height: 100%;
   overflow-y: auto;
+  overflow-wrap: anywhere;
   animation: fade 0.25s ease both;
 }
 .sheet-heading {
@@ -639,6 +641,13 @@ button {
 .adoption-footer {
   justify-content: space-between;
   margin-top: 16px;
+  /* The actions stay reachable when a sheet is taller than the panel. */
+  position: sticky;
+  bottom: -16px;
+  margin-bottom: -16px;
+  padding: 10px 0 16px;
+  background: var(--sheet);
+  border-top: 1px solid var(--line);
 }
 .option:disabled {
   cursor: not-allowed;

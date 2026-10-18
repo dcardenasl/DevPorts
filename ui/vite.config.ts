@@ -11,5 +11,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // The stylesheet is read as text by the contrast and layout checks.
+    css: { include: [/styles\.css/] },
   },
 });

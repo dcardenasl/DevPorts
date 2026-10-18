@@ -10,6 +10,14 @@ import { canRequestStop } from "../instance";
 import { InstanceDetails } from "./InstanceDetails";
 import { Dot, Empty, Tag, dotFor, stateLabel } from "./shared-parts";
 
+/** Smooth scrolling is motion: it is skipped when the person asked for less. */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export function projectsSubtitle(actions: Actions): string {
   const nodes = buildProjects(actions.snapshot);
   const repos = nodes.reduce((sum, node) => sum + node.repos.length, 0);
@@ -187,7 +195,11 @@ function ServiceRows({
   const ref = useRef<HTMLDivElement>(null);
   const flagged = highlight !== undefined && principal?.ref === highlight;
   useEffect(() => {
-    if (flagged) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (flagged)
+      ref.current?.scrollIntoView({
+        block: "center",
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
   }, [flagged]);
 
   return (

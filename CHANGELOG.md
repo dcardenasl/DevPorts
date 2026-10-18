@@ -35,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Panel accessibility** — the five sections are real tabs (arrow keys, Home and End, linked to their panel), field errors are tied to their field, sheet actions stay reachable on long content, long paths wrap, smooth scrolling respects reduced motion, and colour contrast is checked by a test.
 - **Activity log** — an unreadable activity store is now an error (in the panel and in `devports log`) instead of looking like «no activity»; the panel names its 24-hour window, counts only the events it shows, filters on typed topics and keeps the last good read if a refresh fails.
 - **Ignore rules** — new rules keep the command as a list of arguments and scope containers to their Docker context, so two different commands can no longer collide and nothing wider than the rule you saw is ever hidden.
 - **Manifest editing** — optimistic file versions, unique temporary files and no-clobber creation protect detectable external edits, preserve existing permission modes and keep comments and line endings intact.

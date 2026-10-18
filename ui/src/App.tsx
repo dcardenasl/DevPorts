@@ -46,6 +46,26 @@ const TABS: { id: Tab; icon: (props: { size?: number }) => ReactElement }[] = [
   { id: "activity", icon: ListIcon },
 ];
 
+const tabId = (id: Tab): string => `tab-${id}`;
+const panelId = (id: Tab): string => `panel-${id}`;
+
+/** The tab an arrow, Home or End key moves to; roving focus wraps at the ends. */
+function nextTab(current: Tab, key: string): Tab | undefined {
+  const index = TABS.findIndex((entry) => entry.id === current);
+  const last = TABS.length - 1;
+  const at =
+    key === "ArrowRight"
+      ? (index + 1) % TABS.length
+      : key === "ArrowLeft"
+        ? (index + last) % TABS.length
+        : key === "Home"
+          ? 0
+          : key === "End"
+            ? last
+            : undefined;
+  return at === undefined ? undefined : TABS[at]?.id;
+}
+
 function initialTab(): Tab {
   const wanted = new URLSearchParams(window.location.search).get("tab");
   return TABS.find((entry) => entry.id === wanted)?.id ?? "attention";
@@ -372,7 +392,18 @@ export function App(): ReactElement {
       body={body}
       tabKey={tab}
       footer={
-        <nav className="tabs" role="tablist" aria-label="Secciones">
+        <div
+          className="tabs"
+          role="tablist"
+          aria-label="Secciones"
+          onKeyDown={(event) => {
+            const next = nextTab(tab, event.key);
+            if (next === undefined) return;
+            event.preventDefault();
+            selectTab(next);
+            document.getElementById(tabId(next))?.focus();
+          }}
+        >
           {TABS.map(({ id, icon: Icon }) => {
             const count =
               id === "attention" ? snapshot.attention.length : id === "orphans" ? orphanCount : 0;
@@ -381,8 +412,11 @@ export function App(): ReactElement {
                 key={id}
                 type="button"
                 role="tab"
+                id={tabId(id)}
                 className="tab"
                 aria-selected={tab === id}
+                aria-controls={panelId(id)}
+                tabIndex={tab === id ? 0 : -1}
                 onClick={() => {
                   selectTab(id);
                 }}
@@ -397,7 +431,7 @@ export function App(): ReactElement {
               </button>
             );
           })}
-        </nav>
+        </div>
       }
       overlay={
         <>
@@ -601,7 +635,13 @@ function Shell({
         </div>
         <p>{subtitle}</p>
       </header>
-      <main className="body" key={tabKey} role="tabpanel">
+      <main
+        className="body"
+        key={tabKey}
+        role="tabpanel"
+        id={tabKey === undefined ? undefined : panelId(tabKey as Tab)}
+        aria-labelledby={tabKey === undefined ? undefined : tabId(tabKey as Tab)}
+      >
         {body}
       </main>
       {footer ?? <div />}
