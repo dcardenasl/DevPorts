@@ -3,8 +3,9 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, PoisonError};
 
+use devports_core::adopt::review::{AdoptionError, AdoptionTarget as AdoptTarget, ServiceEdits};
 use devports_core::engine::StopExpectation;
-use devports_core::runtime::{AdoptTarget as CoreAdoptTarget, CoreHandle};
+use devports_core::runtime::CoreHandle;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -17,7 +18,7 @@ pub(crate) const MAX_TARGETS: usize = 64;
 pub const OPERATION_EVENT: &str = "operation";
 
 /// An idempotent request from the panel.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OperationRequest {
     /// Client-generated idempotency key, reused after a lost response.
@@ -53,21 +54,22 @@ pub struct OperationTarget {
     /// Destination is present only for adoption.
     #[serde(default)]
     pub adopt_target: Option<AdoptTarget>,
+    /// Frozen review and exact confirmed fields; never exposed in operation history.
+    #[serde(default)]
+    pub adoption: Option<AdoptionSubmission>,
     /// Exact facts displayed in the manual-stop confirmation.
     #[serde(default)]
     pub stop_expectation: Option<StopExpectation>,
 }
 
-/// Adoption destination accepted by the operation contract.
+/// Exact reviewed adoption submitted by the person.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AdoptTarget {
-    /// Existing project name.
-    Project(String),
-    /// New project name, or use the process folder when absent.
-    New(Option<String>),
-    /// The shared resources manifest.
-    Shared,
+#[serde(rename_all = "camelCase")]
+pub struct AdoptionSubmission {
+    /// Opaque core review identifier.
+    pub id: String,
+    /// Exact confirmed editable values.
+    pub edits: ServiceEdits,
 }
 
 /// Aggregate operation lifecycle.
@@ -118,6 +120,10 @@ pub struct OperationTargetView {
     pub reference: String,
     /// Requested adoption destination, if any.
     pub adopt_target: Option<AdoptTarget>,
+    /// Review identifier only, for reconnecting a draft without exposing commands.
+    pub adoption_review: Option<String>,
+    /// Typed adoption failure, alongside the human-readable message.
+    pub adoption_error: Option<AdoptionError>,
     /// Minimal confirmed stop identity, never process arguments or secrets.
     pub stop_expectation: Option<StopExpectation>,
     /// Current target lifecycle.
@@ -150,6 +156,7 @@ pub struct OperationView {
 struct Entry {
     request: OperationRequest,
     view: OperationView,
+    digest: String,
 }
 
 /// Bounded in-memory operation history owned by the application process.
@@ -184,9 +191,10 @@ impl OperationStore {
         request: OperationRequest,
     ) -> Result<(OperationView, bool), OperationError> {
         validate(&request)?;
+        let digest = request_digest(&request)?;
         let mut entries = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(existing) = entries.iter().find(|entry| entry.view.id == request.id) {
-            if existing.request == request {
+            if existing.digest == digest {
                 return Ok((existing.view.clone(), false));
             }
             return Err(OperationError::IdConflict);
@@ -204,6 +212,8 @@ impl OperationStore {
             .map(|target| OperationTargetView {
                 reference: target.reference.clone(),
                 adopt_target: target.adopt_target.clone(),
+                adoption_review: target.adoption.as_ref().map(|adoption| adoption.id.clone()),
+                adoption_error: None,
                 stop_expectation: target.stop_expectation.clone(),
                 status: TargetStatus::Queued,
                 error: None,
@@ -221,6 +231,7 @@ impl OperationStore {
         entries.push_back(Entry {
             request,
             view: view.clone(),
+            digest,
         });
         Ok((view, true))
     }
@@ -263,7 +274,7 @@ impl OperationStore {
         &self,
         id: &str,
         index: usize,
-        outcome: Result<Option<AdoptedSummary>, String>,
+        outcome: Result<Option<AdoptedSummary>, OperationFailure>,
     ) -> Option<OperationView> {
         self.update_target(id, index, |target| {
             if target.status != TargetStatus::Running {
@@ -273,11 +284,13 @@ impl OperationStore {
                 Ok(result) => {
                     target.status = TargetStatus::Succeeded;
                     target.error = None;
+                    target.adoption_error = None;
                     target.result = result;
                 }
                 Err(error) => {
                     target.status = TargetStatus::Failed;
-                    target.error = Some(error);
+                    target.error = Some(error.message);
+                    target.adoption_error = error.adoption;
                 }
             }
             true
@@ -331,8 +344,35 @@ impl OperationStore {
         }
         entry.view.status = aggregate(&entry.view.targets);
         entry.view.revision = entry.view.revision.saturating_add(1);
+        // Successful receipts retain a digest, not a copy of the command.
+        for (request, result) in entry.request.targets.iter_mut().zip(&entry.view.targets) {
+            if result.status == TargetStatus::Succeeded {
+                request.adoption = None;
+            }
+        }
         Some(entry.view.clone())
     }
+}
+
+/// Safe failure payload retained by the shell, without command arguments.
+pub struct OperationFailure {
+    message: String,
+    adoption: Option<AdoptionError>,
+}
+
+impl From<String> for OperationFailure {
+    fn from(message: String) -> Self {
+        Self {
+            message,
+            adoption: None,
+        }
+    }
+}
+
+fn request_digest(request: &OperationRequest) -> Result<String, OperationError> {
+    serde_json::to_vec(request)
+        .map(|bytes| devports_core::hash::sha256_hex(&bytes))
+        .map_err(|_| OperationError::InvalidRequest)
 }
 
 fn validate(request: &OperationRequest) -> Result<(), OperationError> {
@@ -371,6 +411,17 @@ fn validate(request: &OperationRequest) -> Result<(), OperationError> {
                         || expected.shared
                 }))
             || (request.kind == OperationKind::Adopt) != target.adopt_target.is_some()
+            || (request.kind == OperationKind::Adopt) != target.adoption.is_some()
+            || target.adoption.as_ref().is_some_and(|adoption| {
+                adoption.id.is_empty()
+                    || adoption.id.len() > 64
+                    || adoption.edits.name.len() > 63
+                    || adoption
+                        .edits
+                        .start
+                        .as_ref()
+                        .is_some_and(|start| start.len() > 16_384)
+            })
             || stopping != target.stop_expectation.is_some()
             || (stopping
                 && target
@@ -449,40 +500,36 @@ async fn perform(
     core: &CoreHandle,
     kind: OperationKind,
     target: &OperationTarget,
-) -> Result<Option<AdoptedSummary>, String> {
+) -> Result<Option<AdoptedSummary>, OperationFailure> {
     match kind {
         OperationKind::Stop | OperationKind::StopProject => {
-            let expected = target
-                .stop_expectation
-                .clone()
-                .ok_or_else(|| "falta confirmar la identidad del objetivo".to_owned())?;
+            let expected = target.stop_expectation.clone().ok_or_else(|| {
+                OperationFailure::from("falta confirmar la identidad del objetivo".to_owned())
+            })?;
             let outcome = if kind == OperationKind::StopProject {
                 core.stop_project(&target.reference, expected).await
             } else {
                 core.stop(&target.reference, expected).await
             };
-            outcome.map(|()| None).map_err(|error| error.to_string())
+            outcome
+                .map(|()| None)
+                .map_err(|error| OperationFailure::from(error.to_string()))
         }
         OperationKind::Extend => core
             .extend(&target.reference)
             .await
             .map(|()| None)
-            .map_err(|error| error.to_string()),
+            .map_err(|error| OperationFailure::from(error.to_string())),
         OperationKind::Keep => core
             .ignore(&target.reference)
             .await
             .map(|()| None)
-            .map_err(|error| error.to_string()),
+            .map_err(|error| OperationFailure::from(error.to_string())),
         OperationKind::Adopt => {
-            let Some(destination) = target.adopt_target.clone() else {
-                return Err("no se especificó el destino de adopción".to_owned());
-            };
-            let destination = match destination {
-                AdoptTarget::Project(name) => CoreAdoptTarget::Project(name),
-                AdoptTarget::New(name) => CoreAdoptTarget::New(name),
-                AdoptTarget::Shared => CoreAdoptTarget::Shared,
-            };
-            core.adopt(&target.reference, destination)
+            let reviewed = target.adoption.as_ref().ok_or_else(|| {
+                OperationFailure::from("falta revisar la adopción antes de guardar".to_owned())
+            })?;
+            core.apply_adoption(&reviewed.id, reviewed.edits.clone())
                 .await
                 .map(|applied| {
                     Some(AdoptedSummary {
@@ -490,7 +537,10 @@ async fn perform(
                         service: applied.service,
                     })
                 })
-                .map_err(|error| error.to_string())
+                .map_err(|error| OperationFailure {
+                    message: error.to_string(),
+                    adoption: Some(error),
+                })
         }
     }
 }
@@ -532,11 +582,13 @@ mod tests {
                 OperationTarget {
                     reference: "first".to_owned(),
                     adopt_target: None,
+                    adoption: None,
                     stop_expectation: Some(stop_expectation()),
                 },
                 OperationTarget {
                     reference: "second".to_owned(),
                     adopt_target: None,
+                    adoption: None,
                     stop_expectation: Some(stop_expectation()),
                 },
             ],
@@ -546,7 +598,7 @@ mod tests {
     fn fail_target(store: &OperationStore, id: &str, index: usize, error: &str) {
         store.begin_target(id, index).expect("target begins");
         store
-            .finish_target(id, index, Err(error.to_owned()))
+            .finish_target(id, index, Err(error.to_owned().into()))
             .expect("target finishes");
     }
 

@@ -67,7 +67,11 @@ pub enum ActivityFilter {
 
 /// Draft data that can safely resume after recreating the webview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum PanelDraft {
     /// Adoption destination form.
     Adopt {
@@ -79,7 +83,45 @@ pub enum PanelDraft {
         name: String,
         /// Last substep visited, so focus can return to the same option.
         last_step: Option<AdoptMode>,
+        /// Review handle and editable fields, without copying observed argv or YAML.
+        #[serde(default)]
+        review: Option<AdoptionDraftReview>,
+        /// Accepted/requested operation key, used only to query its result on restore.
+        #[serde(default)]
+        operation_id: Option<String>,
     },
+}
+
+/// Minimal editable review context retained only while the application runs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdoptionDraftReview {
+    /// Core-issued review handle.
+    pub id: String,
+    /// Selected destination, revalidated explicitly before a save.
+    pub target: devports_core::adopt::review::AdoptionTarget,
+    /// User-editable fields required to recover the form.
+    pub edits: devports_core::adopt::review::ServiceEdits,
+    /// Display-only facts; saving always uses the core's immutable review.
+    pub context: AdoptionDraftContext,
+}
+
+/// Display-only facts needed to recover a review whose fields may be invalid.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdoptionDraftContext {
+    /// Canonical project directory shown in the review.
+    pub root: String,
+    /// Canonical manifest path shown in the review.
+    pub manifest: String,
+    /// Actual project label.
+    pub project: String,
+    /// Whether the proposed document is new.
+    pub creates_manifest: bool,
+    /// Port observed when the review was prepared.
+    pub observed_port: Option<u16>,
+    /// Proposal warnings shown before confirmation.
+    pub warnings: Vec<String>,
 }
 
 /// Adoption dialog step.
@@ -92,6 +134,8 @@ pub enum AdoptMode {
     Others,
     /// New project name form.
     New,
+    /// Review editable service fields before explicitly saving.
+    Review,
 }
 
 /// Thread-safe owner for the volatile panel context.
@@ -132,6 +176,8 @@ mod tests {
                 mode: AdoptMode::New,
                 name: "new-project".to_owned(),
                 last_step: Some(AdoptMode::Others),
+                review: None,
+                operation_id: None,
             }),
             ..PanelState::default()
         };
