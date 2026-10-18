@@ -105,8 +105,8 @@ export function SharedView({ actions }: { actions: Actions }): ReactElement {
                 <button
                   type="button"
                   className="btn primary-green"
-                  onClick={() => {
-                    actions.declareShared(view);
+                  onClick={(event) => {
+                    actions.declareShared(view, event.currentTarget);
                   }}
                 >
                   {text.shared.declare}

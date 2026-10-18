@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Reviewed adoption** — adopting a process or container now goes destination → editable review → save in the panel, with recoverable drafts, per-field errors, typed conflicts and results that survive closing the panel; destinations the discovery cannot reach are refused with the next step.
+
 - **Adoption reviews** — the core now exposes eligible destinations, frozen previews, editable-field validation and idempotent saves with typed conflicts for the panel review workflow.
 
 - **Instance diagnostics** — all instance views now expose expandable origin, identity, observed ports, working folder, launcher chain and explained Git age hints, with compact titles and masked command argument values.

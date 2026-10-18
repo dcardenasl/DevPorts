@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 
 import type { Actions } from "./actions";
-import { AdoptSheet, ConfirmStop } from "./dialogs";
-import { useConnection, useNow, useOperations, useToast } from "./hooks";
+import { ConfirmStop } from "./dialogs";
+import { AdoptSheet } from "./AdoptSheet";
+import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
 import {
   BellIcon,
   CheckIcon,
@@ -45,13 +46,6 @@ function initialTab(): Tab {
 export function App(): ReactElement {
   const { api, snapshot, error, panelState: hydratedState, missingDraft } = useConnection();
   const now = useNow();
-  const [panelState, setPanelState] = useState<PanelState | undefined>(hydratedState);
-  const [previousHydratedState, setPreviousHydratedState] = useState(hydratedState);
-  if (hydratedState !== previousHydratedState) {
-    setPreviousHydratedState(hydratedState);
-    setPanelState(hydratedState);
-  }
-  const tab = panelState?.tab ?? initialTab();
   const [highlight, setHighlight] = useState<string>();
   const [dialog, setDialog] = useState<DialogRequest>();
   const [preparingProjectStop, setPreparingProjectStop] = useState(false);
@@ -59,17 +53,15 @@ export function App(): ReactElement {
   const [logCount, setLogCount] = useState<number>();
   const [toast, showToast] = useToast();
   const [failed, setFailed] = useState(false);
+  const { panelState, persist: persistPanelState } = usePanelStore(api, hydratedState);
+  const tab = panelState?.tab ?? initialTab();
   const operationState = useOperations(api);
   const { start: startOperation, retry: retryOperation, operations } = operationState;
   const runOperation = useCallback(
-    (
-      kind: "extend" | "keep" | "adopt",
-      reference: string,
-      adoptTarget?: import("./types").AdoptTarget,
-    ): void => {
+    (kind: "extend" | "keep", reference: string): void => {
       void startOperation({
         kind,
-        targets: [{ reference, ...(adoptTarget === undefined ? {} : { adoptTarget }) }],
+        targets: [{ reference }],
       }).catch((failure: unknown) => {
         setFailed(true);
         showToast(failure instanceof Error ? failure.message : String(failure));
@@ -95,14 +87,12 @@ export function App(): ReactElement {
 
   const updatePanelState = useCallback(
     (change: Partial<PanelState>): void => {
-      setPanelState((current) => {
-        if (current === undefined) return current;
-        const next = { ...current, ...change };
-        if (api !== undefined) void api.savePanelState(next);
-        return next;
+      void persistPanelState(change).catch((failure: unknown) => {
+        setFailed(true);
+        showToast(failure instanceof Error ? failure.message : String(failure));
       });
     },
-    [api],
+    [persistPanelState, showToast],
   );
 
   const selectTab = useCallback(
@@ -190,8 +180,11 @@ export function App(): ReactElement {
         updatePanelState({ draft });
         setDraftInvoker(invoker);
       },
-      declareShared: (view) => {
-        runOperation("adopt", view.ref, "shared");
+      declareShared: (view, invoker) => {
+        updatePanelState({
+          draft: { kind: "adopt", reference: view.ref, mode: "options", name: "", lastStep: null },
+        });
+        setDraftInvoker(invoker);
       },
     };
   }, [
@@ -271,6 +264,7 @@ export function App(): ReactElement {
       )}
       {(missingDraft ||
         (panelState.draft !== null &&
+          panelState.draft.operationId == null &&
           !snapshot.instances.some((view) => view.ref === panelState.draft?.reference))) && (
         <p className="card blue" role="status">
           {text.status.draftGone}
@@ -402,32 +396,40 @@ export function App(): ReactElement {
               }}
             />
           )}
-          {adoptionDraft !== null && adoptionView !== undefined && (
-            <AdoptSheet
-              view={adoptionView}
-              draft={adoptionDraft}
-              returnFocusTo={draftInvoker}
-              projects={snapshot.projects}
-              onCancel={() => {
-                updatePanelState({ draft: null });
-                setDraftInvoker(null);
-              }}
-              onDraftChange={(draft) => {
-                updatePanelState({ draft });
-              }}
-              onChoose={(choice) => {
-                updatePanelState({ draft: null });
-                setDraftInvoker(null);
-                if (choice.kind === "project")
-                  runOperation("adopt", adoptionView.ref, { project: choice.project });
-                else if (choice.kind === "new")
-                  runOperation("adopt", adoptionView.ref, { new: choice.name });
-                else if (choice.kind === "shared")
-                  runOperation("adopt", adoptionView.ref, "shared");
-                else runOperation("keep", adoptionView.ref);
-              }}
-            />
-          )}
+          {adoptionDraft !== null &&
+            (adoptionView !== undefined || adoptionDraft.operationId != null) && (
+              <AdoptSheet
+                key={adoptionDraft.reference}
+                api={api}
+                view={adoptionView}
+                snapshot={snapshot}
+                draft={adoptionDraft}
+                returnFocusTo={draftInvoker}
+                onCancel={() => {
+                  updatePanelState({ draft: null });
+                  setDraftInvoker(null);
+                }}
+                onDraftChange={(draft) => persistPanelState({ draft })}
+                onIgnore={() => {
+                  updatePanelState({ draft: null });
+                  runOperation("keep", adoptionDraft.reference);
+                }}
+                onNavigate={(project, service, shared) => {
+                  setHighlight(
+                    snapshot.instances.find(
+                      (view) => view.project === project && view.service === service,
+                    )?.ref,
+                  );
+                  updatePanelState({
+                    draft: null,
+                    tab: shared ? "shared" : "projects",
+                    expandedProject: shared ? panelState.expandedProject : project,
+                    expandedProjectSet: true,
+                  });
+                  setDraftInvoker(null);
+                }}
+              />
+            )}
           {toast !== undefined && (
             <div className={failed ? "toast error" : "toast"} role="status">
               {failed ? <WarningIcon size={14} /> : <CheckIcon size={14} />}

@@ -1,6 +1,39 @@
 // Every string the person reads, in one place (Spanish).
 
 export const text = {
+  adoption: {
+    review: "Revisar adopción",
+    body: "Registra el servidor que ya está corriendo. No lo reinicia.",
+    loading: "Consultando destinos…",
+    preparing: "Preparando revisión…",
+    saving: "Guardando declaración…",
+    checking: "Consultando el resultado del guardado…",
+    retryQuery: "Consultar de nuevo",
+    retry: "Reintentar",
+    newReview: "Preparar nueva revisión",
+    editAgain: "Volver a editar",
+    save: "Guardar",
+    continue: "Revisar",
+    name: "Nombre del servicio",
+    start: "Comando de inicio",
+    startHint:
+      "Se guarda para futuros lanzamientos. Puedes dejarlo vacío si no hay un comando estable.",
+    root: "Raíz del proyecto",
+    manifest: "Archivo destino",
+    port: "Puerto observado",
+    unknownPort: "No disponible",
+    creates: "Se creará este archivo al guardar.",
+    chooses: "Elige un destino para revisar la propuesta antes de guardar.",
+    close: "Cerrar",
+    done: "Listo",
+    openProject: "Ver proyecto",
+    openShared: "Ver compartido",
+    pendingCard: "El catálogo todavía no muestra el destino. Espera su actualización.",
+    unsent:
+      "No se encontró la operación enviada. No se ha reenviado: vuelve a editar y confirma Guardar de nuevo.",
+    optionsFailed: "No se pudieron consultar los destinos.",
+    targetMissing: "La instancia ya no está disponible para preparar otra revisión.",
+  },
   tabs: {
     attention: "Atención",
     projects: "Proyectos",

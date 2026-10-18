@@ -14,6 +14,6 @@ export interface Actions {
   copy: (text: string) => void;
   showInProjects: (ref: string) => void;
   adopt: (view: InstanceView, invoker: HTMLButtonElement) => void;
-  /** Declares a container in `shared.yml` without asking where it goes. */
-  declareShared: (view: InstanceView) => void;
+  /** Opens the same reviewed declaration flow for a shared container. */
+  declareShared: (view: InstanceView, invoker: HTMLButtonElement) => void;
 }

@@ -1,6 +1,8 @@
 // A fake core for developing the panel in a browser. Keeps its own state so the
 // actions visibly work (stopping removes a row, extending adds time).
 
+import { mockAdoption } from "./mock-adoption";
+import { adoptionFailure, adoptionMessage } from "./adoption";
 import type { Backend } from "./api";
 import { sampleLog, sampleSnapshot } from "./sample";
 import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
@@ -33,7 +35,11 @@ export function mockBackend(): Backend {
     return view;
   };
 
+  const adoption = mockAdoption(() => state, publish);
   return {
+    adoptionOptions: adoption.adoptionOptions,
+    previewAdoption: adoption.previewAdoption,
+    validateAdoption: adoption.validateAdoption,
     snapshot: () => Promise.resolve(state),
     previewProjectStop: (project) =>
       Promise.resolve(
@@ -84,47 +90,54 @@ export function mockBackend(): Backend {
       });
       for (const target of request.targets) {
         const ref = target.reference;
-        if (request.kind === "stop" || request.kind === "stopProject") {
-          find(ref);
-          publish(without(ref));
-        } else if (request.kind === "keep") {
-          find(ref);
-          publish({
-            ...state,
-            instances: state.instances.map((candidate) =>
-              candidate.ref === ref ? { ...candidate, ignored: true } : candidate,
-            ),
-            attention: state.attention.filter((item) => item.instance_ref !== ref),
-          });
-        } else if (request.kind === "extend") {
-          const view = find(ref);
-          const end = Date.parse(view.expires_at ?? "") + state.extend_minutes * 60_000;
-          publish({
-            ...state,
-            instances: state.instances.map((candidate) =>
-              candidate.ref === ref
-                ? { ...candidate, expires_at: new Date(end).toISOString() }
-                : candidate,
-            ),
-            attention: state.attention.filter((item) => item.instance_ref !== ref),
-          });
-        } else if (target.adoptTarget) {
-          find(ref);
-          const dest = target.adoptTarget;
-          const project =
-            dest === "shared"
-              ? "compartidos"
-              : "project" in dest
-                ? dest.project
-                : (dest.new ?? "proyecto-nuevo");
+        try {
+          if (request.kind === "stop" || request.kind === "stopProject") {
+            find(ref);
+            publish(without(ref));
+          } else if (request.kind === "keep") {
+            find(ref);
+            publish({
+              ...state,
+              instances: state.instances.map((candidate) =>
+                candidate.ref === ref ? { ...candidate, ignored: true } : candidate,
+              ),
+              attention: state.attention.filter((item) => item.instance_ref !== ref),
+            });
+          } else if (request.kind === "extend") {
+            const view = find(ref);
+            const end = Date.parse(view.expires_at ?? "") + state.extend_minutes * 60_000;
+            publish({
+              ...state,
+              instances: state.instances.map((candidate) =>
+                candidate.ref === ref
+                  ? { ...candidate, expires_at: new Date(end).toISOString() }
+                  : candidate,
+              ),
+              attention: state.attention.filter((item) => item.instance_ref !== ref),
+            });
+          } else if (target.adoption) {
+            const targetResult = op.targets.find((item) => item.reference === ref);
+            if (targetResult) {
+              targetResult.result = adoption.apply(target.adoption.id, target.adoption.edits);
+              targetResult.adoptionReview = target.adoption.id;
+            }
+          } else throw new Error("Falta revisar la adopción");
           const targetResult = op.targets.find((item) => item.reference === ref);
-          if (targetResult) targetResult.result = { project, service: "servicio" };
-          publish(without(ref));
+          if (targetResult) targetResult.status = "succeeded";
+        } catch (error) {
+          const result = op.targets.find((item) => item.reference === ref);
+          if (result) {
+            result.status = "failed";
+            result.adoptionError = adoptionFailure(error);
+            result.error = adoptionMessage(result.adoptionError);
+          }
         }
-        const targetResult = op.targets.find((item) => item.reference === ref);
-        if (targetResult) targetResult.status = "succeeded";
       }
-      op.status = "succeeded";
+      op.status = op.targets.some((target) => target.status === "failed")
+        ? op.targets.some((target) => target.status === "succeeded")
+          ? "partial"
+          : "failed"
+        : "succeeded";
       op.revision++;
       opListeners.forEach((listener) => {
         listener(op);

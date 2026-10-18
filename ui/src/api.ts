@@ -2,6 +2,10 @@
 // calls Tauri commands; in a browser during development it runs on sample data.
 
 import type {
+  AdoptionOptions,
+  AdoptionPreview,
+  AdoptTarget,
+  ServiceEdits,
   InstanceView,
   LogEntry,
   OperationRequest,
@@ -12,6 +16,9 @@ import type {
 
 export interface Backend {
   snapshot(): Promise<Snapshot>;
+  adoptionOptions(reference: string): Promise<AdoptionOptions>;
+  previewAdoption(reference: string, target: AdoptTarget): Promise<AdoptionPreview>;
+  validateAdoption(id: string, edits: ServiceEdits): Promise<AdoptionPreview>;
   previewProjectStop(project: string): Promise<InstanceView[]>;
   panelState(): Promise<PanelState>;
   savePanelState(state: PanelState): Promise<void>;
@@ -51,10 +58,16 @@ export function createTauriBackend(tauri: TauriGlobal): Backend {
   let stateWrites = Promise.resolve();
   return {
     snapshot: () => invoke<Snapshot>("get_snapshot"),
+    adoptionOptions: (reference) => invoke<AdoptionOptions>("adoption_options", { reference }),
+    previewAdoption: (reference, target) =>
+      invoke<AdoptionPreview>("preview_adoption", { reference, target }),
+    validateAdoption: (id, edits) => invoke<AdoptionPreview>("validate_adoption", { id, edits }),
     previewProjectStop: (project) => invoke<InstanceView[]>("preview_project_stop", { project }),
     panelState: () => invoke<PanelState>("get_panel_state"),
     savePanelState: (state) => {
-      stateWrites = stateWrites.then(() => invoke("set_panel_state", { state }));
+      stateWrites = stateWrites
+        .catch(() => undefined)
+        .then(() => invoke("set_panel_state", { state }));
       return stateWrites;
     },
     operations: () => invoke<OperationView[]>("get_operations"),

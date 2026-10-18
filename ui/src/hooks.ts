@@ -50,6 +50,7 @@ export function useConnection(): Connection {
           : (first.projects[0]?.name ?? null);
         const draftExists =
           stored.draft === null ||
+          stored.draft.operationId != null ||
           first.instances.some((view) => view.ref === stored.draft?.reference);
         const restored: PanelState = {
           ...stored,
@@ -103,6 +104,67 @@ export function useConnection(): Connection {
   }, [api, snapshot]);
 
   return { api, snapshot, error, panelState, missingDraft };
+}
+
+/** Stable predicate that is true while the calling component is mounted. */
+export function useMounted(): () => boolean {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  return useCallback(() => mounted.current, []);
+}
+
+/** Runs one async job at a time; calls made while one is running are ignored. */
+export function useSingleFlight(): (job: () => Promise<void>) => Promise<void> {
+  const running = useRef(false);
+  return useCallback(async (job) => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      await job();
+    } finally {
+      running.current = false;
+    }
+  }, []);
+}
+
+/**
+ * Panel state mirrored to the shell. `persist` always merges onto the latest
+ * value, so concurrent changes never overwrite each other with a stale copy.
+ */
+export function usePanelStore(
+  api: Backend | undefined,
+  hydrated: PanelState | undefined,
+): {
+  panelState: PanelState | undefined;
+  persist: (change: Partial<PanelState>) => Promise<void>;
+} {
+  const [panelState, setPanelState] = useState<PanelState | undefined>(hydrated);
+  const [previousHydrated, setPreviousHydrated] = useState(hydrated);
+  const latest = useRef(hydrated);
+  if (hydrated !== previousHydrated) {
+    setPreviousHydrated(hydrated);
+    setPanelState(hydrated);
+  }
+  useEffect(() => {
+    latest.current = hydrated;
+  }, [hydrated]);
+  const persist = useCallback(
+    async (change: Partial<PanelState>): Promise<void> => {
+      const current = latest.current;
+      if (current === undefined || api === undefined) return;
+      const next = { ...current, ...change };
+      latest.current = next;
+      setPanelState(next);
+      await api.savePanelState(next);
+    },
+    [api],
+  );
+  return { panelState, persist };
 }
 
 /** A message that disappears by itself. */

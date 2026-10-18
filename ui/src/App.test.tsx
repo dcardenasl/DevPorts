@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Backend } from "./api";
 import { App } from "./App";
+import { mockAdoption } from "./mock-adoption";
 import { sampleLog, sampleSnapshot } from "./sample";
 import type { InstanceView, OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
@@ -29,6 +30,17 @@ function fakeBackend(
   };
   const history: OperationView[] = [...initialOperations];
   const opListeners = new Set<(operation: OperationView) => void>();
+  let currentSnapshot = snapshot;
+  const listeners = new Set<(snapshot: Snapshot) => void>();
+  const adoption = mockAdoption(
+    () => currentSnapshot,
+    (next) => {
+      currentSnapshot = { ...next, revision: currentSnapshot.revision + 1 };
+      listeners.forEach((listener) => {
+        listener(currentSnapshot);
+      });
+    },
+  );
   const record =
     (name: string, result?: unknown) =>
     (...args: unknown[]) => {
@@ -38,7 +50,13 @@ function fakeBackend(
   return {
     calls,
     getPersisted: () => persisted,
-    snapshot: () => Promise.resolve(snapshot),
+    snapshot: () => Promise.resolve(currentSnapshot),
+    adoptionOptions: adoption.adoptionOptions,
+    previewAdoption: (reference, target) => {
+      void record("previewAdoption")(reference, target);
+      return adoption.previewAdoption(reference, target);
+    },
+    validateAdoption: adoption.validateAdoption,
     previewProjectStop: (project) => {
       void record("previewProjectStop")(project);
       return Promise.resolve(
@@ -79,7 +97,11 @@ function fakeBackend(
           stopExpectation: target.stopExpectation ?? null,
           status: "succeeded",
           error: null,
-          result: request.kind === "adopt" ? { project: "x", service: "y" } : null,
+          result:
+            request.kind === "adopt" && target.adoption
+              ? adoption.apply(target.adoption.id, target.adoption.edits)
+              : null,
+          adoptionReview: target.adoption?.id ?? null,
           attempts: 1,
         })),
       };
@@ -107,7 +129,12 @@ function fakeBackend(
       });
       return operation;
     },
-    subscribe: () => Promise.resolve(() => undefined),
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return Promise.resolve(() => {
+        listeners.delete(listener);
+      });
+    },
     log: () => Promise.resolve(sampleLog()),
     openUrl: record("openUrl") as Backend["openUrl"],
     panelReady: record("panelReady") as Backend["panelReady"],
@@ -128,6 +155,8 @@ const tab = (name: RegExp) => screen.getByRole("tab", { name });
 describe("the panel", () => {
   beforeEach(() => {
     state.current = undefined;
+    // jsdom has no layout engine; highlighting a card scrolls it into view.
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   // covers: UI
@@ -421,7 +450,10 @@ describe("the panel", () => {
     expect(name).toHaveValue("scratch");
     await user.clear(name);
     await user.type(name, "mi-proyecto");
-    await user.click(screen.getByRole("button", { name: "Crear" }));
+    await user.click(screen.getByRole("button", { name: "Revisar" }));
+    expect(backend.calls.operation).toBeUndefined();
+    await screen.findByLabelText("Nombre del servicio");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => {
       expect(
         backend.calls.operation
@@ -429,6 +461,54 @@ describe("the panel", () => {
           .map(({ kind, targets }) => [kind, targets[0]?.reference, targets[0]?.adoptTarget]),
       ).toEqual([["adopt", "z9y8", { new: "mi-proyecto" }]]);
     });
+  });
+
+  // covers: UI, UXR-3.2
+  it("keeps the edited fields after a rejected value and sends only the corrected review", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    await user.click(screen.getByRole("button", { name: "Adoptar" }));
+    await user.click(screen.getByRole("button", { name: /Crear un proyecto nuevo/ }));
+    await user.click(screen.getByRole("button", { name: "Revisar" }));
+    const name = await screen.findByLabelText("Nombre del servicio");
+    await user.clear(name);
+    await user.type(name, "Nombre Malo");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(await screen.findByText(/nombre de servicio válido/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre del servicio")).toHaveValue("Nombre Malo");
+    expect(backend.calls.operation).toBeUndefined();
+    await user.clear(screen.getByLabelText("Nombre del servicio"));
+    await user.type(screen.getByLabelText("Nombre del servicio"), "web");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => {
+      expect(backend.calls.operation).toHaveLength(1);
+    });
+    const sent = (backend.calls.operation?.[0]?.[0] as OperationRequest).targets[0];
+    expect(sent?.adoption?.edits.name).toBe("web");
+  });
+
+  // covers: UI, UXR-3.2
+  it("recovers the saved result after the panel is recreated and links to the new card", async () => {
+    const { backend, user } = await open();
+    await user.click(tab(/Sin proyecto/));
+    await user.click(screen.getByRole("button", { name: "Adoptar" }));
+    await user.click(screen.getByRole("button", { name: /Crear un proyecto nuevo/ }));
+    await user.click(screen.getByRole("button", { name: "Revisar" }));
+    await screen.findByLabelText("Nombre del servicio");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => {
+      expect(backend.calls.operation).toHaveLength(1);
+    });
+    cleanup();
+
+    render(<App />);
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/Agregado a/)).toBeInTheDocument();
+    expect(backend.calls.operation).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Ver proyecto" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(tab(/Proyectos/)).toHaveAttribute("aria-selected", "true");
+    expect(backend.calls.operation).toHaveLength(1);
   });
 
   // covers: UI
@@ -498,6 +578,10 @@ describe("the panel", () => {
     await user.click(tab(/Compartidos/));
     expect(screen.getByText("SIN DECLARAR")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Declarar" }));
+    await user.click(await screen.findByRole("button", { name: "Como servicio compartido" }));
+    expect(backend.calls.operation).toBeUndefined();
+    await screen.findByLabelText("Nombre del servicio");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => {
       expect(
         backend.calls.operation
@@ -544,7 +628,8 @@ describe("the panel", () => {
     await user.click(screen.getByRole("button", { name: "Volver" }));
     expect(screen.getByRole("button", { name: /Crear un proyecto nuevo/ })).toHaveFocus();
     await user.click(screen.getByRole("button", { name: /Otro proyecto/ }));
-    expect(screen.getByRole("button", { name: "Como servicio de tienda-demo" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Como servicio de tienda-demo" })).toBeDisabled();
+    expect(screen.getAllByText(/fuera de la raíz/).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Volver" }));
     expect(screen.getByRole("button", { name: /Otro proyecto/ })).toHaveFocus();
     await user.click(screen.getByRole("button", { name: /Crear un proyecto nuevo/ }));

@@ -3,6 +3,11 @@
 // back to the core is written here.
 
 export type {
+  AdoptionDestination,
+  AdoptionError,
+  AdoptionOptions,
+  AdoptionPreview,
+  ServiceEdits,
   AttentionItem,
   AttentionKind,
   ChainLink,
@@ -17,17 +22,27 @@ export type {
 } from "./bindings";
 
 /** Where an adoption goes: an existing project, a new one, or `shared.yml`. */
-export type AdoptTarget = { project: string } | { new: string | null } | "shared";
+export type AdoptTarget = import("./bindings").AdoptionTarget;
 
 export type PanelTab = "attention" | "projects" | "shared" | "orphans" | "activity";
 export type ActivityFilter = "all" | "rejections" | "temporals" | "alerts";
-export type AdoptMode = "options" | "others" | "new";
+export type AdoptMode = "options" | "others" | "new" | "review";
 export interface AdoptDraft {
   kind: "adopt";
   reference: string;
   mode: AdoptMode;
   name: string;
   lastStep: "others" | "new" | null;
+  review?: {
+    id: string;
+    target: AdoptTarget;
+    edits: import("./bindings").ServiceEdits;
+    context: Pick<
+      import("./bindings").AdoptionPreview,
+      "root" | "manifest" | "project" | "createsManifest" | "observedPort" | "warnings"
+    >;
+  } | null;
+  operationId?: string | null;
 }
 export interface PanelState {
   version: 1;
@@ -44,6 +59,7 @@ export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed
 export interface OperationTargetRequest {
   reference: string;
   adoptTarget?: AdoptTarget;
+  adoption?: { id: string; edits: import("./bindings").ServiceEdits };
   stopExpectation?: StopExpectation;
 }
 export interface StopExpectation {
@@ -66,6 +82,8 @@ export interface OperationRequest {
 export interface OperationTargetResult {
   reference: string;
   adoptTarget: AdoptTarget | null;
+  adoptionReview?: string | null;
+  adoptionError?: import("./bindings").AdoptionError | null;
   stopExpectation?: StopExpectation | null;
   status: OperationTargetStatus;
   error: string | null;

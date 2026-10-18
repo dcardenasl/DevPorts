@@ -596,3 +596,51 @@ button {
 .instance-stale {
   color: var(--amber);
 }
+
+.adoption-review {
+  min-width: 0;
+}
+.adoption-location {
+  margin: 0;
+  font-size: 12px;
+}
+.adoption-location dt {
+  color: var(--text-soft);
+  margin-top: 8px;
+}
+.adoption-location dd {
+  margin: 3px 0 8px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.adoption-command {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+  font-family: var(--mono);
+}
+.adoption-warnings {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--amber);
+  overflow-wrap: anywhere;
+}
+.adoption-reason {
+  margin: 5px 4px 10px;
+  overflow-wrap: anywhere;
+}
+.form-error {
+  color: var(--coral);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+}
+.adoption-footer {
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.option:disabled {
+  cursor: not-allowed;
+  color: var(--text-soft);
+}
