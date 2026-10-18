@@ -261,6 +261,8 @@ pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
     pub(crate) ignored: BTreeSet<String>,
     /// The Docker context the containers come from; part of a container's rule.
     pub(crate) docker_context: String,
+    /// The person's classification corrections, by [`crate::ignore::rule_key`].
+    pub(crate) corrections: BTreeMap<String, crate::classify::ProcessClass>,
     pub(crate) views: Vec<InstanceView>,
     /// Changes whenever [`Engine::views`] changes, so a caller can tell cheaply.
     pub(crate) views_revision: u64,
@@ -286,6 +288,14 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     pub fn new(parts: Parts<C, S, P>) -> Result<Self, EngineError> {
         let tracked = parts.store.live_instances()?;
         let ignored_keys = parts.store.ignored_keys()?;
+        let corrections = parts
+            .store
+            .classification_overrides()?
+            .into_iter()
+            .filter_map(|(key, class)| {
+                crate::classify::ProcessClass::parse(&class).map(|class| (key, class))
+            })
+            .collect();
         let mut engine = Self {
             clock: parts.clock,
             source: parts.source,
@@ -300,6 +310,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             health: BTreeMap::new(),
             ignored: ignored_keys.into_iter().collect(),
             docker_context: crate::ignore::DEFAULT_CONTEXT.to_owned(),
+            corrections,
             git_cache: std::cell::RefCell::new(BTreeMap::new()),
             views: Vec::new(),
             views_revision: 0,

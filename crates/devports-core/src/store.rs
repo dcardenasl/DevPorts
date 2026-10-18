@@ -16,7 +16,7 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 /// The schema, one entry per version. Never edit an entry that has shipped:
 /// append a new one.
-const MIGRATIONS: [&str; 2] = [
+const MIGRATIONS: [&str; 3] = [
     "
     CREATE TABLE instances (
       id INTEGER PRIMARY KEY,
@@ -54,6 +54,13 @@ const MIGRATIONS: [&str; 2] = [
     "
     CREATE TABLE ignored (
       key TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL
+    );
+    ",
+    "
+    CREATE TABLE classifications (
+      key TEXT PRIMARY KEY,
+      class TEXT NOT NULL CHECK (class IN ('project','auxiliary','unclassified')),
       created_at INTEGER NOT NULL
     );
     ",
@@ -552,6 +559,48 @@ impl Store {
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(keys)
+    }
+
+    /// The person's classification corrections, by rule key.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn classification_overrides(&self) -> Result<Vec<(String, String)>, StoreError> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT key, class FROM classifications")?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Saves or replaces the correction stored under `key`.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn set_classification(&self, key: &str, class: &str, at: i64) -> Result<(), StoreError> {
+        self.connection.execute(
+            "INSERT INTO classifications (key, class, created_at) VALUES (?1, ?2, ?3)
+             ON CONFLICT(key) DO UPDATE SET class = excluded.class, created_at = excluded.created_at",
+            params![key, class, at],
+        )?;
+        Ok(())
+    }
+
+    /// Forgets the correction stored under `key`.
+    ///
+    /// # Errors
+    ///
+    /// See [`StoreError`].
+    pub fn clear_classification(&self, key: &str) -> Result<(), StoreError> {
+        self.connection
+            .execute("DELETE FROM classifications WHERE key = ?1", [key])?;
+        Ok(())
     }
 
     /// Every saved rule with the moment it was saved.

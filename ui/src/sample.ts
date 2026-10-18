@@ -193,6 +193,17 @@ export function sampleSnapshot(nowMs: number = Date.now()): Snapshot {
         services: [{ name: "web", repo: "/work/ci4-kickstart", port: 8090, kind: "app" }],
       },
     ],
+    classifications: [
+      {
+        instanceRef: "z9y8",
+        class: "unclassified",
+        detected: "unclassified",
+        program: "python3",
+        origin: null,
+        signals: [],
+        corrected: false,
+      },
+    ],
     shared: [{ name: "mysql", start: "docker start mysql", endpoint: null }],
     attention: [
       { kind: "expiring", instance_ref: "c3d4" },

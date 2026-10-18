@@ -16,14 +16,14 @@
 //! [`Notice`]s from a `broadcast` channel; it never touches the engine.
 
 mod adoption;
-mod ignored;
 mod probe;
+mod rules;
 mod uses;
 
 use crate::adopt::review::AdoptionBook;
 pub use crate::adopt::review::AdoptionTarget as AdoptTarget;
 use adoption::AdoptionMsg;
-use ignored::IgnoredMsg;
+use rules::RulesMsg;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -38,6 +38,7 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::adopt::apply::{self, Applied, ApplyError};
 use crate::catalog::Catalog;
+use crate::classify::Classification;
 use crate::clock::{Clock, SystemClock};
 use crate::config::{Config, SharedServices, config_dir};
 use crate::discovery::{self, DiscoveryIssue};
@@ -150,6 +151,8 @@ pub struct Snapshot {
     pub problems: Vec<String>,
     /// The projects, laid out as repos with services.
     pub projects: Vec<ProjectSummary>,
+    /// What each loose host process looks like, with the evidence and any correction.
+    pub classifications: Vec<Classification>,
     /// The services `shared.yml` defines, with their declared start command and endpoint.
     pub shared: Vec<SharedSummary>,
     /// What waits for a decision; its length is the tray counter.
@@ -239,7 +242,7 @@ enum Msg {
     Adopted(Applied),
     Adoption(AdoptionMsg),
     UsesContext(oneshot::Sender<uses::UsesContext>),
-    Ignored(IgnoredMsg),
+    Rules(RulesMsg),
 }
 
 /// What an adoption needs to know about the thing being adopted.
@@ -782,8 +785,8 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 self.finish_stop(&reference, outcome);
                 Vec::new()
             }
-            Msg::Ignored(message) => {
-                self.handle_ignored(message);
+            Msg::Rules(message) => {
+                self.handle_rules(message);
                 Vec::new()
             }
             Msg::Ignore(reference, reply) => {
@@ -938,6 +941,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             }
             self.projects_at = now;
         }
+        let classifications = self.engine.classifications();
         // What waits for a decision depends on the clock as well as on the views.
         let attention = attention_items(self.engine.views(), now);
         // Failures the engine reports stay visible until the core restarts: a
@@ -958,7 +962,8 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             && current.attention == attention
             && current.docker_reachable == self.docker_state.reachable
             && current.docker_error == self.docker_state.error
-            && current.problems == problems;
+            && current.problems == problems
+            && current.classifications == classifications;
         if unchanged {
             return;
         }
@@ -972,6 +977,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             docker_error: self.docker_state.error.clone(),
             problems,
             projects: self.projects.clone(),
+            classifications,
             shared: self.shared.clone(),
             attention,
             extend_minutes: u32::try_from(
@@ -1028,7 +1034,7 @@ async fn supervise_docker(
                 // Container rules are scoped to the context, so it is known first.
                 let context = source.context().name.clone();
                 if messages
-                    .send(Msg::Ignored(IgnoredMsg::DockerContext(context)))
+                    .send(Msg::Rules(RulesMsg::DockerContext(context)))
                     .await
                     .is_err()
                 {

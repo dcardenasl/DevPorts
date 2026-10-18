@@ -121,6 +121,24 @@ export type ChainLink = {
 	label: string | null,
 };
 
+/**  The class of one loose listener and why. */
+export type Classification = {
+	/**  The instance's reference. */
+	instanceRef: string,
+	/**  The class in force: the person's correction if there is one. */
+	class: ProcessClass,
+	/**  What automatic evidence alone says. Equal to `class` when not corrected. */
+	detected: ProcessClass,
+	/**  The program's file name, so a tool can be recognised without its arguments. */
+	program: string | null,
+	/**  Who the tool comes from (`Homebrew`, `VS Code`...), when a signal says so. */
+	origin: string | null,
+	/**  Which signals matched: `homebrewDaemon`, `editorExtension`, `knownProject`, `gitWorktree`. */
+	signals: string[],
+	/**  The person chose `class`, even if it equals the automatic one; it can be reset. */
+	corrected: boolean,
+};
+
 /**  One project as a possible consumer. */
 export type ConsumerChoice = {
 	/**  Project name. */
@@ -291,6 +309,15 @@ export type LogEntry = {
 	summary: string,
 };
 
+/**  Where a loose listener is placed in the panel. */
+export type ProcessClass =
+/**  Looks like a development server of a project. */
+"project" |
+/**  Looks like a tool or daemon that something else runs. */
+"auxiliary" |
+/**  No evidence either way. */
+"unclassified";
+
 /**  A project as the interface lays it out: repos with services inside. */
 export type ProjectSummary = {
 	/**  Project name. */
@@ -385,6 +412,8 @@ export type Snapshot = {
 	problems: string[],
 	/**  The projects, laid out as repos with services. */
 	projects: ProjectSummary[],
+	/**  What each loose host process looks like, with the evidence and any correction. */
+	classifications: Classification[],
 	/**  The services `shared.yml` defines, with their declared start command and endpoint. */
 	shared: SharedSummary[],
 	/**  What waits for a decision; its length is the tray counter. */

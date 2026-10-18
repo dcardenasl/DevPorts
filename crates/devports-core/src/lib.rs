@@ -7,6 +7,7 @@
 
 pub mod adopt;
 pub mod catalog;
+pub mod classify;
 pub mod clock;
 pub mod config;
 pub mod diagnostic;

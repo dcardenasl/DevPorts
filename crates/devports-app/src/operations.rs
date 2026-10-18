@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use devports_core::adopt::review::{AdoptionError, AdoptionTarget as AdoptTarget, ServiceEdits};
+use devports_core::classify::ProcessClass;
 use devports_core::engine::StopExpectation;
 use devports_core::runtime::CoreHandle;
 use devports_core::uses::{UseOutcome, UseReport, UseRequest, UsesError};
@@ -44,6 +45,8 @@ pub enum OperationKind {
     Keep,
     /// Forget one saved ignore rule; the target `reference` is the rule id.
     Restore,
+    /// Move a loose process to another panel group; the target `reference` is the instance.
+    Classify,
     /// Adopt an observed instance into a declared destination.
     Adopt,
     /// Declare or remove one shared service in the confirmed projects' manifests.
@@ -69,6 +72,17 @@ pub struct OperationTarget {
     /// target `reference` is the project name.
     #[serde(default)]
     pub consumers: Option<ConsumerSubmission>,
+    /// Where the person wants the process listed, for classification changes.
+    #[serde(default)]
+    pub classification: Option<ClassificationChoice>,
+}
+
+/// A classification correction; `class: None` goes back to the automatic guess.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassificationChoice {
+    /// The chosen group, or `None` for automatic.
+    pub class: Option<ProcessClass>,
 }
 
 /// One project's confirmed association with a shared service.
@@ -157,6 +171,8 @@ pub struct OperationTargetView {
     pub adoption_error: Option<AdoptionError>,
     /// Requested consumer state, for consumer changes.
     pub consumers: Option<ConsumerSummary>,
+    /// Requested classification, for classification changes.
+    pub classification: Option<ClassificationChoice>,
     /// Typed consumer-change failure, alongside the human-readable message.
     pub uses_error: Option<UsesError>,
     /// Minimal confirmed stop identity, never process arguments or secrets.
@@ -254,6 +270,7 @@ impl OperationStore {
                     include: consumers.include,
                 }),
                 uses_error: None,
+                classification: target.classification,
                 stop_expectation: target.stop_expectation.clone(),
                 status: TargetStatus::Queued,
                 error: None,
@@ -473,6 +490,7 @@ fn validate(request: &OperationRequest) -> Result<(), OperationError> {
             || (request.kind == OperationKind::Adopt) != target.adopt_target.is_some()
             || (request.kind == OperationKind::Adopt) != target.adoption.is_some()
             || (request.kind == OperationKind::SetConsumers) != target.consumers.is_some()
+            || (request.kind == OperationKind::Classify) != target.classification.is_some()
             || target.consumers.as_ref().is_some_and(|consumers| {
                 !devports_core::manifest::is_valid_name(&consumers.shared)
                     || consumers.base.is_empty()
@@ -658,6 +676,15 @@ async fn perform(
             .await
             .map(|()| None)
             .map_err(|error| OperationFailure::from(error.to_string())),
+        OperationKind::Classify => {
+            let choice = target.classification.ok_or_else(|| {
+                OperationFailure::from("falta indicar la clasificación".to_owned())
+            })?;
+            core.set_classification(&target.reference, choice.class)
+                .await
+                .map(|()| None)
+                .map_err(|error| OperationFailure::from(error.to_string()))
+        }
         OperationKind::Restore => core
             .restore_ignored(&target.reference)
             .await
@@ -726,6 +753,7 @@ mod tests {
                     adopt_target: None,
                     adoption: None,
                     consumers: None,
+                    classification: None,
                     stop_expectation: Some(stop_expectation()),
                 },
                 OperationTarget {
@@ -733,6 +761,7 @@ mod tests {
                     adopt_target: None,
                     adoption: None,
                     consumers: None,
+                    classification: None,
                     stop_expectation: Some(stop_expectation()),
                 },
             ],
@@ -866,6 +895,7 @@ mod tests {
                         include: true,
                         base: "a".repeat(64),
                     }),
+                    classification: None,
                     stop_expectation: None,
                 })
                 .collect(),
@@ -980,6 +1010,7 @@ mod tests {
                 adopt_target: None,
                 adoption: None,
                 consumers: None,
+                classification: None,
                 stop_expectation: None,
             }],
         };
@@ -993,5 +1024,37 @@ mod tests {
         with_stop.id = "restore-2".to_owned();
         with_stop.targets[0].stop_expectation = Some(stop_expectation());
         assert_eq!(store.start(with_stop), Err(OperationError::InvalidRequest));
+    }
+
+    // covers: UXR-5.2
+    #[test]
+    fn a_classification_names_one_instance_and_may_go_back_to_automatic() {
+        let store = OperationStore::default();
+        let request = |id: &str, class: Option<ProcessClass>| OperationRequest {
+            id: id.to_owned(),
+            kind: OperationKind::Classify,
+            targets: vec![OperationTarget {
+                reference: "a1b2".to_owned(),
+                adopt_target: None,
+                adoption: None,
+                consumers: None,
+                classification: Some(ClassificationChoice { class }),
+                stop_expectation: None,
+            }],
+        };
+        assert!(
+            store
+                .start(request("c-1", Some(ProcessClass::Auxiliary)))
+                .is_ok()
+        );
+        assert!(store.start(request("c-2", None)).is_ok());
+        let mut bare = request("c-3", None);
+        bare.targets[0].classification = None;
+        assert_eq!(store.start(bare), Err(OperationError::InvalidRequest));
+        let mut wrong_kind = request("c-4", None);
+        wrong_kind.kind = OperationKind::Keep;
+        assert_eq!(store.start(wrong_kind), Err(OperationError::InvalidRequest));
+        let wire = serde_json::to_string(&store.get("c-2").expect("view")).expect("serializes");
+        assert!(wire.contains("\"classification\":{\"class\":null}"));
     }
 }

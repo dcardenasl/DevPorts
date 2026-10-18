@@ -1,12 +1,15 @@
 //! What callers can ask of the engine besides `run`: listing, the log, and the
 //! actions only a person may take from the application.
 
-use devports_proto::views::{InstanceState, InstanceView};
+use devports_proto::views::{InstanceRole, InstanceState, InstanceView};
 use devports_proto::{
     ErrorBody, ErrorCode, LogArgs, LogEntry, LogResult, LsArgs, LsResult, Op, PingResult, Request,
     Response,
 };
 use serde_json::{Value, json};
+
+/// Most classification corrections kept; each is one exact criterion.
+const MAX_CORRECTIONS: usize = 256;
 
 use super::leases::target_of;
 use super::{Effect, Engine, StopReason, Target, TerminationRequest};
@@ -223,15 +226,13 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         Ok(())
     }
 
-    /// The rule that ignoring `reference` would save, exactly as it would be stored.
+    /// The exact criterion a rule about `reference` (an ignore or a classification
+    /// correction) would be stored under.
     ///
     /// # Errors
     ///
     /// [`ActionError`] if the instance does not exist or cannot be told apart.
-    pub fn ignore_preview(
-        &self,
-        reference: &str,
-    ) -> Result<crate::ignore::IgnoreRule, ActionError> {
+    pub fn rule_preview(&self, reference: &str) -> Result<crate::ignore::IgnoreRule, ActionError> {
         let view = self
             .views
             .iter()
@@ -241,6 +242,75 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
         })?;
         Ok(crate::ignore::describe(&key, 0))
+    }
+
+    /// What the panel should know about each loose host process: its class, the
+    /// evidence and any correction. Instances the person ignored are left out.
+    #[must_use]
+    pub fn classifications(&self) -> Vec<crate::classify::Classification> {
+        self.views
+            .iter()
+            .filter(|view| {
+                view.role == InstanceRole::Unregistered
+                    && view.service.is_none()
+                    && view.container.is_none()
+                    && !view.ignored
+            })
+            .map(|view| {
+                let correction = crate::ignore::rule_key(view, &self.docker_context)
+                    .and_then(|key| self.corrections.get(&key).copied());
+                crate::classify::classify(view, correction)
+            })
+            .collect()
+    }
+
+    /// Records where the person wants this process listed, or `None` to go back to
+    /// the automatic guess. It only moves the process in the panel: nothing is
+    /// ignored, adopted or stopped. The correction is scoped by the same exact
+    /// criterion an ignore rule uses.
+    ///
+    /// # Errors
+    ///
+    /// [`ActionError`] if the instance does not exist, cannot be told apart, or the
+    /// store refuses (including too many corrections).
+    pub fn set_classification(
+        &mut self,
+        reference: &str,
+        class: Option<crate::classify::ProcessClass>,
+    ) -> Result<(), ActionError> {
+        let view = self
+            .views
+            .iter()
+            .find(|view| view.instance_ref == reference)
+            .cloned()
+            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+        let key = crate::ignore::rule_key(&view, &self.docker_context).ok_or_else(|| {
+            ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
+        })?;
+        let refused = |error: crate::store::StoreError| ActionError::Refused(error.to_string());
+        if let Some(class) = class {
+            if !self.corrections.contains_key(&key) && self.corrections.len() >= MAX_CORRECTIONS {
+                return Err(ActionError::Refused(
+                    "hay demasiadas correcciones de clasificación; restablece alguna".to_owned(),
+                ));
+            }
+            let now = self.now();
+            self.store
+                .set_classification(&key, class.as_str(), now)
+                .map_err(refused)?;
+            self.corrections.insert(key, class);
+        } else {
+            self.store.clear_classification(&key).map_err(refused)?;
+            self.corrections.remove(&key);
+        }
+        self.event(
+            "reclassified",
+            None,
+            None,
+            Some(reference),
+            &json!({"class": class.map(crate::classify::ProcessClass::as_str)}),
+        );
+        Ok(())
     }
 
     /// Every saved rule, newest first, including those no live instance matches.

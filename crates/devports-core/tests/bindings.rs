@@ -24,6 +24,8 @@ fn generated() -> String {
         .register::<devports_core::uses::UseRequest>()
         .register::<devports_core::uses::UsesError>()
         .register::<devports_core::ignore::IgnoreRule>()
+        .register::<devports_core::classify::Classification>()
+        .register::<devports_core::classify::ProcessClass>()
         .register::<InstanceView>()
         .register::<LogEntry>();
     let body = Typescript::default()

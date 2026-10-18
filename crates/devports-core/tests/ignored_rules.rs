@@ -67,7 +67,7 @@ async fn ignore_survives_a_restart_and_restore_brings_the_process_back() {
     let source = Arc::new(FakeProcessSource::new(vec![listener(31, 5200, &scratch)]));
     let (core, handle) = start(&home, Arc::clone(&source)).await;
     let reference = wait_for(&handle, false).await;
-    let preview = handle.ignore_preview(&reference).await.expect("preview");
+    let preview = handle.rule_preview(&reference).await.expect("preview");
     assert_eq!(preview.command, ["node", "server.js"]);
     assert!(handle.ignored_rules().await.expect("rules").is_empty());
     handle.ignore(&reference).await.expect("ignore");
@@ -89,6 +89,64 @@ async fn ignore_survives_a_restart_and_restore_brings_the_process_back() {
         .restore_ignored(&rules[0].id)
         .await
         .expect("restoring twice is harmless");
+    handle.shutdown();
+    core.wait().await;
+}
+
+// covers: UXR-5.2
+#[tokio::test]
+async fn a_correction_reaches_the_snapshot_and_changes_nothing_else() {
+    use devports_core::classify::ProcessClass;
+    let home = TempDir::new().expect("home");
+    let scratch = home.path().join("scratch");
+    std::fs::create_dir_all(&scratch).expect("folder");
+    let scratch = std::fs::canonicalize(scratch).expect("canonical");
+    let source = Arc::new(FakeProcessSource::new(vec![listener(61, 5300, &scratch)]));
+    let (core, handle) = start(&home, source).await;
+    let reference = wait_for(&handle, false).await;
+    let class = |handle: &CoreHandle| {
+        handle
+            .snapshot()
+            .classifications
+            .iter()
+            .find(|item| item.instance_ref == reference)
+            .map(|item| (item.class, item.corrected))
+    };
+    assert_eq!(class(&handle), Some((ProcessClass::Unclassified, false)));
+    handle
+        .set_classification(&reference, Some(ProcessClass::Auxiliary))
+        .await
+        .expect("correct");
+    for _ in 0..100 {
+        if class(&handle) == Some((ProcessClass::Auxiliary, true)) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(class(&handle), Some((ProcessClass::Auxiliary, true)));
+    assert!(
+        handle.ignored_rules().await.expect("rules").is_empty(),
+        "classifying is not ignoring"
+    );
+    let view = handle
+        .snapshot()
+        .instances
+        .iter()
+        .find(|view| view.instance_ref == reference)
+        .cloned()
+        .expect("still listed");
+    assert!(!view.ignored && view.pid == Some(61));
+    handle
+        .set_classification(&reference, None)
+        .await
+        .expect("reset");
+    for _ in 0..100 {
+        if class(&handle) == Some((ProcessClass::Unclassified, false)) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(class(&handle), Some((ProcessClass::Unclassified, false)));
     handle.shutdown();
     core.wait().await;
 }

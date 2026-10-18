@@ -82,12 +82,12 @@ pub async fn shared_consumers(
 }
 
 #[tauri::command]
-pub async fn ignore_preview(
+pub async fn rule_preview(
     core: State<'_, CoreState>,
     reference: String,
 ) -> Result<devports_core::ignore::IgnoreRule, String> {
     core.0
-        .ignore_preview(&reference)
+        .rule_preview(&reference)
         .await
         .map_err(|error| error.to_string())
 }
