@@ -3,6 +3,13 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-7.2 — Validar recorridos reales · 2026-10-18
+- **Resultado:** recorridos nativos que escriben (detener, adoptar, compartidos, ignorar/restaurar, reclasificar, carpetas) con recursos propios; ver [informe](docs/audits/2026-10-18-uxr-7-2.md).
+- **Verificación:** `tools/check.sh full` verde; UI typecheck, lint, format y 113/113 pruebas.
+- **Hallazgos corregidos:** título de detener sin registrar, orden de la hoja Clasificar, etiquetas de Actividad.
+- **Limpieza:** `config.yml`, filas de base, servidores y árbol temporal revertidos; `shared.yml` idéntico.
+- **Pendiente:** G1, G2 y M-15 (humanos).
+
 ## UXR-0 — Acceso nativo al panel (cerrada) · 2026-10-18
 - **Resultado:** versión actual instalada y funcionando (autorizado); base real migrada a v3; CLI y núcleo del paquete verificados (`topics` en `log`, 11 instancias en `ls`); reposo dentro del presupuesto (22–23 MB, 0,60 % CPU con el panel cerrado). **No se pudo recorrer el panel**: Computer Use no encuentra DevPorts (app *accessory* fuera del inventario) y System Events devuelve `-1719`; localhost denegado en el navegador integrado.
 - **Archivos:** solo documentación ([informe](docs/audits/2026-10-18-uxr-0.md)); copias de la app y la base anteriores en el directorio temporal de la sesión.

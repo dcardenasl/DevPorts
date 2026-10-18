@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** UXR-1 a UXR-6 y UXR-7.1 completados; queda UXR-7.2 (validación real con casos que escriben, decidida con David), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
+**Siguiente trabajo de corrección:** UXR-1 a UXR-6 y UXR-7.1 completados; UXR-7.2 completado (validación real con casos que escriben), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -363,7 +363,7 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-7-2"></a>
 
-- [ ] **UXR-7.2 — Validar recorridos reales y cerrar la auditoría técnica.**
+- [x] **UXR-7.2 — Validar recorridos reales y cerrar la auditoría técnica.**
 
   **Dependencias:** UXR-0 y todas las tareas UXR-1.1 a UXR-7.1. **Plan:** [grupo UXR-7](docs/audits/2026-10-17-ui-ux-plan.md#uxr-7). **Contexto:** UX-01 a UX-14; D1–D14; ADR-028–035.
 
@@ -374,6 +374,8 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
   **Hecho cuando:** Evidencia por los 14 hallazgos y suites pertinentes verdes; ningún dato/compartido se para en cascada; estado/operaciones se recuperan con panel efímero. Documentar pendientes humanos G1/G2/M-15 sin marcarlos aprobados. README/arquitectura/manuales reflejan cambios finales y fuentes de verdad no divergen.
 
   **Verificación:** `tools/check.sh full`; `pnpm --dir ui run typecheck`, `lint`, `format:check`, `test` y `build`; comprobaciones macOS/Docker pertinentes con recursos propios, memoria/CPU y regresión del ciclo del panel. Si Node 20 falla con pnpm 11, usar Node 22 disponible sin cambiar configuración global.
+
+  **Entrega (2026-10-18):** [informe nativo](docs/audits/2026-10-18-uxr-7-2.md); recorridos que escriben con recursos propios, defectos corregidos y todo revertido. Quedan G1/G2/M-15 a David.
 
   **Entrega a la próxima sesión:** Publicar informe final enlazado desde auditoría/TASKS/SNAPSHOT con comandos, resultados y rutas de evidencia. Dejar a David los días de uso y decisiones de G1/G2; no hacer release/push sin alcance autorizado.
 

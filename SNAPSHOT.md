@@ -1,5 +1,5 @@
 # DevPorts: Snapshot
-> Actualizado: 2026-10-17 · Detalle completo: [ASSET.md](ASSET.md)
+> Actualizado: 2026-10-18 · Detalle completo: [ASSET.md](ASSET.md)
 
 ## ⚡ Retomar en 30 segundos
 
@@ -8,7 +8,7 @@
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
 | **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-6 y UXR-7.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Solo queda [UXR-7.2](TASKS.md#uxr-7-2): recorridos nativos que **escriben** (adoptar, asociar, cambiar carpetas, parcial forzado) con procesos y manifiestos desechables; tocan el `config.yml`, la base y los manifiestos reales, así que conviene acordar con David una carpeta temporal y qué revertir. El acceso nativo ya funciona ([método y capturas](docs/audits/2026-10-18-uxr-0.md)); la versión actual está instalada salvo la última corrección menor de foco. Después, G1/G2 y M-15. |
+| **Próximo paso** | UXR-7.2 cerrado ([informe](docs/audits/2026-10-18-uxr-7-2.md)). Solo quedan las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio), G2 y reiniciar el Mac una vez (M-15). |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 
