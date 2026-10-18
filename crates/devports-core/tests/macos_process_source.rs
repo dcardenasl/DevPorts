@@ -172,8 +172,18 @@ fn a_process_that_only_connects_is_not_a_listener() {
          s = socket.create_connection(('127.0.0.1', {port}))\n\
          time.sleep(300)\n"
     );
-    let client = spawn_python(&dir, &["-c", &script]);
-    let (_accepted, _) = listener.accept().expect("the client connects");
+    // macOS reports a connection reset before `accept` as ECONNABORTED: that attempt is
+    // void, not a failure of what is under test, so a fresh client is started.
+    let (client, _accepted) = (0..5)
+        .find_map(|_| {
+            let client = spawn_python(&dir, &["-c", &script]);
+            match listener.accept() {
+                Ok((stream, _)) => Some((client, stream)),
+                Err(error) if error.kind() == std::io::ErrorKind::ConnectionAborted => None,
+                Err(error) => panic!("the client connects: {error}"),
+            }
+        })
+        .expect("a client connects within five attempts");
 
     // The test process itself is the listener (the scan may need a moment under load).
     let own = std::process::id();
