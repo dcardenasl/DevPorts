@@ -7,7 +7,7 @@
 - **Resultado:** ADR-039 aplicada: cabecera de una fila con chips de puertos, sin subencabezado con un solo repo, detalles desde la fila del servicio, pie único, varias tarjetas abiertas (actividad + elección manual recordada), plegar/abrir todo y orden activos primero.
 - **Archivos/contratos:** `panel_state.rs` (`open_projects`/`closed_projects`, versión 2, acotado), `projectFolds.ts`, `model.ts` (`occupiedPorts`, `orderProjects`), `ProjectsView`, `InstanceDetails` (`InstanceFacts`), `styles.css`.
 - **Verificación:** `tools/check.sh full` verde; UI typecheck, lint, format, build y 115/115 pruebas.
-- **Pendiente:** comprobación visual nativa a 380×520.
+- **Evidencia nativa:** [captura a 380×520](docs/audits/evidencia/uxr-8/proyectos-380x520.png).
 
 ## UXR-7.2 — Validar recorridos reales · 2026-10-18
 - **Resultado:** recorridos nativos que escriben (detener, adoptar, compartidos, ignorar/restaurar, reclasificar, carpetas) con recursos propios; ver [informe](docs/audits/2026-10-18-uxr-7-2.md).

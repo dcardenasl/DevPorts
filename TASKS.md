@@ -381,7 +381,7 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 - [x] **UXR-8 — Rediseñar la vista de Proyectos (ADR-039).**
 
-  **Entrega (2026-10-18):** cabecera en una fila con chips de puertos, repo único fusionado, fila de servicio como disparador de detalles, pie único, varias tarjetas abiertas con estado manual recordado y «Plegar/Abrir todo». UI 115/115 y `tools/check.sh full` verdes. Falta verlo en la app nativa a 380×520 (reinstalar con `tools/install.sh`).
+  **Entrega (2026-10-18):** cabecera en una fila con chips de puertos, repo único fusionado, fila de servicio como disparador de detalles, pie único, varias tarjetas abiertas con estado manual recordado y «Plegar/Abrir todo». UI 115/115 y `tools/check.sh full` verdes. Verificado en la app nativa a 380×520 ([captura](docs/audits/evidencia/uxr-8/proyectos-380x520.png)).
 
 ### Inicio de una sesión dedicada
 

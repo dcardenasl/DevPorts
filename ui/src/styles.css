@@ -436,8 +436,11 @@ button {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  flex: 1 1 0;
+  flex: 1 1 calc(100% - 30px);
   min-width: 0;
+}
+.project-foot > .btn {
+  margin-left: auto;
 }
 .svc {
   display: flex;
