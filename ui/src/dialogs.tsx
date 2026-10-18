@@ -1,5 +1,6 @@
 import { useRef, type ReactElement } from "react";
 
+import { instanceTitle } from "./instance";
 import { Modal } from "./Modal";
 import { WarningIcon } from "./icons";
 import { text } from "./text";
@@ -21,7 +22,8 @@ export function ConfirmStop({
   returnFocusTo: HTMLElement | null;
 }): ReactElement {
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const name = views[0]?.service ?? views[0]?.container ?? views[0]?.ref ?? "";
+  const first = views[0];
+  const name = first === undefined ? "" : instanceTitle(first);
   const data = views.some((view) => view.kind === "data");
   const affectedNames = new Set(affected);
   return (
@@ -52,7 +54,7 @@ export function ConfirmStop({
     >
       <div className="stack stop-targets" style={{ marginTop: 8 }}>
         {views.map((view) => {
-          const targetName = view.service ?? view.container ?? view.ref;
+          const targetName = instanceTitle(view);
           const consumers = affectedNames.size > 0 && (view.shared || view.kind === "data");
           return (
             <section className="card coral" key={view.ref}>

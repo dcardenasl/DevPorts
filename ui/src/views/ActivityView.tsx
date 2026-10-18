@@ -53,6 +53,10 @@ function label(entry: LogEntry): Label {
       return { word: "ADOPTADO", tone: "green" };
     case "kept":
       return { word: "CONSERVADO", tone: "soft" };
+    case "restored":
+      return { word: "RESTAURADO", tone: "soft" };
+    case "reclassified":
+      return { word: "CLASIFICADO", tone: "soft" };
     case "stopped":
       return { word: "DETENIDO", tone: "soft" };
     case "stop_failed":

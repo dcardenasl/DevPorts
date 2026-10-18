@@ -73,23 +73,6 @@ export function ClassifySheet({
           {t.current}: <strong>{label(classification?.class ?? "unclassified")}</strong>
           {classification?.origin ? ` · ${t.origin(classification.origin)}` : ""}
         </p>
-        <div className="eyebrow">{t.evidence}</div>
-        {classification === undefined || classification.signals.length === 0 ? (
-          <p className="soft">{t.noEvidence}</p>
-        ) : (
-          <ul className="soft evidence">
-            {classification.signals.map((signal) => (
-              <li key={signal}>{t.signals[signal] ?? signal}</li>
-            ))}
-          </ul>
-        )}
-        {failure !== undefined && (
-          <p className="form-error" role="alert">
-            {failure}
-          </p>
-        )}
-        {rule !== undefined && <Criterion rule={rule} />}
-        <p className="soft">{t.scope}</p>
         <fieldset className="choices">
           <legend className="eyebrow">{t.choose}</legend>
           {options.map(([value, caption], index) => (
@@ -107,6 +90,23 @@ export function ClassifySheet({
             </label>
           ))}
         </fieldset>
+        <p className="soft">{t.scope}</p>
+        <div className="eyebrow">{t.evidence}</div>
+        {classification === undefined || classification.signals.length === 0 ? (
+          <p className="soft">{t.noEvidence}</p>
+        ) : (
+          <ul className="soft evidence">
+            {classification.signals.map((signal) => (
+              <li key={signal}>{t.signals[signal] ?? signal}</li>
+            ))}
+          </ul>
+        )}
+        {failure !== undefined && (
+          <p className="form-error" role="alert">
+            {failure}
+          </p>
+        )}
+        {rule !== undefined && <Criterion rule={rule} />}
       </div>
       <div className="row adoption-footer">
         <button type="button" className="btn" onClick={onCancel}>

@@ -374,6 +374,10 @@ pub fn event_summary(kind: &str, service: Option<&str>, payload: &Value) -> Stri
             port.unwrap_or_default()
         ),
         "restored" => "Restauraste un servicio ignorado".to_owned(),
+        "reclassified" => format!(
+            "Cambiaste la clasificación de {service} {}",
+            port.unwrap_or_default()
+        ),
         "adopted" => format!("Adoptaste {service} en un manifiesto"),
         "unregistered_seen" => format!(
             "Apareció un proceso sin registrar {}",
