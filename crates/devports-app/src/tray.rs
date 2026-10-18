@@ -1,9 +1,11 @@
 //! The menu-bar icon: a template image with the attention counter next to it.
 
-use tauri::AppHandle;
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Manager, Wry};
+
+use crate::i18n::{Locale, Msg, current, text};
 
 const TRAY_ID: &str = "main";
 const OPEN_ID: &str = "open";
@@ -11,29 +13,66 @@ const QUIT_ID: &str = "quit";
 const INSTALL_ID: &str = "install-cli";
 const AUTOSTART_ID: &str = "autostart";
 
+/// The menu items, kept so a change of language can rewrite their text in place.
+struct TrayMenu {
+    open: MenuItem<Wry>,
+    install: MenuItem<Wry>,
+    autostart: CheckMenuItem<Wry>,
+    quit: MenuItem<Wry>,
+}
+
+/// Rewrites the tray menu in `locale`.
+pub fn relocalize(app: &AppHandle, locale: Locale) {
+    let Some(menu) = app.try_state::<TrayMenu>() else {
+        return;
+    };
+    let results = [
+        menu.open.set_text(text(locale, Msg::OpenPanel)),
+        menu.install.set_text(text(locale, Msg::InstallCommand)),
+        menu.autostart.set_text(text(locale, Msg::Autostart)),
+        menu.quit.set_text(text(locale, Msg::Quit)),
+    ];
+    for error in results.into_iter().filter_map(Result::err) {
+        crate::diagnostics::report(&error);
+    }
+}
+
 /// Creates the tray icon. Left click toggles the panel, right click opens a
-/// native menu with "Abrir panel" and "Salir".
+/// native menu, in the language in force.
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, OPEN_ID, "Abrir panel", true, None::<&str>)?;
+    let locale = current(app);
+    let open = MenuItem::with_id(
+        app,
+        OPEN_ID,
+        text(locale, Msg::OpenPanel),
+        true,
+        None::<&str>,
+    )?;
     let install = MenuItem::with_id(
         app,
         INSTALL_ID,
-        "Instalar el comando devports…",
+        text(locale, Msg::InstallCommand),
         true,
         None::<&str>,
     )?;
     let autostart = CheckMenuItem::with_id(
         app,
         AUTOSTART_ID,
-        "Abrir al iniciar sesión",
+        text(locale, Msg::Autostart),
         true,
         crate::integration::autostart_enabled(),
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, QUIT_ID, "Salir", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, QUIT_ID, text(locale, Msg::Quit), true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&open, &install, &autostart, &separator, &quit])?;
     let autostart_item = autostart.clone();
+    app.manage(TrayMenu {
+        open,
+        install,
+        autostart,
+        quit,
+    });
 
     TrayIconBuilder::with_id(TRAY_ID)
         // A template image: macOS tints it for the light and dark menu bar.
@@ -48,13 +87,16 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                     crate::diagnostics::report(&error);
                 }
             }
-            INSTALL_ID => install_command(),
+            INSTALL_ID => install_command(current(app)),
             AUTOSTART_ID => {
                 let wanted = !crate::integration::autostart_enabled();
                 match crate::integration::set_autostart(wanted) {
                     Ok(()) => {}
-                    Err(error) => crate::integration::tell(&format!(
-                        "No se pudo cambiar el inicio automático: {error}"
+                    Err(error) => crate::integration::tell(&text(
+                        current(app),
+                        Msg::AutostartFailed {
+                            error: &error.to_string(),
+                        },
                     )),
                 }
                 // Show what is true now, whatever happened.
@@ -98,27 +140,36 @@ pub fn show_count(app: &AppHandle, count: u32) {
 }
 
 /// Links the command and tells the person where it went and what to do next.
-fn install_command() {
+fn install_command(locale: Locale) {
     match crate::integration::install_command() {
         Ok(link) => {
             let folder = link
                 .parent()
                 .map(std::path::Path::to_path_buf)
                 .unwrap_or_default();
-            let hint = if crate::integration::on_path(&folder) {
+            let path_hint = if crate::integration::on_path(&folder) {
                 String::new()
             } else {
-                format!(
-                    "\n\nAgrega {} a tu PATH (por ejemplo en ~/.zshrc: export PATH=\"{}:$PATH\").",
-                    folder.display(),
-                    folder.display()
+                text(
+                    locale,
+                    Msg::PathHint {
+                        folder: &folder.display().to_string(),
+                    },
                 )
             };
-            crate::integration::tell(&format!(
-                "Listo: {}\n\nAhora puedes usar `devports ls`.{hint}",
-                link.display()
+            crate::integration::tell(&text(
+                locale,
+                Msg::InstallDone {
+                    link: &link.display().to_string(),
+                    path_hint: &path_hint,
+                },
             ));
         }
-        Err(error) => crate::integration::tell(&format!("No se pudo instalar el comando: {error}")),
+        Err(error) => crate::integration::tell(&text(
+            locale,
+            Msg::InstallFailed {
+                error: &error.to_string(),
+            },
+        )),
     }
 }

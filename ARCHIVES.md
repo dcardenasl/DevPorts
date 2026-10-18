@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.5 — Bandeja y notificaciones localizadas · 2026-10-18
+- **Resultado:** el menú de la bandeja, sus diálogos y las notificaciones hablan el idioma en vigor (preferencia guardada; `system` = idiomas de macOS vía `sys-locale`, regla es*→es, en*→en, otro→en). Guardar preferencias reescribe el menú en el acto y vuelve a registrar el botón «Extender 30 min»/«Extend 30 min».
+- **Contrato:**
+  - `crates/devports-app/src/i18n.rs`: `Locale {Es, En}`, `resolve(preference, system)`, `system_languages()`, `current(app)`, `enum Msg` y `text(locale, msg)` con un `match` exhaustivo por idioma (sin comodín: una frase sin traducir no compila). La misma tabla de resolución se prueba en `ui/src/i18n/locale.test.ts`.
+  - `tray.rs`: `TrayMenu` (estado gestionado con los cuatro ítems) y `relocalize(app, locale)`; los diálogos usan `Msg`. `notifications.rs`: `Notifier::new(extend_title, on_response)` y `relocalize(extend_title)` (no hace nada sin delegado: binario desnudo). `host.rs`: los textos de aviso se componen con el idioma vigente en el momento del aviso. `set_preferences` encadena tema, bandeja y notificaciones.
+  - Dependencia nueva: `sys-locale 0.3.2` (API segura; `cargo deny` verde). Sin archivos `unsafe` nuevos.
+- **Verificación:** `tools/check.sh full` verde (34 pruebas en la app, 3 nuevas de `i18n`).
+- **Pendiente (M-16):** bandeja y una notificación de vencimiento en ambos idiomas en la app nativa.
+
 ## UXR-9.3 — Catálogo i18n tipado del panel (es + en) · 2026-10-18
 - **Resultado:** el panel habla español o inglés; con la preferencia `system` (por defecto) sigue los idiomas de macOS, en vivo (`languagechange`). Aún no hay selector (UXR-9.6) ni `lang` en el URL desde Rust (9.5/9.6); `boot.ts` ya lo lee si llega.
 - **Contrato:**

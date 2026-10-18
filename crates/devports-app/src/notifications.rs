@@ -142,6 +142,35 @@ unsafe impl Sync for KeepAlive {}
 
 static DELEGATE: OnceLock<KeepAlive> = OnceLock::new();
 
+/// Registers the "lease expiring" category with its one button. Registering it again
+/// replaces it, which is how the button changes language.
+fn register_category(center: &UNUserNotificationCenter, extend_title: &str) {
+    let extend = UNNotificationAction::actionWithIdentifier_title_options(
+        &NSString::from_str(EXTEND_ACTION),
+        &NSString::from_str(extend_title),
+        UNNotificationActionOptions::empty(),
+    );
+    let category = UNNotificationCategory::categoryWithIdentifier_actions_intentIdentifiers_options(
+        &NSString::from_str(LEASE_EXPIRING_CATEGORY),
+        &NSArray::from_slice(&[&*extend]),
+        &NSArray::new(),
+        UNNotificationCategoryOptions::empty(),
+    );
+    center.setNotificationCategories(&NSSet::from_slice(&[&*category]));
+}
+
+/// Gives the "lease expiring" button a new title. Does nothing before notifications are
+/// set up (a bare binary, or before [`Notifier::new`]), so it is safe to call whenever the
+/// language changes.
+pub fn relocalize(extend_title: &str) {
+    if DELEGATE.get().is_some() {
+        register_category(
+            &UNUserNotificationCenter::currentNotificationCenter(),
+            extend_title,
+        );
+    }
+}
+
 /// Posts notifications and reports what the user does with them.
 #[derive(Debug, Clone, Copy)]
 pub struct Notifier;
@@ -151,7 +180,8 @@ pub struct Notifier;
     reason = "a `Notifier` is the proof that the delegate and category are registered; posting without one is impossible"
 )]
 impl Notifier {
-    /// Registers the delegate and the "lease expiring" category.
+    /// Registers the delegate and the "lease expiring" category, whose button reads
+    /// `extend_title`.
     ///
     /// `on_response` receives the identifier of the notification the user acted on
     /// and what they did. It runs on a system queue: keep it short.
@@ -160,6 +190,7 @@ impl Notifier {
     ///
     /// [`NotifyError::NoBundle`] when the process is not an application bundle.
     pub fn new(
+        extend_title: &str,
         on_response: impl Fn(&str, Response) + Send + Sync + 'static,
     ) -> Result<Self, NotifyError> {
         if NSBundle::mainBundle().bundleIdentifier().is_none() {
@@ -167,19 +198,7 @@ impl Notifier {
         }
         let center = UNUserNotificationCenter::currentNotificationCenter();
 
-        let extend = UNNotificationAction::actionWithIdentifier_title_options(
-            &NSString::from_str(EXTEND_ACTION),
-            &NSString::from_str("Extender 30 min"),
-            UNNotificationActionOptions::empty(),
-        );
-        let category =
-            UNNotificationCategory::categoryWithIdentifier_actions_intentIdentifiers_options(
-                &NSString::from_str(LEASE_EXPIRING_CATEGORY),
-                &NSArray::from_slice(&[&*extend]),
-                &NSArray::new(),
-                UNNotificationCategoryOptions::empty(),
-            );
-        center.setNotificationCategories(&NSSet::from_slice(&[&*category]));
+        register_category(&center, extend_title);
 
         let delegate = DELEGATE
             .get_or_init(|| KeepAlive(Delegate::new(Box::new(on_response))))
@@ -283,6 +302,9 @@ mod tests {
     #[test]
     fn a_bare_binary_is_refused_instead_of_crashing() {
         // `cargo test` runs a plain executable, not an application bundle.
-        assert_eq!(Notifier::new(|_, _| {}).unwrap_err(), NotifyError::NoBundle);
+        assert_eq!(
+            Notifier::new("Extend", |_, _| {}).unwrap_err(),
+            NotifyError::NoBundle
+        );
     }
 }

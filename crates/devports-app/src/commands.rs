@@ -148,6 +148,9 @@ pub async fn set_preferences(
         .map_err(|error| error.to_string())?;
     store.replace(saved);
     crate::panel::apply_theme(&app, saved.theme);
+    let locale = crate::i18n::current(&app);
+    crate::tray::relocalize(&app, locale);
+    crate::notifications::relocalize(&crate::i18n::text(locale, crate::i18n::Msg::ExtendAction));
     Ok(saved)
 }
 

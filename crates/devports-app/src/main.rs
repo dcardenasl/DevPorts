@@ -8,6 +8,7 @@
 mod commands;
 mod diagnostics;
 mod host;
+mod i18n;
 mod integration;
 mod notifications;
 mod operations;

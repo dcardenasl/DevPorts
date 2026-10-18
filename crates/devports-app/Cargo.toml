@@ -16,6 +16,7 @@ serde_json = "1"
 devports-proto.workspace = true
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+sys-locale = "0.3.2"
 
 [lints]
 workspace = true

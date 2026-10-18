@@ -12,6 +12,7 @@ use devports_core::engine::Notice;
 use devports_core::runtime::{Core, CoreHandle, CoreOptions, RuntimeError};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::i18n::{Msg, current, text};
 use crate::notifications::{Notifier, Response};
 use crate::preferences::PreferencesStore;
 
@@ -123,7 +124,8 @@ fn spawn_snapshot_bridge(app: AppHandle, handle: CoreHandle) {
 fn spawn_notice_bridge(app: &AppHandle, handle: &CoreHandle) {
     let responder = handle.clone();
     let opener = app.clone();
-    let notifier = Notifier::new(move |id, response| match response {
+    let extend_title = text(current(app), Msg::ExtendAction);
+    let notifier = Notifier::new(&extend_title, move |id, response| match response {
         Response::Extend => {
             if let Some(reference) = id.strip_prefix("lease:") {
                 let reference = reference.to_owned();
@@ -157,6 +159,7 @@ fn spawn_notice_bridge(app: &AppHandle, handle: &CoreHandle) {
     });
 
     let mut notices = handle.notices();
+    let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut last_by_project: HashMap<String, Instant> = HashMap::new();
         while let Ok(notice) = notices.recv().await {
@@ -168,18 +171,19 @@ fn spawn_notice_bridge(app: &AppHandle, handle: &CoreHandle) {
                     reason,
                     ..
                 } => {
-                    let name = service.unwrap_or_else(|| "una prueba".to_owned());
-                    let detail = match (reason, project) {
-                        (Some(reason), Some(project)) => {
-                            format!("«{reason}» del proyecto {project}")
-                        }
-                        (None, Some(project)) => format!("Proyecto {project}"),
-                        (Some(reason), None) => format!("«{reason}»"),
-                        (None, None) => String::new(),
-                    };
+                    // Said in the language in force when it happens, not when the app started.
+                    let locale = current(&app);
+                    let name = service.unwrap_or_else(|| text(locale, Msg::UnnamedTest));
+                    let detail = text(
+                        locale,
+                        Msg::LeaseDetail {
+                            reason: reason.as_deref(),
+                            project: project.as_deref(),
+                        },
+                    );
                     notifier.post_lease_expiring(
                         &format!("lease:{reference}"),
-                        &format!("{name} vence en 1 minuto"),
+                        &text(locale, Msg::LeaseExpiring { name: &name }),
                         &detail,
                         report_failure,
                     );
@@ -198,11 +202,17 @@ fn spawn_notice_bridge(app: &AppHandle, handle: &CoreHandle) {
                         continue;
                     }
                     last_by_project.insert(project.clone(), now);
-                    let place = port.map_or_else(String::new, |port| format!(" :{port}"));
+                    let locale = current(&app);
                     notifier.post_plain(
                         &format!("duplicate:{reference}"),
-                        &format!("Duplicado de {service}"),
-                        &format!("Apareció otro servidor{place} sin pasar por DevPorts (proyecto {project})"),
+                        &text(locale, Msg::DuplicateTitle { service: &service }),
+                        &text(
+                            locale,
+                            Msg::DuplicateBody {
+                                port,
+                                project: &project,
+                            },
+                        ),
                         report_failure,
                     );
                 }

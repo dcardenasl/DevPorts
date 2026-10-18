@@ -483,7 +483,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** lista de tipos/códigos y el patrón para añadir un evento o error nuevo.
 
-- [ ] **UXR-9.5 — Bandeja y notificaciones localizadas.**
+- [x] **UXR-9.5 — Bandeja y notificaciones localizadas.**
 
   **Dependencias:** UXR-9.1. **Plan:** [Diseño E](docs/plan/tema-e-idioma.md#e-bandeja-y-notificaciones-rust-devports-app). **Contexto:** ADR-041, ADR-014 (notificaciones), ADR-025.3 y .7 (`unsafe` solo en tres archivos).
 
@@ -496,6 +496,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `tools/check.sh full` (incl. `cargo deny` y el test de `unsafe`); comprobación nativa de bandeja y una notificación por David en ambos idiomas.
 
   **Commits previstos:** `feat(app): localize the tray and notifications`.
+
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.5». Comprobación nativa de bandeja y notificación pendiente de David (M-16).
 
   **Entrega a la próxima sesión:** cómo se reconstruye la bandeja y dónde añadir un `Msg`.
 
