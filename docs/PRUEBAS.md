@@ -76,6 +76,7 @@ En CI con `ContainerSource` simulado: D-01 a D-04. En la Mac de David con Docker
 - M-13: notificaciones del sistema, con y sin botón de acción.
 - M-14: una hora en reposo con panel cerrado; registrar memoria y CPU (`top -l`, Monitor de Actividad) contra el presupuesto.
 - M-15: reinicio del Mac: la app arranca sola; matar el proceso: se reinicia; "Salir": no se reinicia.
+- M-16: tema e idioma en la app nativa: alternar sistema/claro/oscuro y sistema/español/inglés desde Configuración; cambiar la apariencia de macOS con el panel abierto y cerrado; reabrir sin parpadeo; bandeja y una notificación de vencimiento en ambos idiomas.
 
 ## 3. Integración continua
 | Trabajo | Dónde | Qué ejecuta |
@@ -108,6 +109,7 @@ El CI no puede ejecutar Docker en macOS; esa brecha se cubre con el cliente simu
 | NF-04 | I-11 |
 | NF-06 | U-09, PT-03, PT-04, I-06, I-07 |
 | NF-08 | I-10 |
+| NF-11 | UI, M-16 |
 
 ## 5. Medición de la Fase 0 (ADR-022)
 1. **Semana base:** `tools/baseline.sh start` y trabajo normal; al final `report` y guardar la salida.

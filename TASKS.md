@@ -395,7 +395,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 5. Verificar con `tools/check.sh full` y, en `ui/`, `pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test && pnpm run build`. Cada prueba nueva lleva `// covers: ID` (ids en [PRUEBAS.md](docs/PRUEBAS.md) §2/§4; los `UXR-9.x` se anotan como en UXR-7.1). El panel nativo no es controlable por el agente: dejar la comprobación nativa a David, sin afirmar que un mock equivale a Tauri; no tocar los servicios reales de David.
 6. Cerrar con **`/commit-flow`** usando los commits previstos de la ficha (una línea, inglés, imperativo, sin cuerpo ni trailers, archivos nombrados, `git diff --cached --stat` antes, hook fallido → arreglar y commit nuevo). CHANGELOG `[Unreleased]` solo para `feat`. Registrar la entrega en `ARCHIVES.md` y actualizar `SNAPSHOT.md` y la ficha (`[x]` + **Entrega**).
 
-- [ ] **UXR-9.0 — Registrar las decisiones de tema e idioma (ADR-040, ADR-041).**
+- [x] **UXR-9.0 — Registrar las decisiones de tema e idioma (ADR-040, ADR-041).**
 
   **Dependencias:** ninguna. **Plan:** [Contexto, Diseño B y C](docs/plan/tema-e-idioma.md#contexto). **Contexto:** ADR-025.6 y .7, NF-10, `UI-REFERENCIA.md` L14/L152/L191.
 
@@ -408,6 +408,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `tools/check.sh full` (solo debe cambiar la matriz si se añaden IDs); revisión manual de enlaces.
 
   **Commits previstos:** `docs(adr): record adr-040 and adr-041 for theme and language`.
+
+  **Entrega (2026-10-18):** ADR-040 y ADR-041 en `docs/DECISIONES.md`; NF-10 acotado y NF-11 en el PRD; ADR-025.6 enmendado; fila NF-11 y prueba manual M-16 en PRUEBAS; paleta clara con contrastes calculados en `UI-REFERENCIA.md` §6. Solo documentación.
 
   **Entrega a la próxima sesión:** ADR y paleta citados por número/sección en ARCHIVES para UXR-9.1 y 9.2.
 

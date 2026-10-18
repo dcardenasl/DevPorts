@@ -60,7 +60,7 @@ CHANGELOG (`## [Unreleased]`) solo para `feat/fix/perf`; nunca inventar número 
 Servidor MCP, adaptadores por agente, proxy de nombres estables, versión Pro/equipos, gestor tipo pm2, borrar contenedores/volúmenes, Linux, Windows. Principio de David: simple pero robusto; nada que hoy no se necesite.
 
 ## Idioma
-Código, comentarios, commits y CHANGELOG en **inglés**. `docs/`, `TASKS.md`, `CLAUDE.md` y la salida para personas en **español**. Indentación: 4 espacios Rust, 2 JS/TS. Nombres: `PascalCase` tipos/componentes, `camelCase`/`snake_case` según el lenguaje, `kebab-case` archivos web.
+Código, comentarios, commits y CHANGELOG en **inglés**. `docs/`, `TASKS.md`, `CLAUDE.md` y la salida del CLI en **español**; el panel, la bandeja y las notificaciones siguen el idioma elegido (es/en, ADR-041). Indentación: 4 espacios Rust, 2 JS/TS. Nombres: `PascalCase` tipos/componentes, `camelCase`/`snake_case` según el lenguaje, `kebab-case` archivos web.
 
 ## Puertas humanas
 G0 (criterio de éxito ADR-022), G1 (+ revisión de portafolio), G2, G3, G4. Al llegar a una: detenerse y pedir la decisión a David. La Fase 3 se hace en el repo `ci4-kickstart`, en sesión aparte.

@@ -87,7 +87,8 @@ Servidor MCP; adaptadores por agente; proxy de nombres estables; versión Pro o 
 | NF-07 | Portabilidad | Plataforma tras interfaces; portar = escribir un módulo **[C]** |
 | NF-08 | Recuperación | Tras reinicio del núcleo se reconcilia y se ejecutan vencimientos pendientes **[D]** |
 | NF-09 | Datos | Todo local en SQLite; retención de eventos 30 días **[P]** |
-| NF-10 | Salida | Texto en español para personas; `--json` estable para agentes **[D]** |
+| NF-10 | Salida | Texto en español para personas en el CLI y en `--json` estable para agentes **[D]**; el panel sigue NF-11 |
+| NF-11 | Apariencia e idioma | El panel, la bandeja y las notificaciones siguen el tema (sistema, claro, oscuro; AA en ambos) y el idioma (sistema, español, inglés) elegidos, sin parpadeo al abrir y con la elección guardada (ADR-040, ADR-041) **[C]** |
 
 ## 9. Métricas de éxito (Fase 0 y Fase 4) **[C]** (ADR-022)
 | Métrica | Fuente | Meta |

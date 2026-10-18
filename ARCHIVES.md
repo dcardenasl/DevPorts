@@ -3,6 +3,12 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-9.0 — Decisiones de tema e idioma · 2026-10-18
+- **Resultado:** ADR-040 (tema sistema/claro/oscuro, resolución síncrona por URL + `boot.js`, `data-theme` explícito, tokens por tema, AA por tema) y ADR-041 (es + en, catálogo tipado sin librería, `Intl`, preferencias en SQLite `preferences`, núcleo → datos tipados; CLI, `--json`, goldens y `docs/` siguen en español; respaldo de locale: `es*`→es, `en*`→en, otro→en).
+- **Archivos:** `docs/DECISIONES.md` (ADR-040/041, nota en ADR-025.6), `docs/PRD.md` (NF-10 acotado, NF-11), `docs/PRUEBAS.md` (M-16, fila NF-11), `docs/UI-REFERENCIA.md` §6 (tabla de tokens por tema; paleta clara con contrastes), `CLAUDE.md` (Idioma).
+- **Verificación:** `tools/check.sh full` y revisión de enlaces (ver mensaje de cierre). Contrastes claros calculados con la fórmula WCAG de `contrast.test.ts`: todos los pares ≥ 4,5:1.
+- **Para UXR-9.1/9.2:** la lista de tokens de §6 es el conjunto exacto que debe definir `theme.css` en ambos temas; `--on-badge` y `--on-coral` se mantienen separados para no cambiar el oscuro.
+
 ## UXR-8 — Rediseño de la vista de Proyectos · 2026-10-18
 - **Resultado:** ADR-039 aplicada: cabecera de una fila con chips de puertos, sin subencabezado con un solo repo, detalles desde la fila del servicio, pie único, varias tarjetas abiertas (actividad + elección manual recordada), plegar/abrir todo y orden activos primero.
 - **Archivos/contratos:** `panel_state.rs` (`open_projects`/`closed_projects`, versión 2, acotado), `projectFolds.ts`, `model.ts` (`occupiedPorts`, `orderProjects`), `ProjectsView`, `InstanceDetails` (`InstanceFacts`), `styles.css`.

@@ -11,7 +11,7 @@
 - Las capturas están en `ui-referencia/panel/` (solo el panel y la barra de menús) y `ui-referencia/contexto/` (pantalla completa).
 - Cada vista tiene su sección abajo, con los elementos, los estados y las acciones.
 - La sección 4 describe los flujos paso a paso; la sección 5, el sistema visual con valores exactos.
-- Solo existe modo oscuro. El modo claro no está diseñado (ver sección 7).
+- Existen dos temas, oscuro y claro, más «Sistema» (sigue a macOS). Ver sección 6 (ADR-040).
 
 ---
 
@@ -149,23 +149,56 @@ No se crea ningún proceso; el panel resalta el servicio y la línea queda en Ac
 
 ## 6. Sistema visual
 
-### Color (modo oscuro)
-| Token | Valor | Uso |
-|---|---|---|
-| Fondo del panel | `#171B1F` | Superficie del panel |
-| Barra de pestañas | `#1A1E22` | Fondo de las pestañas |
-| Texto | `#E8ECEF` | Texto principal |
-| Texto suave | `#8C979F` | Texto secundario |
-| Texto tenue | `#838E96` | Rutas, horas, pestañas inactivas (cumple AA sobre el panel) |
-| Principal / sano | `#3DD6A0` | Servicio oficial y sano, éxito, botón de adoptar |
-| Temporal | `#F5B544` | Pruebas con vencimiento, cuenta regresiva |
-| Atención | `#FF6A55` | Duplicados, colgados, detener, insignia |
-| Dato / info | `#6AA9FF` | Servicios de datos, etiqueta "datos", rechazos |
-| Tarjetas de estado | color al 7–10 % de relleno y 30–45 % de borde | Verde, ámbar, coral |
-| Superficie neutra | `rgba(255,255,255,0.035)` con borde `rgba(255,255,255,0.07–0.08)` | Proyectos, compartidos, sin proyecto |
-| Sombra del panel | `0 24px 60px rgba(0,0,0,0.55)` y borde `rgba(255,255,255,0.12)` | Elevación |
+### Color (dos temas, ADR-040)
+Cada token existe en los dos temas con el mismo nombre (`ui/src/theme.css`, un bloque `[data-theme]` por tema). `styles.css` no contiene colores literales. Los valores claros están calculados para AA (texto ≥ 4,5:1; foco y bordes de interfaz ≥ 3:1) y los verifica `contrast.test.ts` por tema.
 
-Regla: el color significa estado, nunca decoración. Verde = oficial y sano; ámbar = prueba con reloj; coral = requiere atención; azul = datos.
+**Superficies y texto**
+| Token | Oscuro | Claro | Uso |
+|---|---|---|---|
+| `--panel` | `#171B1F` | `#F6F8FA` | Superficie del panel |
+| `--tabbar` | `#1A1E22` | `#ECEFF3` | Fondo de las pestañas |
+| `--sheet` | `#20262B` | `#FFFFFF` | Hojas y diálogos |
+| `--toast` | `#262D33` | `#FFFFFF` | Avisos flotantes |
+| `--text` | `#E8ECEF` | `#1A2128` | Texto principal |
+| `--text-soft` | `#8C979F` | `#505C66` | Texto secundario |
+| `--text-dim` | `#838E96` | `#59646E` | Rutas, horas, pestañas inactivas |
+| `--text-strong` | `#FFFFFF` | `#0D1216` | Pestaña seleccionada |
+
+**Color de estado** (el color significa estado, nunca decoración)
+| Token | Oscuro | Claro | Uso |
+|---|---|---|---|
+| `--green` | `#3DD6A0` | `#08694A` | Principal / sano, éxito, adoptar |
+| `--amber` | `#F5B544` | `#8A5600` | Temporal, cuenta regresiva |
+| `--coral` | `#FF6A55` | `#B72915` | Duplicados, colgados, detener, insignia |
+| `--blue` | `#6AA9FF` | `#1B5FC4` | Datos, información, rechazos |
+| `--on-green` | `#06241A` | `#FFFFFF` | Texto sobre relleno verde |
+| `--on-amber` | `#2B1D05` | `#FFFFFF` | Texto sobre relleno ámbar |
+| `--on-coral` | `#2B0D08` | `#FFFFFF` | Texto sobre botón coral |
+| `--on-badge` | `#1A0D0A` | `#FFFFFF` | Texto de la insignia coral |
+
+**Tintes** (el color de estado con transparencia; se derivan del color del tema)
+| Familia | Alfa | Uso |
+|---|---|---|
+| `--wash-green/amber/coral/blue` | 8 % / 8 % / 7 % / 7 % | Fondo de tarjetas de estado |
+| `--wash-coral-strong`, `--wash-amber-faint` | 10 % / 6 % | Fila resaltada, fila anidada |
+| `--edge-green/amber/coral/blue` | 35 % / 40 % / 38 % / 30 % | Borde de tarjetas de estado |
+| `--edge-green-strong`, `--edge-coral-strong` | 45 % / 50 % | Opción sugerida, aviso de error |
+| `--tint-green/amber/coral/blue` | 14 % | Fondo de etiquetas |
+| `--halo-green`, `--halo-coral` | 18 % / 20 % | Halo de 3 px del punto de estado |
+
+**Neutros** (oscuro: blanco con alfa; claro: `rgb(15 23 32)` con alfa)
+| Token | Alfa | Uso |
+|---|---|---|
+| `--ov-3`, `--ov-4`, `--ov-6`, `--ov-8`, `--ov-10` | 3, 4, 6, 8, 10 % | Repos, opciones, botones al pasar, barras, etiqueta suave |
+| `--surface` | 3,5 % | Tarjetas neutras (proyectos, compartidos, sin proyecto) |
+| `--line`, `--line-strong` | oscuro 8 % / 14 %; claro 10 % / 18 % | Bordes |
+| `--veil` | oscuro 64 %; claro 38 % | Velo bajo hojas y diálogos |
+| `--field` | oscuro negro 25 %; claro `#F1F4F6` | Fondo de campos de texto |
+| `--dot-down`, `--dot-loose` | oscuro `#5B656C` / `#7B868D`; claro `#6B7680` / `#7D8892` | Anillo de caída / sin dueño |
+| `--pill-bg`, `--pill-fg` | oscuro `#FFFFFF` / `#101316`; claro `#1A2128` / `#FFFFFF` | Píldora de filtro activa |
+| `--shadow` | oscuro `0 24px 60px rgba(0,0,0,0.55)`; claro `0 24px 60px rgba(15,23,32,0.22)` | Elevación del panel |
+
+Contrastes del tema claro (texto sobre su fondo): texto 15,3:1; suave 6,4:1; tenue 5,7:1 (5,2:1 en la barra de pestañas); verde 6,3:1, ámbar 5,8:1, coral 5,9:1, azul 5,7:1 sobre el panel; etiquetas de color sobre su tinte 4,7 a 5,1:1; blanco sobre verde 6,7:1, coral 6,3:1 y ámbar 6,2:1.
 
 ### Tipografía
 - Texto: sans del sistema (en el diseño original, IBM Plex Sans). Títulos 17 px semibold; nombres 13,5–15 px; texto de apoyo 11–12 px.
@@ -174,10 +207,10 @@ Regla: el color significa estado, nunca decoración. Verde = oficial y sano; ám
 
 ### Componentes
 - **Punto de estado:** 8 px. Principal sana: verde con halo de 3 px. Colgada o sin registrar: coral con halo. Temporal: anillo ámbar de 2 px. Sin dueño: anillo punteado gris. Caída: anillo gris.
-- **Botones** (altura 30 px, radio 8): primario relleno (ámbar para extender, coral para detener, verde para adoptar); secundario con borde `rgba(255,255,255,0.14)`; terciario solo texto subrayado.
+- **Botones** (altura 30 px, radio 8): primario relleno (ámbar para extender, coral para detener, verde para adoptar); secundario con borde `--line-strong`; terciario solo texto subrayado.
 - **Tarjetas:** radio 12; padding 12–14 px. **Etiquetas:** radio 4, fondo del color al 12 %. **Píldoras de filtro:** 24 px de alto.
 - **Íconos:** trazo de 1,7 px, 18 px en pestañas, 12–13 px en filas; sin emojis.
-- **Hoja y diálogo:** radio 14, fondo `#20262B`, sobre un velo `rgba(8,10,12,0.62–0.66)`.
+- **Hoja y diálogo:** radio 14, fondo `--sheet`, sobre `--veil`.
 
 ### Movimiento (para la implementación, valores sugeridos)
 - Entrada de tarjetas y filas: desplazamiento de 16–30 px y fundido, 0,35–0,5 s, escalonado 0,25–0,35 s.
@@ -188,7 +221,7 @@ Regla: el color significa estado, nunca decoración. Verde = oficial y sano; ám
 ---
 
 ## 7. Qué falta o queda abierto
-- **Modo claro:** no diseñado. Los tokens están pensados para invertirse.
+- **Modo claro:** diseñado en la sección 6 (ADR-040). Falta la comprobación nativa (M-16).
 - **Notificaciones del sistema** (vencimiento en 1 min con "Extender 30 min", y duplicado): diseñadas en el lienzo "Dirección visual", no en estas capturas.
 - **Menú contextual del ícono**, preferencias, arranque al iniciar sesión: sin diseño.
 - **"Marcar como legítimo", "Crear un proyecto nuevo" e "Ignorar":** solo están como opciones; falta el detalle de cada una (nombre del proyecto, persistencia de lo ignorado).
