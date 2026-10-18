@@ -20,6 +20,8 @@ fn fixture() -> (TempDir, AdoptionContext) {
         projects: vec![("shop".to_owned(), root)],
         shared: BTreeSet::new(),
         home: home.path().to_path_buf(),
+        roots: vec![home.path().to_path_buf()],
+        max_depth: 3,
     };
     (home, context)
 }
@@ -386,4 +388,27 @@ fn creating_a_home_project_is_refused_but_an_explicit_existing_manifest_stays_ed
             .unwrap()
             .creates_manifest
     );
+}
+
+// covers: UXR-3.2
+#[test]
+fn a_root_the_discovery_cannot_reach_is_refused_so_the_saved_card_can_appear() {
+    let (_home, mut context) = fixture();
+    let other = TempDir::new().unwrap();
+    context.roots = vec![other.path().to_path_buf()];
+    assert!(matches!(
+        prepare(&context, AdoptionTarget::Project("shop".to_owned())),
+        Err(AdoptionError::Unsuitable { .. })
+    ));
+    context.roots = vec![context.home.clone()];
+    context.max_depth = 1;
+    assert!(
+        matches!(
+            prepare(&context, AdoptionTarget::Project("shop".to_owned())),
+            Err(AdoptionError::Unsuitable { .. })
+        ),
+        "work/shop is two levels below the configured root"
+    );
+    context.max_depth = 2;
+    assert!(prepare(&context, AdoptionTarget::Project("shop".to_owned())).is_ok());
 }

@@ -160,6 +160,8 @@ pub(crate) struct AdoptionContext {
     pub projects: Vec<(String, PathBuf)>,
     pub shared: BTreeSet<String>,
     pub home: PathBuf,
+    pub roots: Vec<PathBuf>,
+    pub max_depth: usize,
 }
 
 /// Immutable proposal material; kept only until the review expires or succeeds.
@@ -302,11 +304,27 @@ pub(crate) fn prepare(
         service,
         shared: context.shared.clone(),
     };
+    prepared.check_discovery(&context.roots, context.max_depth)?;
     prepared.validate(&prepared.defaults())?;
     Ok(prepared)
 }
 
 impl PreparedAdoption {
+    pub(crate) fn check_discovery(
+        &self,
+        roots: &[PathBuf],
+        max_depth: usize,
+    ) -> Result<(), AdoptionError> {
+        if !matches!(self.target, AdoptionTarget::Shared)
+            && !crate::discovery::includes_directory(roots, max_depth, &self.root)
+        {
+            return Err(unsuitable(
+                "esta raíz no está en el alcance de exploración; añade su carpeta a config.yml antes de adoptar",
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn defaults(&self) -> ServiceEdits {
         ServiceEdits {
             name: self.service.name.clone(),

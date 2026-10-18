@@ -54,11 +54,21 @@ impl CoreHandle {
             projects,
             shared,
         } = self.describe_for_adoption(reference).await?;
+        let home = Arc::clone(&self.home);
+        let config =
+            tokio::task::spawn_blocking(move || load_settings(&home).map(|(config, _)| config))
+                .await
+                .map_err(|error| worker_error(&error))?
+                .map_err(|error| AdoptionError::Io {
+                    message: error.to_string(),
+                })?;
         Ok(AdoptionContext {
             view,
             projects,
             shared,
             home: self.home.as_ref().clone(),
+            roots: config.roots,
+            max_depth: config.max_depth,
         })
     }
 
@@ -255,7 +265,14 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 let home = Arc::clone(&self.home);
                 tokio::spawn(async move {
                     let (result, update) = tokio::task::spawn_blocking(move || {
-                        let result = prepared.commit(&edits);
+                        let result = load_settings(&home)
+                            .map_err(|error| AdoptionError::Io {
+                                message: error.to_string(),
+                            })
+                            .and_then(|(config, _)| {
+                                prepared.check_discovery(&config.roots, config.max_depth)
+                            })
+                            .and_then(|()| prepared.commit(&edits));
                         let update = result
                             .as_ref()
                             .ok()

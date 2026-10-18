@@ -136,6 +136,37 @@ pub fn discover_with(
     search.finish()
 }
 
+/// Whether the bounded discovery traversal can reach this canonical directory.
+/// Uses the same depth, skipped-name and no-symlink policy as the actual search.
+#[must_use]
+pub fn includes_directory(roots: &[PathBuf], max_depth: usize, directory: &Path) -> bool {
+    roots.iter().any(|root| {
+        let Ok(root) = std::fs::canonicalize(root) else {
+            return false;
+        };
+        let Ok(relative) = directory.strip_prefix(&root) else {
+            return false;
+        };
+        if relative.components().count() > max_depth {
+            return false;
+        }
+        let mut current = root;
+        for component in relative.components() {
+            let std::path::Component::Normal(name) = component else {
+                return false;
+            };
+            if is_skipped(&name.to_string_lossy()) {
+                return false;
+            }
+            current.push(name);
+            if !std::fs::symlink_metadata(&current).is_ok_and(|metadata| metadata.is_dir()) {
+                return false;
+            }
+        }
+        true
+    })
+}
+
 #[derive(Default)]
 struct Search<'a> {
     known_shared: Option<&'a std::collections::BTreeSet<String>>,
