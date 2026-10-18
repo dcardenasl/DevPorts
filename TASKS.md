@@ -59,6 +59,8 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 - [ ] **UXR-0 — Reproducir la app nativa con casos controlados.**
 
+  **Estado (2026-10-18):** versión actual instalada y medida (CLI, base v3, reposo OK), pero el panel no se pudo abrir: [bloqueos exactos y cómo cerrarla](docs/audits/2026-10-18-uxr-0.md).
+
   **Dependencias:** ninguna. **Plan:** [grupo UXR-0](docs/audits/2026-10-17-ui-ux-plan.md#uxr-0). **Contexto:** Límite de evidencia de la auditoría; D1; ADR-028.
 
   **Leer código:** `crates/devports-app/src/{main,panel,host}.rs`, `tools/{bundle,install}.sh`, `ui/src/api.ts`, `ui/src/mock.ts`; informe de auditoría §3 y §6.

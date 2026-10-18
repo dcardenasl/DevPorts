@@ -8,7 +8,7 @@
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
 | **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-6 y UXR-7.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Ya solo quedan tareas que necesitan la **app nativa**: [UXR-0](TASKS.md#uxr-0) (reproducir con casos controlados; el acceso a Computer Use dio timeout) y [UXR-7.2](TASKS.md#uxr-7-2) (recorridos reales, YAML/DB/snapshot, memoria/CPU), con los escenarios de [UXR-7.1](docs/audits/2026-10-18-uxr-7-1.md). Después, las puertas humanas G1/G2 y M-15. Instalar la versión actual (`tools/install.sh`) antes de validar: la app instalada no tiene estas correcciones. |
+| **Próximo paso** | Quedan solo tareas que necesitan abrir el **panel nativo**: [UXR-0](TASKS.md#uxr-0) y [UXR-7.2](TASKS.md#uxr-7-2). La versión actual **ya está instalada** y verificada por CLI (base v3, reposo 22–23 MB / 0,60 % CPU); el bloqueo es de permisos: [informe](docs/audits/2026-10-18-uxr-0.md). Con el panel abierto, seguir los escenarios de [UXR-7.1](docs/audits/2026-10-18-uxr-7-1.md) con recursos propios. Después, G1/G2 y M-15. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 

@@ -3,6 +3,12 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-0 — Segundo intento de acceso nativo (parcial, sigue abierta) · 2026-10-18
+- **Resultado:** versión actual instalada y funcionando (autorizado); base real migrada a v3; CLI y núcleo del paquete verificados (`topics` en `log`, 11 instancias en `ls`); reposo dentro del presupuesto (22–23 MB, 0,60 % CPU con el panel cerrado). **No se pudo recorrer el panel**: Computer Use no encuentra DevPorts (app *accessory* fuera del inventario) y System Events devuelve `-1719`; localhost denegado en el navegador integrado.
+- **Archivos:** solo documentación ([informe](docs/audits/2026-10-18-uxr-0.md)); copias de la app y la base anteriores en el directorio temporal de la sesión.
+- **Limpieza / recursos:** no se creó ningún recurso nuevo, ni se detuvo, adoptó, ignoró o reclasificó nada del usuario; no se dieron permisos del sistema.
+- **Pendiente exacto:** abrir el panel nativo (permiso de Accesibilidad o a mano) y recorrer los escenarios de UXR-7.1 con recursos propios. UXR-0 y UXR-7.2 permanecen `[ ]`.
+
 ## UXR-7.1 — Cerrar accesibilidad y densidad del panel · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(ui)` accesibilidad y densidad).
 - **Resultado:** tabs semánticos con roles, ids, tabpanel asociado, tabindex itinerante y flechas/Inicio/Fin; grupo plegable con `aria-controls` válido; errores ligados al campo; hojas con acciones fijas, rotura de rutas largas y botones que ajustan línea; desplazamiento suave respeta movimiento reducido; contraste de 21 pares usados verificado por prueba.
