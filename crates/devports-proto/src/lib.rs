@@ -14,12 +14,14 @@
 
 pub mod duration;
 pub mod paths;
+pub mod preferences;
 pub mod run;
 pub mod views;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+pub use preferences::{LanguagePreference, Preferences, ThemePreference};
 pub use run::{RunOutcome, RunRegister};
 pub use views::{InstanceView, LogEntry};
 
