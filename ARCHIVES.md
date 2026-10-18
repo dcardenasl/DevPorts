@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-6.2 — Recuperar conexión y mostrar diagnóstico accionable · 2026-10-18
+- **Commits de implementación:** ver `git log` (`feat(ui)` máquina de conexión y diagnóstico).
+- **Resultado:** conexión como máquina de estados con reintentos acotados (1–15 s), sondeo de salud, «Reintentar» manual y datos/contexto conservados; núcleo, Docker y avisos de manifiestos/configuración separados y accionables en todas las pestañas; ningún reenvío de operaciones confirmadas.
+- **Archivos/contratos:** `connection.ts` (`Connector`, `Link`, `RETRY_DELAYS_MS`, `POLL_MS`), `useConnection` reescrito, `StatusStrip.tsx`, sección Estado en `SettingsSheet`, `backend()` sin caché de fallos, `useOperations(api, epoch)`. Sin cambios Rust ni de contratos de operación.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 77/77 Vitest y build. Controlador con temporizadores falsos (8 casos) y recorridos de UI.
+- **Evidencia nativa vs simulada:** todo con backends simulados; sin Tauri/WebKit/VoiceOver, navegador ni Docker real (UXR-7.x). [Informe](docs/audits/2026-10-18-uxr-6-2.md).
+- **Limpieza:** sin procesos ni servicios reales ni Docker apagado; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-6.3 (actividad exacta) es independiente; UXR-7.2 valida pérdida real del núcleo y Docker detenido con recursos propios.
+
 ## UXR-6.1 — Editar carpetas de exploración dentro del panel · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(core)` edición y recarga, `feat(ui)` Configuración).
 - **Resultado:** Configuración (engranaje) con carpetas editables, validación por posición, revisión del efecto sobre los proyectos y guardado con recarga inmediata; error conserva lo escrito y permite reintentar; borrador recuperable; quitar no borra archivos ni detiene procesos.
