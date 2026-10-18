@@ -2096,3 +2096,45 @@ fn docker_observation_loss_does_not_claim_a_forgotten_container_is_still_alive()
         InstanceState::Forgotten
     );
 }
+
+// covers: UXR-4.2
+#[test]
+fn shared_summaries_expose_only_what_shared_yml_declares() {
+    let mut world = world();
+    let text = "\
+version: 1
+services:
+  mysql:
+    docker: mysql
+    kind: data
+    port: 3306
+    start: docker start mysql
+  admin:
+    docker: admin
+    port: 8025
+    health: http:/ready
+  bare:
+    docker: bare
+    port: 9000
+  nohost:
+    docker: nohost
+    health: http:/ready
+";
+    let (shared, _) = SharedServices::parse(text, Path::new("s.yml")).unwrap();
+    world.engine.set_catalog(Catalog::new(Vec::new()), shared);
+    let summaries = world.engine.shared_summaries();
+    let find = |name: &str| summaries.iter().find(|item| item.name == name).unwrap();
+    assert_eq!(find("mysql").start.as_deref(), Some("docker start mysql"));
+    assert_eq!(
+        find("mysql").endpoint,
+        None,
+        "a port alone is not an HTTP endpoint"
+    );
+    assert_eq!(
+        find("admin").endpoint.as_deref(),
+        Some("http://localhost:8025/ready")
+    );
+    assert_eq!(find("admin").start, None);
+    assert_eq!(find("bare").endpoint, None);
+    assert_eq!(find("nohost").endpoint, None, "no port, no address");
+}

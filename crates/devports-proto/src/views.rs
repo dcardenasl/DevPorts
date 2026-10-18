@@ -131,6 +131,19 @@ pub struct ProjectSummary {
     pub services: Vec<ServiceSummary>,
 }
 
+/// A service of `shared.yml` as the interface shows it, whether or not it runs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct SharedSummary {
+    /// Name projects cite in `uses`.
+    pub name: String,
+    /// The start command the person declared, exactly as written; never guessed.
+    pub start: Option<String>,
+    /// An HTTP address, only when `shared.yml` declares both a port and an
+    /// `http:` health check; never inferred from a port alone.
+    pub endpoint: Option<String>,
+}
+
 /// A repository inside a project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]

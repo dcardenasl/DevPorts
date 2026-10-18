@@ -323,6 +323,19 @@ export type ServiceSummary = {
 	kind: string,
 };
 
+/**  A service of `shared.yml` as the interface shows it, whether or not it runs. */
+export type SharedSummary = {
+	/**  Name projects cite in `uses`. */
+	name: string,
+	/**  The start command the person declared, exactly as written; never guessed. */
+	start: string | null,
+	/**
+	 *  An HTTP address, only when `shared.yml` declares both a port and an
+	 *  `http:` health check; never inferred from a port alone.
+	 */
+	endpoint: string | null,
+};
+
 /**  What the interface shows: the current instances and the state of the sources. */
 export type Snapshot = {
 	/**  Changes with every update, so a listener can tell it apart. */
@@ -340,6 +353,8 @@ export type Snapshot = {
 	problems: string[],
 	/**  The projects, laid out as repos with services. */
 	projects: ProjectSummary[],
+	/**  The services `shared.yml` defines, with their declared start command and endpoint. */
+	shared: SharedSummary[],
 	/**  What waits for a decision; its length is the tray counter. */
 	attention: AttentionItem[],
 	/**  Minutes an "extend" adds, for the button's label. */

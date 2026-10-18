@@ -29,6 +29,7 @@ use std::time::Duration;
 
 use devports_proto::views::{
     AttentionItem, AttentionKind, InstanceRole, InstanceState, InstanceView, ProjectSummary,
+    SharedSummary,
 };
 use devports_proto::{LogArgs, LogResult, Request, Response};
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
@@ -147,6 +148,8 @@ pub struct Snapshot {
     pub problems: Vec<String>,
     /// The projects, laid out as repos with services.
     pub projects: Vec<ProjectSummary>,
+    /// The services `shared.yml` defines, with their declared start command and endpoint.
+    pub shared: Vec<SharedSummary>,
     /// What waits for a decision; its length is the tray counter.
     pub attention: Vec<AttentionItem>,
     /// Minutes an "extend" adds, for the button's label.
@@ -577,6 +580,7 @@ impl Core {
                 catalog_problems: problems,
                 shutdown: shutdown_rx.clone(),
                 projects: Vec::new(),
+                shared: Vec::new(),
                 projects_at: 0,
                 published_views: u64::MAX,
                 dirty: true,
@@ -674,6 +678,7 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     catalog_problems: Vec<String>,
     shutdown: watch::Receiver<bool>,
     projects: Vec<ProjectSummary>,
+    shared: Vec<SharedSummary>,
     projects_at: i64,
     /// The engine's views revision of the last snapshot sent.
     published_views: u64,
@@ -919,6 +924,11 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 self.projects = projects;
                 self.dirty = true;
             }
+            let shared = self.engine.shared_summaries();
+            if shared != self.shared {
+                self.shared = shared;
+                self.dirty = true;
+            }
             self.projects_at = now;
         }
         // What waits for a decision depends on the clock as well as on the views.
@@ -955,6 +965,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             docker_error: self.docker_state.error.clone(),
             problems,
             projects: self.projects.clone(),
+            shared: self.shared.clone(),
             attention,
             extend_minutes: u32::try_from(
                 self.engine

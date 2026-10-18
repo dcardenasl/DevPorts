@@ -471,6 +471,25 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .collect()
     }
 
+    /// The services of `shared.yml` with what the person declared for them.
+    #[must_use]
+    pub fn shared_summaries(&self) -> Vec<devports_proto::views::SharedSummary> {
+        self.shared
+            .services
+            .iter()
+            .map(|(name, spec)| devports_proto::views::SharedSummary {
+                name: name.clone(),
+                start: spec.start.clone(),
+                endpoint: match (&spec.health, spec.port) {
+                    (crate::manifest::Health::Http(path), Some(port)) => {
+                        Some(format!("http://localhost:{port}{path}"))
+                    }
+                    _ => None,
+                },
+            })
+            .collect()
+    }
+
     /// Changes every time [`Self::views`] changes, and only then.
     #[must_use]
     pub fn views_revision(&self) -> u64 {
