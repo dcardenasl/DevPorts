@@ -290,7 +290,14 @@ export function App(): ReactElement {
             ? text.link.connectingAttempt(link.attempt, link.attempts)
             : text.status.connecting
         }
-        body={null}
+        body={
+          <div className="loading" role="status">
+            <div className="progress" aria-hidden="true">
+              <div className="progress-bar" />
+            </div>
+            <p className="soft">{text.status.loading}</p>
+          </div>
+        }
       />
     );
   }

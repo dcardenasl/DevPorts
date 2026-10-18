@@ -37,6 +37,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Panel opening** — the panel now appears as soon as its first screen has painted, showing a progress bar and «Cargando la información de proyectos y puertos…» while the data arrives, instead of staying invisible until the first snapshot.
+
 - **Stop dialog and Activity** — stopping an unregistered process now names the program instead of a short id, the Clasificar sheet shows its choices first, and reclassified or restored events read in Spanish in Actividad.
 
 - **Panel accessibility** — the five sections are real tabs (arrow keys, Home and End, linked to their panel), field errors are tied to their field, sheet actions stay reachable on long content, long paths wrap, smooth scrolling respects reduced motion, and colour contrast is checked by a test.

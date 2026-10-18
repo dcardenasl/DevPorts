@@ -58,6 +58,8 @@ export interface ConnectorOptions {
   connect: () => Promise<Backend>;
   timers: Timers;
   onLink: (link: Link) => void;
+  /** Called as soon as the link to the shell exists, before any data has been read. */
+  onBackend?: (api: Backend) => void;
   /** Called once, on the first success. Later reconnections keep drafts and context. */
   onFirst: (first: FirstConnection) => void;
   /** Called for every snapshot that is newer than the one before it. */
@@ -137,6 +139,7 @@ export class Connector {
     });
     try {
       const api = await this.options.connect();
+      if (this.current(run)) this.options.onBackend?.(api);
       const [snapshot, stored] = await Promise.all([
         api.snapshot(),
         this.first ? api.panelState() : Promise.resolve(undefined),

@@ -399,6 +399,7 @@ export const text = {
       "El proceso de este borrador ya no está disponible. Se descartó el formulario; no se realizó ninguna acción.",
     problems: "Avisos del núcleo",
     connecting: "Conectando con el núcleo…",
+    loading: "Cargando la información de proyectos y puertos…",
     failed: "No se pudo completar la acción",
   },
   link: {

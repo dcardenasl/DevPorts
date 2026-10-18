@@ -45,6 +45,7 @@ export function useConnection(): Connection {
   const [api, setApi] = useState<Backend>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [link, setLink] = useState<Link>(STARTING);
+  const [earlyApi, setEarlyApi] = useState<Backend>();
   const [panelState, setPanelState] = useState<PanelState>();
   const [missingDraft, setMissingDraft] = useState(false);
   const connector = useRef<Connector | undefined>(undefined);
@@ -55,6 +56,7 @@ export function useConnection(): Connection {
       connect: backend,
       timers: browserTimers,
       onLink: setLink,
+      onBackend: setEarlyApi,
       onFirst: ({ api: connected, snapshot: first, stored }) => {
         const folds = pruned(
           { open: stored.openProjects, closed: stored.closedProjects },
@@ -99,16 +101,17 @@ export function useConnection(): Connection {
   }, []);
 
   // Two animation frames guarantee the browser has painted before the shell
-  // makes the window visible (WebKit does not paint a window nobody sees).
+  // makes the window visible (WebKit does not paint a window nobody sees). It does not
+  // wait for the data: the loading screen is what the first paint shows.
   useEffect(() => {
-    if (api === undefined || reported.current) return;
+    if (earlyApi === undefined || reported.current) return;
     reported.current = true;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        void api.panelReady();
+        void earlyApi.panelReady();
       });
     });
-  }, [api, snapshot]);
+  }, [earlyApi]);
 
   return { api, snapshot, link, retry, panelState, missingDraft };
 }

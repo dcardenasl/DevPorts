@@ -63,6 +63,7 @@ interface Harness {
   links: Link[];
   snapshots: Snapshot[];
   firsts: FirstConnection[];
+  backends: Backend[];
   timers: ReturnType<typeof fakeTimers>;
   control: {
     failSnapshot: number;
@@ -111,14 +112,16 @@ function harness(failures = 0): Harness {
       });
     },
   } as unknown as Backend;
+  const backends: Backend[] = [];
   const connector = new Connector({
     connect: () => Promise.resolve(api),
     timers,
     onLink: (link) => links.push(link),
+    onBackend: (connected) => backends.push(connected),
     onFirst: (first) => firsts.push(first),
     onSnapshot: (snapshot) => snapshots.push(snapshot),
   });
-  return { connector, links, snapshots, firsts, timers, control };
+  return { connector, links, snapshots, firsts, backends, timers, control };
 }
 
 const last = (h: Harness): Link => h.links[h.links.length - 1] as Link;
@@ -135,6 +138,16 @@ describe("the connection to the core", () => {
     expect(h.control.subscribed).toBe(1);
     h.control.push({ ...sampleSnapshot(), revision: 6 });
     expect(h.snapshots.map((s) => s.revision)).toEqual([6]);
+    h.connector.stop();
+  });
+
+  it("reports the shell link before any data arrives so the panel can show itself", async () => {
+    const h = harness(100);
+    h.connector.start();
+    await flush();
+    expect(h.backends).toHaveLength(1);
+    expect(h.firsts).toHaveLength(0);
+    expect(last(h).phase).toBe("connecting");
     h.connector.stop();
   });
 
