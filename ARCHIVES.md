@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-7.1 — Cerrar accesibilidad y densidad del panel · 2026-10-18
+- **Commits de implementación:** ver `git log` (`feat(ui)` accesibilidad y densidad).
+- **Resultado:** tabs semánticos con roles, ids, tabpanel asociado, tabindex itinerante y flechas/Inicio/Fin; grupo plegable con `aria-controls` válido; errores ligados al campo; hojas con acciones fijas, rotura de rutas largas y botones que ajustan línea; desplazamiento suave respeta movimiento reducido; contraste de 21 pares usados verificado por prueba.
+- **Archivos/contratos:** `App.tsx` (tabs), `OrphansView`, `SettingsSheet`, `ProjectsView`, `styles.css`, `contrast.test.ts` (lee `styles.css` con `?raw`; `vite.config.ts` incluye ese CSS en Vitest), pruebas de teclado en `App.test.tsx`. Sin cambios Rust ni de contratos.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 112/112 Vitest y build.
+- **Evidencia nativa vs simulada:** jsdom y análisis estático del CSS; sin captura a 380×520/zoom (el navegador denegó `localhost`), ni WebKit/VoiceOver (UXR-7.2). [Informe y lista de escenarios](docs/audits/2026-10-18-uxr-7-1.md).
+- **Limpieza:** sin procesos ni servicios reales; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-7.2 ejecuta los escenarios nativos de la tabla del informe; **depende de UXR-0 (abierta por timeout nativo)**, así que requiere a David o un acceso nativo funcional.
+
 ## UXR-6.3 — Hacer exacta y recuperable la actividad · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(core)` temas y errores de registro, `feat(ui)` Actividad).
 - **Resultado:** fallo de almacenamiento o canal cerrado ya no se ve como «sin actividad» (UI, panel y `devports log`); ventana explícita de 24 h; conteos solo de eventos visibles y subtotal con filtro; filtros por temas tipados; cargando/error/vacío/sin coincidencias diferenciados con Reintentar; lectura previa conservada si un refresco falla.

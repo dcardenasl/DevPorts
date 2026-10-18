@@ -23,7 +23,7 @@
 - Commits según `/commit-flow`: una línea, inglés, `type(scope): subject`, sin trailers ni menciones a Claude/AI. Archivos nombrados uno a uno; `git diff --cached --stat` antes de cada commit.
 
 ## Siguiente paso
-**Siguiente trabajo de corrección:** UXR-1 a UXR-6 completados; continuar UXR-7.1 (accesibilidad y densidad del panel), según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
+**Siguiente trabajo de corrección:** UXR-1 a UXR-6 y UXR-7.1 completados; quedan UXR-0 (acceso nativo) y UXR-7.2 (validación real), que necesitan la app nativa, según el [plan de UI/UX](docs/audits/2026-10-17-ui-ux-plan.md). La [auditoría](docs/audits/2026-10-17-ui-ux.md) registra 14 hallazgos; la [entrevista](docs/audits/2026-10-17-ui-ux-decisiones.md) cierra D1–D14 y ADR-028–035. UXR-3.1 añade contratos de revisión, conflictos tipados y guardado idempotente; [entrega y límites de concurrencia](docs/audits/2026-10-17-uxr-3-1.md), ADR-036 derivada. UXR-0 sigue abierta por timeout de Computer Use al acceder al bundle; no bloquea las tareas de implementación habilitadas.
 
 **Fases 1 y 2 construidas; correcciones de UI/UX pendientes antes del cierre.** Además del plan UXR, siguen pendientes las comprobaciones humanas:
 1. **G1 (puerta de la Fase 1):** `tools/docker-checks.sh` en la Mac (ya pasa), **3 días de uso real** con la app instalada (`tools/install.sh`), E1 a E7 del PRD, y la **revisión del portafolio** por escrito (ROADMAP §6).
@@ -343,7 +343,9 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
 <a id="uxr-7-1"></a>
 
-- [ ] **UXR-7.1 — Cerrar accesibilidad y densidad del panel.**
+- [x] **UXR-7.1 — Cerrar accesibilidad y densidad del panel.**
+
+  **Entrega:** [cambios, limitaciones y escenarios para 7.2](docs/audits/2026-10-18-uxr-7-1.md). Tabs semánticos con flechas, errores ligados a su campo, acciones de hoja fijas, movimiento reducido y contraste verificado; UI 112/112 y controles completos verdes. Zoom/WebKit/VoiceOver pendientes en UXR-7.2.
 
   **Dependencias:** UXR-2.3, UXR-3.2, UXR-4.2, UXR-5.2, UXR-6.2 y UXR-6.3. **Plan:** [grupo UXR-7](docs/audits/2026-10-17-ui-ux-plan.md#uxr-7). **Contexto:** UX-14; integración de todos los nuevos flujos.
 
