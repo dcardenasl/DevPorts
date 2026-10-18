@@ -379,6 +379,10 @@ Los grupos UXR-1 a UXR-7 se consideran cerrados cuando todas sus subtareas está
 
   **Entrega a la próxima sesión:** Publicar informe final enlazado desde auditoría/TASKS/SNAPSHOT con comandos, resultados y rutas de evidencia. Dejar a David los días de uso y decisiones de G1/G2; no hacer release/push sin alcance autorizado.
 
+- [x] **UXR-8 — Rediseñar la vista de Proyectos (ADR-039).**
+
+  **Entrega (2026-10-18):** cabecera en una fila con chips de puertos, repo único fusionado, fila de servicio como disparador de detalles, pie único, varias tarjetas abiertas con estado manual recordado y «Plegar/Abrir todo». UI 115/115 y `tools/check.sh full` verdes. Falta verlo en la app nativa a 380×520 (reinstalar con `tools/install.sh`).
+
 ### Inicio de una sesión dedicada
 
 Indicar «Ejecuta UXR-3.1 de TASKS.md, siguiendo sus dependencias, contexto y registro de entrega» basta para elegir una unidad. Sustituir el ID por la tarea deseada; no es necesario recuperar este chat. La sesión lee la ficha y sus fuentes antes de actuar. El orden sugerido es el de las fichas, saltando solo tareas bloqueadas por evidencia externa; no ejecutar una tarea sin sus dependencias técnicas.
