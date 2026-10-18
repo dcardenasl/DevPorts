@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-6.1 — Editar carpetas de exploración dentro del panel · 2026-10-18
+- **Commits de implementación:** ver `git log` (`feat(core)` edición y recarga, `feat(ui)` Configuración).
+- **Resultado:** Configuración (engranaje) con carpetas editables, validación por posición, revisión del efecto sobre los proyectos y guardado con recarga inmediata; error conserva lo escrito y permite reintentar; borrador recuperable; quitar no borra archivos ni detiene procesos.
+- **Archivos/contratos:** `settings.rs`, `runtime/folders.rs`, comandos `scan_folders`/`preview_scan_folders`, `OperationKind::SetScanFolders`, `PanelDraft::Settings`, `SettingsSheet.tsx`, `settings.ts`, `mock-settings.ts`, bindings (`ScanFolders`, `ScanPreview`, `SettingsError`); `OperationFailure` con carga tipada en caja.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 64/64 Vitest y build. Actor real con `HOME` temporal propio.
+- **Evidencia nativa vs simulada:** archivos reales en TempDir y actor con ProcessSource falso; UI con backend simulado; sin Tauri/WebKit/VoiceOver ni navegador (UXR-7.x). [Informe](docs/audits/2026-10-18-uxr-6-1.md).
+- **Limpieza:** sin procesos ni servicios reales; no se tocó el `config.yml` del usuario; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-6.2 reutiliza el engranaje/`SettingsSheet` para diagnóstico y conexión, sin alterar los contratos de operaciones.
+
 ## UXR-5.2 — Agrupar auxiliares sin ocultarlos automáticamente · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(core)` clasificación y correcciones, `feat(ui)` grupos y hoja Reclasificar).
 - **Resultado:** *Sin proyecto* en tres grupos (servidores, sin clasificar y auxiliares plegado), origen visible sin argv completo, corrección de clasificación con alcance exacto y restablecer; plegar o clasificar no ignora, adopta ni detiene y las acciones siguen disponibles.

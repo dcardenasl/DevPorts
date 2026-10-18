@@ -170,7 +170,7 @@ El proceso hijo recibe además las variables de entorno listadas en CLI.md (`DEV
 
 ```yaml
 version: 1
-roots: ["~/developer"]        # [P] raíz por defecto (ADR-019)
+roots: ["~/developer"]        # [P] raíz por defecto (ADR-019); editable desde Configuración en el panel
 max_depth: 3                  # [C]
 import_ops_registry: false    # [P] importar ~/.ci4-ops/projects.yml (campo ruta_local)
 lease:

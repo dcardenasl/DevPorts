@@ -7,8 +7,8 @@
 |---|---|
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-5 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Ejecutar [UXR-6.1](TASKS.md#uxr-6-1): editar carpetas de exploración dentro del panel (primitiva `FileSnapshot`, recarga real del núcleo). UXR-5.2 cerrada: [informe](docs/audits/2026-10-18-uxr-5-2.md), ADR-038. UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver, recorrido a 380×520 y presupuesto quedan en UXR-7.x. |
+| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-5 y UXR-6.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
+| **Próximo paso** | Ejecutar [UXR-6.2](TASKS.md#uxr-6-2): recuperar la conexión y mostrar diagnóstico accionable (núcleo/Docker/manifiestos) reutilizando el engranaje de Configuración. UXR-6.1 cerrada: [informe](docs/audits/2026-10-18-uxr-6-1.md). UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver, recorrido a 380×520 y presupuesto quedan en UXR-7.x. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 
