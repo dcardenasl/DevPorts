@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use devports_proto::run::{Alternative, AlternativeKind, RejectKind};
-use devports_proto::views::{InstanceRole, InstanceState, InstanceView};
+use devports_proto::views::{InstanceRole, InstanceState, InstanceView, LogTopic};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 use serde_json::Value;
@@ -278,6 +278,33 @@ pub fn reuse(existing: &InstanceView) -> String {
         Some(pid) => format!("devports: {service} ya corre ({who}) en {place} (pid {pid})"),
         None => format!("devports: {service} ya corre ({who}) en {place}"),
     }
+}
+
+/// The themes an event belongs to, decided from its kind and details rather than from
+/// the sentence that describes it.
+#[must_use]
+pub fn event_topics(kind: &str, payload: &Value) -> Vec<LogTopic> {
+    let temporal_run =
+        kind == "run_accepted" && payload.get("role").and_then(Value::as_str) == Some("temporal");
+    let mut topics = Vec::new();
+    if temporal_run
+        || matches!(
+            kind,
+            "lease_warned" | "lease_extended" | "lease_expired" | "stop_failed"
+        )
+    {
+        topics.push(LogTopic::Temporal);
+    }
+    if matches!(
+        kind,
+        "duplicate_detected" | "unregistered_seen" | "port_stolen" | "stop_failed" | "process_gone"
+    ) {
+        topics.push(LogTopic::Alert);
+    }
+    if kind == "run_rejected" {
+        topics.push(LogTopic::Rejection);
+    }
+    topics
 }
 
 /// One line of the activity log, from the stored kind and details.

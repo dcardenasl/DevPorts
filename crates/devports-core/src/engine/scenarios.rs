@@ -48,6 +48,7 @@ fn a_known_agent_is_named_and_an_unknown_ancestor_is_shown_as_it_is() {
     let summaries: Vec<String> = world
         .engine
         .log(&LogArgs::default())
+        .unwrap()
         .entries
         .into_iter()
         .map(|entry| entry.summary)

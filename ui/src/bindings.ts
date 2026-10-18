@@ -307,7 +307,30 @@ export type LogEntry = {
 	service: string | null,
 	/**  A sentence for people, already in the user's language. */
 	summary: string,
+	/**  The themes it belongs to; empty for plain bookkeeping. Absent in older cores. */
+	topics?: LogTopic[],
 };
+
+/**  Why the activity log could not be read. */
+export type LogError =
+/**  The store failed; the log may well have entries. */
+{ code: "storage";
+/**  The store's explanation. */
+message: string } |
+/**  The core is shutting down. */
+{ code: "closing" };
+
+/**
+ *  A theme an activity entry belongs to, so a view filters on a field instead of reading
+ *  the sentence. An entry may belong to several (a failed stop is a Temporal's and an alert).
+ */
+export type LogTopic =
+/**  A temporary instance: its start, lease or stop. */
+"temporal" |
+/**  Something that asks for attention. */
+"alert" |
+/**  A `devports run` that was refused. */
+"rejection";
 
 /**  Where a loose listener is placed in the panel. */
 export type ProcessClass =

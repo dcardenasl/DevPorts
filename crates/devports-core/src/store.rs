@@ -603,6 +603,14 @@ impl Store {
         Ok(())
     }
 
+    /// Drops the events table so a read fails, to prove failures are not hidden.
+    #[cfg(test)]
+    pub(crate) fn break_events_for_test(&self) {
+        self.connection
+            .execute_batch("DROP TABLE events")
+            .expect("events table dropped");
+    }
+
     /// Every saved rule with the moment it was saved.
     ///
     /// # Errors

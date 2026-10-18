@@ -24,6 +24,7 @@ fn generated() -> String {
         .register::<devports_core::uses::UseRequest>()
         .register::<devports_core::uses::UsesError>()
         .register::<devports_core::ignore::IgnoreRule>()
+        .register::<devports_core::engine::LogError>()
         .register::<devports_core::settings::ScanFolders>()
         .register::<devports_core::settings::ScanPreview>()
         .register::<devports_core::settings::SettingsError>()

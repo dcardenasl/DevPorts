@@ -193,6 +193,20 @@ pub struct AttentionItem {
     pub instance_ref: String,
 }
 
+/// A theme an activity entry belongs to, so a view filters on a field instead of reading
+/// the sentence. An entry may belong to several (a failed stop is a Temporal's and an alert).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum LogTopic {
+    /// A temporary instance: its start, lease or stop.
+    Temporal,
+    /// Something that asks for attention.
+    Alert,
+    /// A `devports run` that was refused.
+    Rejection,
+}
+
 /// One line of the activity log.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -207,6 +221,9 @@ pub struct LogEntry {
     pub service: Option<String>,
     /// A sentence for people, already in the user's language.
     pub summary: String,
+    /// The themes it belongs to; empty for plain bookkeeping. Absent in older cores.
+    #[serde(default)]
+    pub topics: Vec<LogTopic>,
 }
 
 #[cfg(test)]

@@ -224,6 +224,7 @@ mod tests {
             project: Some("tienda-demo".to_owned()),
             service: Some("api".to_owned()),
             summary: "un agente intentó levantar otra instancia".to_owned(),
+            topics: vec![devports_proto::views::LogTopic::Rejection],
         }]);
         assert_eq!(
             text,

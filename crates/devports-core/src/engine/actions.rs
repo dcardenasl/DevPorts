@@ -37,6 +37,22 @@ pub enum ActionError {
     TargetChanged,
 }
 
+/// Why the activity log could not be read.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, thiserror::Error)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(tag = "code", rename_all = "camelCase")]
+pub enum LogError {
+    /// The store failed; the log may well have entries.
+    #[error("no se pudo leer el registro de actividad: {message}")]
+    Storage {
+        /// The store's explanation.
+        message: String,
+    },
+    /// The core is shutting down.
+    #[error("DevPorts se está cerrando")]
+    Closing,
+}
+
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     /// Lists instances (`CLI.md`, section 4): by default those of the project
     /// the caller is in, or of every project when it is in none; `all` adds
@@ -63,8 +79,11 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     }
 
     /// The activity log, oldest first.
-    #[must_use]
-    pub fn log(&self, args: &LogArgs) -> LogResult {
+    ///
+    /// # Errors
+    ///
+    /// [`LogError::Storage`] when the store cannot be read: that is not "no activity".
+    pub fn log(&self, args: &LogArgs) -> Result<LogResult, LogError> {
         let now = self.now();
         let since = match args.since_seconds {
             Some(seconds) => now.saturating_sub(i64::try_from(seconds).unwrap_or(i64::MAX)),
@@ -73,7 +92,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let entries = self
             .store
             .events_since(since, args.project.as_deref())
-            .unwrap_or_default()
+            .map_err(|error| LogError::Storage {
+                message: error.to_string(),
+            })?
             .into_iter()
             .map(|event| {
                 let payload: Value = serde_json::from_str(&event.payload).unwrap_or(Value::Null);
@@ -84,13 +105,14 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                         event.service.as_deref(),
                         &payload,
                     ),
+                    topics: messages::event_topics(&event.kind, &payload),
                     kind: event.kind,
                     project: event.project,
                     service: event.service,
                 }
             })
             .collect();
-        LogResult { entries }
+        Ok(LogResult { entries })
     }
 
     /// Stops whatever `reference` is, at a person's request from the application.
@@ -435,7 +457,16 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 (respond(&id, &outcome), effects)
             }
             Op::Ls(args) => (respond(&id, &self.ls(&args)), Vec::new()),
-            Op::Log(args) => (respond(&id, &self.log(&args)), Vec::new()),
+            Op::Log(args) => match self.log(&args) {
+                Ok(result) => (respond(&id, &result), Vec::new()),
+                Err(error) => (
+                    Response::err(
+                        id,
+                        ErrorBody::new(ErrorCode::Unavailable, error.to_string()),
+                    ),
+                    Vec::new(),
+                ),
+            },
             Op::Stop(args) => match self.stop_by_token(&args.token) {
                 Ok((result, effects)) => (respond(&id, &result), effects),
                 Err(error) => (Response::err(id, error), Vec::new()),

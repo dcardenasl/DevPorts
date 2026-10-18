@@ -172,19 +172,17 @@ pub fn retry_operation(
 pub async fn get_log(
     core: State<'_, CoreState>,
     since_seconds: Option<u64>,
-) -> Result<Vec<LogEntry>, String> {
+) -> Result<Vec<LogEntry>, devports_core::engine::LogError> {
     Ok(core
         .0
         .log(LogArgs {
             since_seconds,
             project: None,
         })
-        .await
+        .await?
         .entries)
 }
 
-/// Opens a local server in the default browser. Only `http` on this machine is
-/// accepted: the panel never opens anything the person did not start.
 #[tauri::command]
 #[allow(
     clippy::disallowed_methods,

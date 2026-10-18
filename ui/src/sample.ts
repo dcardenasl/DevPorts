@@ -223,6 +223,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       project: null,
       service: null,
       summary: "DevPorts se inició",
+      topics: [],
     },
     {
       at: at(-180),
@@ -230,6 +231,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       project: "tienda-demo",
       service: "api",
       summary: "api registrada como Principal :8080",
+      topics: [],
     },
     {
       at: at(-62),
@@ -238,6 +240,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       service: "api",
       summary:
         "un agente (Cursor > zsh) intentó levantar otra instancia de api; la Principal sigue en :8080",
+      topics: ["rejection"],
     },
     {
       at: at(-29),
@@ -245,6 +248,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       project: "tienda-demo",
       service: "api",
       summary: "api registrada como Temporal :52814 para «QA login», vence en 30 min",
+      topics: ["temporal"],
     },
     {
       at: at(-22),
@@ -252,6 +256,7 @@ export function sampleLog(nowMs: number = Date.now()): LogEntry[] {
       project: "tienda-demo",
       service: "api",
       summary: "Apareció un duplicado de api :8083 sin registrar",
+      topics: ["alert"],
     },
   ];
 }

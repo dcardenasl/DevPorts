@@ -46,8 +46,8 @@ use crate::discovery::{self, DiscoveryIssue};
 use crate::docker::engine::EngineContainerSource;
 use crate::docker::{Container, ContainerEventKind, ContainerSource};
 use crate::engine::{
-    ActionError, Effect, Engine, EngineError, HealthTarget, Notice, Parts, StopExpectation,
-    StopReason, Target, Terminated, TerminationRequest,
+    ActionError, Effect, Engine, EngineError, HealthTarget, LogError, Notice, Parts,
+    StopExpectation, StopReason, Target, Terminated, TerminationRequest,
 };
 use crate::ipc::{IpcError, IpcServer, Limits, PeerInfo, RequestHandler};
 use crate::ports::{PortProbe, SystemPorts};
@@ -238,7 +238,7 @@ enum Msg {
     Terminated(String, StopReason, Terminated),
     HealthTargets(oneshot::Sender<Vec<HealthTarget>>),
     Ignore(String, oneshot::Sender<Result<(), ActionError>>),
-    Log(LogArgs, oneshot::Sender<LogResult>),
+    Log(LogArgs, oneshot::Sender<Result<LogResult, LogError>>),
     Describe(String, oneshot::Sender<Option<Description>>),
     Adopted(Applied),
     Adoption(AdoptionMsg),
@@ -370,12 +370,18 @@ impl CoreHandle {
     }
 
     /// The activity log.
-    pub async fn log(&self, args: LogArgs) -> LogResult {
+    ///
+    /// # Errors
+    ///
+    /// [`LogError`] when the store cannot be read or the core is closing: never an
+    /// empty list standing in for a failure.
+    pub async fn log(&self, args: LogArgs) -> Result<LogResult, LogError> {
         let (reply, answer) = oneshot::channel();
-        if self.messages.send(Msg::Log(args, reply)).await.is_err() {
-            return LogResult::default();
-        }
-        answer.await.unwrap_or_default()
+        self.messages
+            .send(Msg::Log(args, reply))
+            .await
+            .map_err(|_| LogError::Closing)?;
+        answer.await.map_err(|_| LogError::Closing)?
     }
 
     /// Writes the manifest that adopts `reference`, on a person's request.

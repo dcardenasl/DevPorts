@@ -42,7 +42,7 @@ use crate::ports::PortProbe;
 use crate::process::{ListeningProcess, ProcessId, ProcessSource};
 use crate::store::{InstanceRecord, Store, StoreError};
 
-pub use actions::ActionError;
+pub use actions::{ActionError, LogError};
 
 /// UI facts captured when a person confirmed stopping one exact instance.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
