@@ -27,6 +27,8 @@ export type {
   InstanceState,
   InstanceView,
   LogEntry,
+  LogError,
+  LogTopic,
   ProjectSummary,
   RepoSummary,
   ServiceSummary,

@@ -1443,4 +1443,21 @@ describe("the panel", () => {
     // The sheet still edits the folders: a warning is not a dead end.
     expect(await within(dialog).findByLabelText("Carpeta 1")).toBeInTheDocument();
   });
+
+  // covers: UI, UXR-6.3
+  it("says the activity could not be read instead of claiming there was none, and keeps the filter", async () => {
+    const { backend, user } = await open();
+    const original = backend.log.bind(backend);
+    backend.log = () =>
+      Promise.reject(Object.assign(new Error("disk I/O error"), { code: "storage" }));
+    await user.click(tab(/Actividad/));
+    await user.click(screen.getByRole("button", { name: "Alertas" }));
+    expect(await screen.findByText("No se pudo leer")).toBeInTheDocument();
+    expect(screen.queryByText(/Sin actividad/)).toBeNull();
+    backend.log = original;
+    await user.click(screen.getByRole("tab", { name: /Proyectos/ }));
+    await user.click(tab(/Actividad/));
+    expect(screen.getByRole("button", { name: "Alertas" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText(/1 de 4 eventos/)).toBeInTheDocument();
+  });
 });

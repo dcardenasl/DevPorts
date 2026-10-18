@@ -317,7 +317,21 @@ export const text = {
   activity: {
     title: "Actividad",
     summary: (count: number) =>
-      count === 0 ? "Sin actividad hoy" : plural(count, "evento", "eventos"),
+      count === 0 ? "Sin actividad en 24 h" : plural(count, "evento", "eventos"),
+    of: (shown: number, total: number) => `${shown} de ${plural(total, "evento", "eventos")}`,
+    window: "Últimas 24 h",
+    loading: "Cargando actividad…",
+    unreadable: "No se pudo leer",
+    closing: "DevPorts se está cerrando.",
+    loadFailed: "No se pudo leer la actividad. Esto no significa que no haya habido ninguna.",
+    staleFailed: "No se pudo actualizar la actividad; se muestra la última lectura.",
+    retry: "Reintentar",
+    noneWindow: "Sin actividad en las últimas 24 h",
+    noneWindowBody:
+      "Aquí aparecen los arranques, rechazos, vencimientos y avisos de tus servidores.",
+    noMatch: (total: number) =>
+      `Ningún evento coincide con este filtro (hay ${plural(total, "evento", "eventos")} en total).`,
+    showAll: "Ver todo",
     all: "Todo",
     rejections: "Rechazos",
     temporals: "Temporales",

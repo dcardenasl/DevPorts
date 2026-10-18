@@ -23,7 +23,7 @@ import {
 import { buildOrphans, dependentsOf, draftTargetExists } from "./model";
 import { text } from "./text";
 import type { AdoptDraft, InstanceView, PanelState, PanelTab, StopExpectation } from "./types";
-import { ActivityView, activitySubtitle } from "./views/ActivityView";
+import { ActivityView, activitySubtitle, type ActivityStatus } from "./views/ActivityView";
 import { AttentionView, attentionSubtitle } from "./views/AttentionView";
 import { OrphansView, orphansSubtitle } from "./views/OrphansView";
 import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
@@ -68,7 +68,7 @@ export function App(): ReactElement {
   const [listInvoker, setListInvoker] = useState<HTMLButtonElement | null>();
   const [preparingProjectStop, setPreparingProjectStop] = useState(false);
   const [draftInvoker, setDraftInvoker] = useState<HTMLButtonElement | null>(null);
-  const [logCount, setLogCount] = useState<number>();
+  const [activity, setActivity] = useState<ActivityStatus>({ kind: "loading" });
   const [toast, showToast] = useToast();
   const [failed, setFailed] = useState(false);
   const { panelState, persist: persistPanelState } = usePanelStore(api, hydratedState);
@@ -279,7 +279,7 @@ export function App(): ReactElement {
     projects: projectsSubtitle(actions),
     shared: sharedSubtitle(actions),
     orphans: orphansSubtitle(actions),
-    activity: activitySubtitle(logCount),
+    activity: activitySubtitle(activity),
   };
 
   const body = (
@@ -346,7 +346,7 @@ export function App(): ReactElement {
         <ActivityView
           api={api}
           revision={snapshot.revision}
-          onCount={setLogCount}
+          onStatus={setActivity}
           filter={panelState.activityFilter}
           onFilterChange={(activityFilter) => {
             updatePanelState({ activityFilter });
