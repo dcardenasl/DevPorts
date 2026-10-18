@@ -10,6 +10,7 @@ use crate::ids::token_hash;
 use crate::messages;
 use crate::ports::PortProbe;
 use crate::process::{ProcessId, ProcessSource, ProcessStart};
+use crate::reasons::Problem;
 use crate::store::{InstanceRecord, Role, State};
 
 /// How often old events are pruned, in seconds.
@@ -80,9 +81,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             self.last_prune = now;
             let keep = i64::from(self.config.events_retention_days).saturating_mul(86_400);
             if let Err(error) = self.store.prune_events(now.saturating_sub(keep)) {
-                self.problems.push(format!(
-                    "no se pudo limpiar el registro de actividad: {error}"
-                ));
+                self.problems.push(Problem::ActivityLogPrune {
+                    detail: error.to_string(),
+                });
             }
         }
         effects

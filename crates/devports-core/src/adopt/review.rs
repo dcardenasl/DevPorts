@@ -15,7 +15,7 @@ use super::{Proposal, ProposedService, service_for, slug};
 use crate::config::SharedServices;
 use crate::document::{EditError, FileSnapshot};
 use crate::manifest::{self, MANIFEST_FILE};
-use crate::reasons::{FieldProblem, Limitation, ReviewNote, Unsuitability};
+use crate::reasons::{FieldProblem, FileProblem, Limitation, ReviewNote, Unsuitability};
 
 pub(crate) use book::{AdoptionBook, BeginApply};
 
@@ -396,9 +396,8 @@ impl PreparedAdoption {
                 loaded
                     .warnings
                     .iter()
-                    .map(|warning| ReviewNote::ManifestWarning {
-                        detail: warning.to_string(),
-                    }),
+                    .cloned()
+                    .map(|diagnostic| ReviewNote::ManifestWarning { diagnostic }),
             );
             candidate
         };
@@ -516,9 +515,9 @@ fn other(error: &std::io::Error) -> AdoptionError {
     })
 }
 /// A file the reader found invalid.
-fn file_invalid(error: impl std::fmt::Display) -> AdoptionError {
+fn file_invalid(error: impl Into<FileProblem>) -> AdoptionError {
     unsuitable(Unsuitability::FileInvalid {
-        detail: error.to_string(),
+        problem: error.into(),
     })
 }
 fn invalid(field: &str, problem: FieldProblem) -> AdoptionError {
@@ -535,8 +534,8 @@ fn apply_error(error: super::apply::ApplyError) -> AdoptionError {
         super::apply::ApplyError::Unsuitable(reason) => unsuitable(reason),
         super::apply::ApplyError::Exists(_) => unsuitable(Unsuitability::ManifestExists),
         super::apply::ApplyError::Duplicate(_) => invalid("name", FieldProblem::NameTaken),
-        super::apply::ApplyError::Invalid(detail) => {
-            unsuitable(Unsuitability::FileInvalid { detail })
+        super::apply::ApplyError::Invalid(problem) => {
+            unsuitable(Unsuitability::FileInvalid { problem })
         }
         super::apply::ApplyError::Io(detail) => AdoptionError::Io { detail },
         super::apply::ApplyError::Conflict(path) => AdoptionError::DocumentChanged {

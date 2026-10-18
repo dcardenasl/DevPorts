@@ -30,24 +30,24 @@ fn load(text: &str) -> Result<Loaded, ManifestError> {
 }
 
 /// The error messages of a manifest that must not load, with their lines.
-fn errors(text: &str) -> Vec<(Option<u64>, String)> {
+fn errors(text: &str) -> Vec<(Option<u32>, String)> {
     match load(text) {
         Err(ManifestError::Invalid { diagnostics, .. }) => diagnostics
             .into_iter()
             .filter(|diagnostic| diagnostic.severity == Severity::Error)
-            .map(|diagnostic| (diagnostic.line, diagnostic.message))
+            .map(|diagnostic| (diagnostic.line, diagnostic.message()))
             .collect(),
         other => panic!("expected an invalid manifest, got {other:?}"),
     }
 }
 
 /// The warnings of a manifest that must load.
-fn warnings(text: &str) -> Vec<(Option<u64>, String)> {
+fn warnings(text: &str) -> Vec<(Option<u32>, String)> {
     load(text)
         .unwrap_or_else(|error| panic!("expected a valid manifest: {error}"))
         .warnings
         .into_iter()
-        .map(|diagnostic| (diagnostic.line, diagnostic.message))
+        .map(|diagnostic| (diagnostic.line, diagnostic.message()))
         .collect()
 }
 
@@ -56,7 +56,7 @@ fn service(extra: &str) -> String {
 }
 
 #[track_caller]
-fn assert_error(text: &str, line: u64, fragment: &str) {
+fn assert_error(text: &str, line: u32, fragment: &str) {
     let found = errors(text);
     assert!(
         found
@@ -67,7 +67,7 @@ fn assert_error(text: &str, line: u64, fragment: &str) {
 }
 
 #[track_caller]
-fn assert_warning(text: &str, line: u64, fragment: &str) {
+fn assert_warning(text: &str, line: u32, fragment: &str) {
     let found = warnings(text);
     assert!(
         found
@@ -289,7 +289,7 @@ fn uses_must_exist_in_shared_when_it_is_known() {
     let shared: BTreeSet<String> = ["mysql".to_owned()].into_iter().collect();
     let loaded = parse_checked(text, path(), Some(&shared)).unwrap();
     assert_eq!(loaded.warnings.len(), 1);
-    assert!(loaded.warnings[0].message.contains("«ghost»"));
+    assert!(loaded.warnings[0].message().contains("«ghost»"));
     assert_eq!(loaded.warnings[0].line, Some(3));
     // Without the list there is nothing to compare against.
     assert!(load(text).unwrap().warnings.is_empty());

@@ -48,6 +48,7 @@ fn existing() -> InstanceView {
         launcher_chain: Vec::new(),
         duplicate_of: None,
         stale: None,
+        stale_at: None,
         shared: false,
         compose: None,
         argv: vec!["php".to_owned()],

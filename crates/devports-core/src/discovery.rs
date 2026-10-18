@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use crate::catalog::{Catalog, Project};
 use crate::diagnostic::Diagnostic;
 use crate::manifest::{self, MANIFEST_FILE, ManifestError};
+use crate::reasons::Problem;
 
 /// How many folder levels below a root are searched (`max_depth` in
 /// `config.yml`). The root itself is level 0.
@@ -57,6 +58,35 @@ pub enum DiscoveryIssue {
         /// The folders of the projects that use it.
         roots: Vec<PathBuf>,
     },
+}
+
+impl DiscoveryIssue {
+    /// What the person is told about this issue, or nothing for a configured folder that is
+    /// simply not there (that is shown beside the folder, in Configuración).
+    #[must_use]
+    pub fn problem(&self) -> Option<Problem> {
+        match self {
+            Self::RootMissing(_) => None,
+            Self::Unreadable { path, reason } => Some(Problem::FolderUnreadable {
+                path: path.display().to_string(),
+                detail: reason.clone(),
+            }),
+            Self::Manifest(error) => Some(Problem::ManifestUnusable {
+                problem: error.clone().into(),
+            }),
+            Self::ManifestWarnings { path, diagnostics } => Some(Problem::ManifestWarnings {
+                path: path.display().to_string(),
+                diagnostics: diagnostics.clone(),
+            }),
+            Self::DuplicateProjectName { name, roots } => Some(Problem::DuplicateProjectName {
+                name: name.clone(),
+                roots: roots
+                    .iter()
+                    .map(|root| root.display().to_string())
+                    .collect(),
+            }),
+        }
+    }
 }
 
 impl std::fmt::Display for DiscoveryIssue {

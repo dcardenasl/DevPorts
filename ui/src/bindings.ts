@@ -234,6 +234,160 @@ export type ConsumerOptions = {
 	consumers: ConsumerChoice[],
 };
 
+/**  One problem, with the line it was found on when that is known. */
+export type Diagnostic = {
+	/**  Error or warning. */
+	severity: Severity,
+	/**  1-based line in the file. */
+	line: number | null,
+	/**  What is wrong. */
+	kind: DiagnosticKind,
+};
+
+/**  What is wrong, with the values it is about. */
+export type DiagnosticKind =
+/**  The YAML parser could not read the file, in its own words. */
+{ code: "syntax";
+/**  What it said. */
+detail: string } |
+/**  A key this version does not know. */
+{ code: "unknownKey";
+/**  The key. */
+key: string } |
+/**  `test` is not managed by DevPorts (ADR-010). */
+{ code: "testIgnored" } |
+/**  `version` is missing. */
+{ code: "versionMissing" } |
+/**  `version` is not one this build reads. */
+{ code: "unsupportedVersion";
+/**  What the file says, as written. */
+version: string } |
+/**  `version` must be 1. */
+{ code: "versionMustBeOne" } |
+/**  `project` is missing. */
+{ code: "projectMissing" } |
+/**  The project name does not match the allowed shape. */
+{ code: "invalidProjectName";
+/**  The name. */
+name: string } |
+/**  `uses` names a service `shared.yml` does not define. */
+{ code: "unknownShared";
+/**  The name. */
+name: string } |
+/**  `services` is missing. */
+{ code: "servicesMissing" } |
+/**  A service name does not match the allowed shape. */
+{ code: "invalidServiceName";
+/**  The name. */
+name: string } |
+/**  A service has both `cwd` and `docker`. */
+{ code: "cwdAndDocker";
+/**  The service. */
+service: string } |
+/**  A service has neither `cwd` nor `docker`. */
+{ code: "noCwdNorDocker";
+/**  The service. */
+service: string } |
+/**  `docker` is empty. */
+{ code: "emptyDocker";
+/**  The service. */
+service: string } |
+/**  `cwd` is empty. */
+{ code: "emptyCwd";
+/**  The service. */
+service: string } |
+/**  `cwd` of a shared service is not absolute. */
+{ code: "cwdNotAbsolute";
+/**  The service. */
+service: string } |
+/**  `cwd` of a project service is absolute. */
+{ code: "cwdAbsolute";
+/**  The service. */
+service: string;
+/**  What the file says. */
+cwd: string } |
+/**  `cwd` climbs out of the project folder. */
+{ code: "cwdEscapes";
+/**  The service. */
+service: string;
+/**  What the file says. */
+cwd: string } |
+/**  `start` spans several lines. */
+{ code: "startMultiline";
+/**  The service. */
+service: string } |
+/**  `port` is outside 1 to 65535. */
+{ code: "portOutOfRange";
+/**  The service. */
+service: string;
+/**  What the file says, as written. */
+port: string } |
+/**  `port` is below 1024. */
+{ code: "portPrivileged";
+/**  The service. */
+service: string;
+/**  The port. */
+port: number } |
+/**  Two services of a project prefer the same port. */
+{ code: "portTaken";
+/**  The port. */
+port: number;
+/**  The service that had it first. */
+other: string } |
+/**  `health` is neither `tcp` nor `http:/path`. */
+{ code: "invalidHealth";
+/**  The service. */
+service: string;
+/**  What the file says. */
+health: string } |
+/**  `kind` is neither `app` nor `data`. */
+{ code: "invalidKind";
+/**  The service. */
+service: string;
+/**  What the file says. */
+kind: string } |
+/**  `match` is empty. */
+{ code: "emptyMatch";
+/**  The service. */
+service: string } |
+/**  A value of `config.yml` could not be read as a duration. */
+{ code: "invalidDuration";
+/**  The key, dotted. */
+key: string;
+/**  What the duration reader said. */
+detail: string } |
+/**  `max_depth` is outside 0 to 8. */
+{ code: "maxDepthRange";
+/**  What the file says, as written. */
+value: string } |
+/**  `events_retention_days` is below 1. */
+{ code: "retentionRange";
+/**  What the file says, as written. */
+value: string } |
+/**  `lease.max_per_service` is outside 1 to 16. */
+{ code: "maxPerServiceRange";
+/**  What the file says, as written. */
+value: string } |
+/**  `observation.host_interval` is outside 250ms to 10s. */
+{ code: "hostIntervalRange" } |
+/**  `observation.temporal_port_range` is not `[start, end]` within the allowed range. */
+{ code: "temporalPortRange" } |
+/**  `lease.default` is longer than `lease.max_total`. */
+{ code: "leaseDefaultOverMax" } |
+/**  `lease.extend_by` is longer than `lease.max_total`. */
+{ code: "leaseExtendOverMax" } |
+/**  `lease.warn_before` is not shorter than `lease.default`. */
+{ code: "leaseWarnOverDefault" };
+
+/**  Why Docker is not answering. */
+export type DockerProblem =
+/**  The connection that was working was lost. */
+{ code: "connectionLost" } |
+/**  Docker could not be reached, in the client's own words. */
+{ code: "unreachable";
+/**  What it said. */
+detail: string };
+
 /**  The kind of file an edit produced, when it turned out not to be valid. */
 export type DocumentKind =
 /**  `config.yml`. */
@@ -251,6 +405,21 @@ export type FieldProblem =
 "nameTaken" |
 /**  The value is longer than a review accepts. */
 "tooLong";
+
+/**  Why a configuration file or a manifest could not be used. */
+export type FileProblem =
+/**  The file could not be read. */
+{ code: "unreadable";
+/**  The file. */
+path: string;
+/**  What the system said, as it said it. */
+detail: string } |
+/**  The file has errors. */
+{ code: "invalid";
+/**  The file. */
+path: string;
+/**  Every problem found, errors and warnings. */
+diagnostics: Diagnostic[] };
 
 /**  The key of a document a human edit works on. */
 export type FormKey =
@@ -318,14 +487,14 @@ export type IgnoreRule = {
 export type Ineligibility =
 /**  `config.yml` has errors of its own. */
 { code: "configInvalid";
-/**  What the reader said. */
-detail: string } |
+/**  What the reader found. */
+problem: FileProblem } |
 /**  The project has no manifest yet. */
 { code: "noManifest" } |
 /**  The manifest is not valid. */
 { code: "manifestInvalid";
-/**  What the reader said. */
-detail: string } |
+/**  What the reader found. */
+problem: FileProblem } |
 /**  The file forbids writing. */
 { code: "readOnly";
 /**  The file. */
@@ -414,6 +583,11 @@ export type InstanceView = {
 	duplicate_of: string | null,
 	/**  A warning that it may be running old code ("arrancó antes del último commit"). */
 	stale: string | null,
+	/**
+	 *  When the repository last changed, ISO 8601: the fact `stale` is written from. Absent in
+	 *  older cores.
+	 */
+	stale_at?: string | null,
 	/**  Whether it is a shared service (`shared.yml`) rather than one of a project. */
 	shared: boolean,
 	/**
@@ -474,8 +648,8 @@ problem: FormProblem } |
 { code: "editInvalid";
 /**  Which kind of file. */
 document: DocumentKind;
-/**  What the validator said, as it said it. */
-detail: string } |
+/**  What the reader found wrong with it. */
+problem: FileProblem } |
 /**  The edit would have changed more than the key it targets. */
 { code: "editTouchedMore";
 /**  The key the edit targeted. */
@@ -562,6 +736,47 @@ export type Preferences = {
 	language: LanguagePreference,
 };
 
+/**  Something the core wants the person to know about, kept in the snapshot until it is gone. */
+export type Problem =
+/**  A folder could not be listed during discovery. */
+{ code: "folderUnreadable";
+/**  The folder. */
+path: string;
+/**  What the system said, as it said it. */
+detail: string } |
+/**  A manifest could not be loaded; its project is not registered. */
+{ code: "manifestUnusable";
+/**  What is wrong with it. */
+problem: FileProblem } |
+/**  A manifest loaded, with things that are probably not as intended. */
+{ code: "manifestWarnings";
+/**  The manifest. */
+path: string;
+/**  The warnings. */
+diagnostics: Diagnostic[] } |
+/**  Two projects declare the same name, so `--project <name>` is ambiguous. */
+{ code: "duplicateProjectName";
+/**  The repeated name. */
+name: string;
+/**  The folders of the projects that use it. */
+roots: string[] } |
+/**  The activity log could not be written. */
+{ code: "activityLogWrite";
+/**  What the store said. */
+detail: string } |
+/**  The activity log could not be pruned. */
+{ code: "activityLogPrune";
+/**  What the store said. */
+detail: string } |
+/**  An adoption was saved, but the catalog is not up to date yet. */
+{ code: "catalogNotRefreshed" } |
+/**  An instance could not be saved. */
+{ code: "instanceNotSaved";
+/**  Its reference. */
+reference: string;
+/**  What the store said. */
+detail: string };
+
 /**  Where a loose listener is placed in the panel. */
 export type ProcessClass =
 /**  Looks like a development server of a project. */
@@ -625,10 +840,10 @@ program: string } |
 { code: "notOneLine" } |
 /**  No start command could be proposed. */
 { code: "noStartCommand" } |
-/**  What the manifest reader warned about, as it said it. */
+/**  What the manifest reader warned about. */
 { code: "manifestWarning";
 /**  The warning. */
-detail: string };
+diagnostic: Diagnostic };
 
 /**  A folder the person typed that cannot be used, and why. */
 export type RootProblem = {
@@ -742,6 +957,13 @@ limitation: Limitation } |
 /**  OS or runtime explanation, as it said it. */
 detail: string };
 
+/**  How serious a problem is. */
+export type Severity =
+/**  The file cannot be used. */
+"error" |
+/**  The file is used, but something is probably not what the author meant. */
+"warning";
+
 /**  A service of `shared.yml` as the interface shows it, whether or not it runs. */
 export type SharedSummary = {
 	/**  Name projects cite in `uses`. */
@@ -764,12 +986,12 @@ export type Snapshot = {
 	/**  Whether Docker answered the last time it was asked. */
 	docker_reachable: boolean,
 	/**  Why Docker is not reachable, if it is not. */
-	docker_error: string | null,
+	docker_error: DockerProblem | null,
 	/**
 	 *  Problems the core wants the person to know about (invalid manifests,
 	 *  failed writes).
 	 */
-	problems: string[],
+	problems: Problem[],
 	/**  The projects, laid out as repos with services. */
 	projects: ProjectSummary[],
 	/**  What each loose host process looks like, with the evidence and any correction. */
@@ -844,8 +1066,8 @@ detail: string } |
 { code: "notDescribable" } |
 /**  A file is not valid. */
 { code: "fileInvalid";
-/**  What the reader said. */
-detail: string } |
+/**  What the reader found. */
+problem: FileProblem } |
 /**  Anything else the file system said. */
 { code: "other";
 /**  The explanation, as it was said. */

@@ -40,7 +40,7 @@ use crate::config::{Config, SharedServices};
 use crate::docker::Container;
 use crate::ports::PortProbe;
 use crate::process::{ListeningProcess, ProcessId, ProcessSource};
-use crate::reasons::StopFailure;
+use crate::reasons::{Problem, StopFailure};
 use crate::store::{InstanceRecord, Store, StoreError};
 
 pub use actions::{ActionError, LogError};
@@ -276,7 +276,7 @@ pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
     pub(crate) last_prune: i64,
     /// Failures the engine could not handle itself (a store write that failed),
     /// for the caller to report.
-    pub(crate) problems: Vec<String>,
+    pub(crate) problems: Vec<Problem>,
 }
 
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
@@ -372,9 +372,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             self.store
                 .append_event(now, kind, project, service, reference, &payload.to_string())
         {
-            self.problems.push(format!(
-                "no se pudo escribir en el registro de actividad: {error}"
-            ));
+            self.problems.push(Problem::ActivityLogWrite {
+                detail: error.to_string(),
+            });
         }
     }
 
@@ -382,15 +382,15 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     /// [`Self::take_problems`].
     pub(crate) fn persist(&mut self, record: &InstanceRecord) {
         if let Err(error) = self.store.update_instance(record) {
-            self.problems.push(format!(
-                "no se pudo guardar la instancia {}: {error}",
-                record.reference
-            ));
+            self.problems.push(Problem::InstanceNotSaved {
+                reference: record.reference.clone(),
+                detail: error.to_string(),
+            });
         }
     }
 
     /// The failures the engine could not handle itself since the last call.
-    pub fn take_problems(&mut self) -> Vec<String> {
+    pub fn take_problems(&mut self) -> Vec<Problem> {
         std::mem::take(&mut self.problems)
     }
 

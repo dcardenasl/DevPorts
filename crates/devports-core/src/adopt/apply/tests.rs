@@ -29,6 +29,7 @@ fn process(cwd: &Path, port: u16, argv: &[&str]) -> InstanceView {
         launcher_chain: Vec::new(),
         duplicate_of: None,
         stale: None,
+        stale_at: None,
         shared: false,
         compose: None,
         argv: argv.iter().map(|part| (*part).to_owned()).collect(),

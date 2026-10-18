@@ -166,6 +166,7 @@ mod tests {
             launcher_chain: Vec::new(),
             duplicate_of: (role == InstanceRole::Unregistered).then(|| "a1b2".to_owned()),
             stale: None,
+            stale_at: None,
             shared: false,
             compose: None,
             argv: Vec::new(),

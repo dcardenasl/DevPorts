@@ -208,7 +208,7 @@ fn load(home: &Path) -> Result<Current, SettingsError> {
             Config::parse(text, &path, home)
                 .map_err(|error| SettingsError::Ineligible {
                     reason: Ineligibility::ConfigInvalid {
-                        detail: error.to_string(),
+                        problem: error.into(),
                     },
                 })?
                 .0
@@ -427,7 +427,7 @@ pub fn apply(home: &Path, roots: &[String], base: &str) -> Result<SettingsOutcom
         .map_err(|error| SettingsError::Unsupported {
             limitation: Limitation::EditInvalid {
                 document: DocumentKind::Config,
-                detail: error.to_string(),
+                problem: error.into(),
             },
         })?
         .0;

@@ -13,7 +13,7 @@ use devports_proto::views::InstanceView;
 
 use super::{ProposedService, propose, service_for, slug};
 use crate::manifest::{self, MANIFEST_FILE};
-use crate::reasons::{FormKey, FormProblem, Limitation, Unsuitability};
+use crate::reasons::{FileProblem, FormKey, FormProblem, Limitation, Unsuitability};
 
 /// What was written.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +43,7 @@ pub enum ApplyError {
     Unsupported(Limitation),
     /// The manifest, before or after the edit, does not validate.
     #[error("el manifiesto no es válido: {0}")]
-    Invalid(String),
+    Invalid(FileProblem),
     /// The file could not be read or written.
     #[error("{0}")]
     Io(String),
@@ -69,7 +69,7 @@ pub fn add_service(
         .map_err(edit_error)?
         .ok_or_else(|| ApplyError::Io("el manifiesto ya no existe".to_owned()))?;
     let before = manifest::parse_checked(text, &path, known_shared)
-        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+        .map_err(|error| ApplyError::Invalid(error.into()))?;
     let service =
         service_for(root, view).ok_or(ApplyError::Unsuitable(Unsuitability::OutsideProjectRoot))?;
     let name = unused_name(&service.name, &before.manifest.services);
@@ -77,11 +77,11 @@ pub fn add_service(
     let edited = insert_service(text, &service.yaml_lines())?;
 
     let after = manifest::parse_checked(&edited, &path, known_shared)
-        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+        .map_err(|error| ApplyError::Invalid(error.into()))?;
     if !after.manifest.services.contains_key(&service.name) {
-        return Err(ApplyError::Invalid(
-            "el servicio no quedó en el manifiesto".to_owned(),
-        ));
+        return Err(ApplyError::Unsupported(Limitation::Other {
+            detail: "the service did not end up in the manifest".to_owned(),
+        }));
     }
     snapshot.commit(&edited).map_err(edit_error)?;
     Ok(Applied {
@@ -108,16 +108,16 @@ pub fn add_shared(path: &Path, view: &InstanceView) -> Result<Applied, ApplyErro
         .map_err(edit_error)?
         .unwrap_or("version: 1\nservices: {}\n");
     let (before, _) = crate::config::SharedServices::parse(existing, path)
-        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+        .map_err(|error| ApplyError::Invalid(error.into()))?;
     let name = unused_name(&service.name, &before.services);
     let service = ProposedService { name, ..service };
     let edited = insert_service(existing, &service.yaml_lines())?;
     let (after, _) = crate::config::SharedServices::parse(&edited, path)
-        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+        .map_err(|error| ApplyError::Invalid(error.into()))?;
     if !after.services.contains_key(&service.name) {
-        return Err(ApplyError::Invalid(
-            "el servicio no quedó en shared.yml".to_owned(),
-        ));
+        return Err(ApplyError::Unsupported(Limitation::Other {
+            detail: "the service did not end up in shared.yml".to_owned(),
+        }));
     }
     if let Some(folder) = path.parent() {
         std::fs::create_dir_all(folder)
@@ -168,7 +168,7 @@ pub fn create_project(
     }
     let text = proposal.to_yaml();
     let loaded = manifest::parse_checked(&text, &path, known_shared)
-        .map_err(|error| ApplyError::Invalid(error.to_string()))?;
+        .map_err(|error| ApplyError::Invalid(error.into()))?;
     let service = proposal
         .services
         .first()

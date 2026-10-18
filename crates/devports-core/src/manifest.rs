@@ -11,7 +11,7 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::diagnostic::{Diagnostic, has_errors};
+use crate::diagnostic::{Diagnostic, DiagnosticKind, has_errors};
 use crate::yaml_keys::{self, KeyIndex};
 
 /// Name of the manifest file inside a project folder.
@@ -167,7 +167,12 @@ pub fn parse_checked(
         Ok(raw) => raw,
         Err(error) => {
             let line = error.location().map(|location| location.line());
-            return Err(invalid(vec![Diagnostic::error(line, error.to_string())]));
+            return Err(invalid(vec![Diagnostic::error(
+                line,
+                DiagnosticKind::Syntax {
+                    detail: error.to_string(),
+                },
+            )]));
         }
     };
     let keys = yaml_keys::index(text);
@@ -177,11 +182,13 @@ pub fn parse_checked(
 
     let version_line = keys.line(&["version"]);
     match raw.version {
-        None => diagnostics.push(Diagnostic::error(None, "falta «version»; debe ser 1")),
+        None => diagnostics.push(Diagnostic::error(None, DiagnosticKind::VersionMissing)),
         Some(version) if version == i64::from(SUPPORTED_VERSION) => {}
         Some(version) => diagnostics.push(Diagnostic::error(
             version_line,
-            format!("versión {version} no soportada; actualiza devports"),
+            DiagnosticKind::UnsupportedVersion {
+                version: version.to_string(),
+            },
         )),
     }
 
@@ -190,12 +197,12 @@ pub fn parse_checked(
         Some(name) => {
             diagnostics.push(Diagnostic::error(
                 keys.line(&["project"]),
-                format!("el nombre de proyecto «{name}» no es válido: usa minúsculas, números y guiones, hasta 63 caracteres, sin empezar por guion"),
+                DiagnosticKind::InvalidProjectName { name },
             ));
             None
         }
         None => {
-            diagnostics.push(Diagnostic::error(None, "falta «project»"));
+            diagnostics.push(Diagnostic::error(None, DiagnosticKind::ProjectMissing));
             None
         }
     };
@@ -206,7 +213,7 @@ pub fn parse_checked(
             if !shared.contains(name) {
                 diagnostics.push(Diagnostic::warning(
                     keys.line(&["uses"]),
-                    format!("«{name}» no está definido en shared.yml"),
+                    DiagnosticKind::UnknownShared { name: name.clone() },
                 ));
             }
         }
@@ -215,10 +222,7 @@ pub fn parse_checked(
     let services = if let Some(services) = raw.services {
         validate_services(&services, &keys, ServiceFile::Project, &mut diagnostics)
     } else {
-        diagnostics.push(Diagnostic::error(
-            None,
-            "falta «services» (puede estar vacío: `services: {}`)",
-        ));
+        diagnostics.push(Diagnostic::error(None, DiagnosticKind::ServicesMissing));
         BTreeMap::new()
     };
 
@@ -284,9 +288,7 @@ pub(crate) fn validate_services(
         if !is_valid_name(name) {
             diagnostics.push(Diagnostic::error(
                 line,
-                format!(
-                    "el nombre de servicio «{name}» no es válido: usa minúsculas, números y guiones"
-                ),
+                DiagnosticKind::InvalidServiceName { name: name.clone() },
             ));
         }
         unknown_keys(keys, &["services", name], &SERVICE_KEYS, diagnostics);
@@ -325,11 +327,15 @@ impl ServiceCheck<'_> {
         match (&service.cwd, &service.docker) {
             (Some(_), Some(_)) => diagnostics.push(Diagnostic::error(
                 line,
-                format!("«{name}» tiene «cwd» y «docker»: debe tener exactamente uno"),
+                DiagnosticKind::CwdAndDocker {
+                    service: name.to_owned(),
+                },
             )),
             (None, None) => diagnostics.push(Diagnostic::error(
                 line,
-                format!("«{name}» necesita «cwd» (servicio del host) o «docker» (contenedor)"),
+                DiagnosticKind::NoCwdNorDocker {
+                    service: name.to_owned(),
+                },
             )),
             (Some(cwd), None) => {
                 check_cwd(name, cwd, self.file, self.at("cwd"), diagnostics);
@@ -339,7 +345,9 @@ impl ServiceCheck<'_> {
                 if container.trim().is_empty() {
                     diagnostics.push(Diagnostic::error(
                         self.at("docker"),
-                        format!("«docker» de «{name}» está vacío"),
+                        DiagnosticKind::EmptyDocker {
+                            service: name.to_owned(),
+                        },
                     ));
                 }
                 spec.docker = Some(container.clone());
@@ -357,10 +365,9 @@ impl ServiceCheck<'_> {
         if start.contains('\n') || start.contains('\r') {
             diagnostics.push(Diagnostic::error(
                 self.at("start"),
-                format!(
-                    "«start» de «{}» debe ser un solo comando, sin saltos de línea; para varios pasos usa un script",
-                    self.name
-                ),
+                DiagnosticKind::StartMultiline {
+                    service: self.name.to_owned(),
+                },
             ));
         }
         spec.start = Some(start.clone());
@@ -379,20 +386,26 @@ impl ServiceCheck<'_> {
         let Some(port) = u16::try_from(port).ok().filter(|port| *port >= 1) else {
             diagnostics.push(Diagnostic::error(
                 self.at("port"),
-                format!("«port» de «{name}» debe estar entre 1 y 65535, no {port}"),
+                DiagnosticKind::PortOutOfRange {
+                    service: name.to_owned(),
+                    port: port.to_string(),
+                },
             ));
             return;
         };
         if port < 1024 {
             diagnostics.push(Diagnostic::warning(
                 self.at("port"),
-                format!("«port» de «{name}» es {port}, menor que 1024: puede requerir privilegios"),
+                DiagnosticKind::PortPrivileged {
+                    service: name.to_owned(),
+                    port,
+                },
             ));
         }
         if let Some(other) = ports.insert(port, name.to_owned()) {
             diagnostics.push(Diagnostic::error(
                 self.at("port"),
-                format!("el puerto {port} ya lo usa «{other}»: dentro de un proyecto cada puerto preferido es único"),
+                DiagnosticKind::PortTaken { port, other },
             ));
         }
         spec.port = Some(port);
@@ -410,7 +423,10 @@ impl ServiceCheck<'_> {
                 Some(parsed) => spec.health = parsed,
                 None => diagnostics.push(Diagnostic::error(
                     self.at("health"),
-                    format!("«health» de «{name}» debe ser `tcp` o `http:/ruta`, no «{health}»"),
+                    DiagnosticKind::InvalidHealth {
+                        service: name.to_owned(),
+                        health: health.clone(),
+                    },
                 )),
             }
         }
@@ -420,7 +436,10 @@ impl ServiceCheck<'_> {
                 "data" => spec.kind = ServiceKind::Data,
                 other => diagnostics.push(Diagnostic::error(
                     self.at("kind"),
-                    format!("«kind» de «{name}» debe ser `app` o `data`, no «{other}»"),
+                    DiagnosticKind::InvalidKind {
+                        service: name.to_owned(),
+                        kind: other.to_owned(),
+                    },
                 )),
             }
         }
@@ -438,10 +457,9 @@ impl ServiceCheck<'_> {
         if match_text.trim().is_empty() {
             diagnostics.push(Diagnostic::warning(
                 self.at("match"),
-                format!(
-                    "«match» de «{}» está vacío: no reconocerá ningún proceso",
-                    self.name
-                ),
+                DiagnosticKind::EmptyMatch {
+                    service: self.name.to_owned(),
+                },
             ));
         }
         spec.match_text = Some(match_text.clone());
@@ -468,7 +486,9 @@ fn check_cwd(
     if cwd.trim().is_empty() {
         diagnostics.push(Diagnostic::error(
             line,
-            format!("«cwd» de «{name}» está vacío"),
+            DiagnosticKind::EmptyCwd {
+                service: name.to_owned(),
+            },
         ));
         return;
     }
@@ -478,7 +498,9 @@ fn check_cwd(
             if !absolute {
                 diagnostics.push(Diagnostic::error(
                     line,
-                    format!("«cwd» de «{name}» debe ser una ruta absoluta (o empezar por ~/) en shared.yml"),
+                    DiagnosticKind::CwdNotAbsolute {
+                        service: name.to_owned(),
+                    },
                 ));
             }
         }
@@ -486,12 +508,18 @@ fn check_cwd(
             if absolute {
                 diagnostics.push(Diagnostic::error(
                     line,
-                    format!("«cwd» de «{name}» debe ser relativa al manifiesto, no «{cwd}»"),
+                    DiagnosticKind::CwdAbsolute {
+                        service: name.to_owned(),
+                        cwd: cwd.to_owned(),
+                    },
                 ));
             } else if escapes(cwd) {
                 diagnostics.push(Diagnostic::error(
                     line,
-                    format!("«cwd» de «{name}» sale de la carpeta del proyecto: «{cwd}»"),
+                    DiagnosticKind::CwdEscapes {
+                        service: name.to_owned(),
+                        cwd: cwd.to_owned(),
+                    },
                 ));
             }
         }
@@ -527,12 +555,12 @@ pub(crate) fn unknown_keys(
         if known.contains(&key.as_str()) {
             continue;
         }
-        let message = if key == "test" {
-            "«test» ignorada: devports no gestiona configuración de pruebas (ADR-010)".to_owned()
+        let kind = if key == "test" {
+            DiagnosticKind::TestIgnored
         } else {
-            format!("clave desconocida «{key}»; se ignora")
+            DiagnosticKind::UnknownKey { key }
         };
-        diagnostics.push(Diagnostic::warning(Some(line), message));
+        diagnostics.push(Diagnostic::warning(Some(line), kind));
     }
 }
 

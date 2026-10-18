@@ -6,6 +6,10 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::ConfigError;
+use crate::diagnostic::{Diagnostic, Severity};
+use crate::manifest::ManifestError;
+
 /// The key of a document a human edit works on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "bindings", derive(specta::Type))]
@@ -109,8 +113,8 @@ pub enum Limitation {
     EditInvalid {
         /// Which kind of file.
         document: DocumentKind,
-        /// What the validator said, as it said it.
-        detail: String,
+        /// What the reader found wrong with it.
+        problem: FileProblem,
     },
     /// The edit would have changed more than the key it targets.
     EditTouchedMore {
@@ -155,8 +159,8 @@ impl std::fmt::Display for Limitation {
                 formatter.write_str("no se puede resolver la carpeta destino")
             }
             Self::Form { key, problem } => formatter.write_str(&form_message(*key, *problem)),
-            Self::EditInvalid { document, detail } => {
-                formatter.write_str(&invalid_edit_message(*document, detail))
+            Self::EditInvalid { document, problem } => {
+                formatter.write_str(&invalid_edit_message(*document, problem))
             }
             Self::EditTouchedMore { key } => write!(
                 formatter,
@@ -190,12 +194,81 @@ fn form_message(key: FormKey, problem: FormProblem) -> String {
     }
 }
 
-fn invalid_edit_message(document: DocumentKind, detail: &str) -> String {
+fn invalid_edit_message(document: DocumentKind, problem: &FileProblem) -> String {
     match document {
         DocumentKind::Config => {
-            format!("la edición no produjo una configuración válida: {detail}")
+            format!("la edición no produjo una configuración válida: {problem}")
         }
-        DocumentKind::Manifest => format!("la edición no produjo un manifiesto válido: {detail}"),
+        DocumentKind::Manifest => format!("la edición no produjo un manifiesto válido: {problem}"),
+    }
+}
+
+/// Why a configuration file or a manifest could not be used.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(tag = "code", rename_all = "camelCase")]
+pub enum FileProblem {
+    /// The file could not be read.
+    Unreadable {
+        /// The file.
+        path: String,
+        /// What the system said, as it said it.
+        detail: String,
+    },
+    /// The file has errors.
+    Invalid {
+        /// The file.
+        path: String,
+        /// Every problem found, errors and warnings.
+        diagnostics: Vec<Diagnostic>,
+    },
+}
+
+impl std::fmt::Display for FileProblem {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unreadable { path, detail } => {
+                write!(formatter, "{path}: no se pudo leer: {detail}")
+            }
+            Self::Invalid { path, diagnostics } => {
+                let errors: Vec<String> = diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.severity == Severity::Error)
+                    .map(ToString::to_string)
+                    .collect();
+                write!(formatter, "{path}: {}", errors.join("; "))
+            }
+        }
+    }
+}
+
+impl From<ConfigError> for FileProblem {
+    fn from(error: ConfigError) -> Self {
+        match error {
+            ConfigError::Read { path, reason } => Self::Unreadable {
+                path: path.display().to_string(),
+                detail: reason,
+            },
+            ConfigError::Invalid { path, diagnostics } => Self::Invalid {
+                path: path.display().to_string(),
+                diagnostics,
+            },
+        }
+    }
+}
+
+impl From<ManifestError> for FileProblem {
+    fn from(error: ManifestError) -> Self {
+        match error {
+            ManifestError::Read { path, reason } => Self::Unreadable {
+                path: path.display().to_string(),
+                detail: reason,
+            },
+            ManifestError::Invalid { path, diagnostics } => Self::Invalid {
+                path: path.display().to_string(),
+                diagnostics,
+            },
+        }
     }
 }
 
@@ -205,19 +278,19 @@ fn invalid_edit_message(document: DocumentKind, detail: &str) -> String {
 #[serde(tag = "code", rename_all = "camelCase")]
 pub enum Ineligibility {
     /// `config.yml` has errors of its own.
-    #[error("config.yml tiene errores; corrígelos a mano antes de editar: {detail}")]
+    #[error("config.yml tiene errores; corrígelos a mano antes de editar: {problem}")]
     ConfigInvalid {
-        /// What the reader said.
-        detail: String,
+        /// What the reader found.
+        problem: FileProblem,
     },
     /// The project has no manifest yet.
     #[error("el proyecto aún no tiene .devports.yml; adopta primero uno de sus servicios")]
     NoManifest,
     /// The manifest is not valid.
-    #[error("el manifiesto no es válido: {detail}")]
+    #[error("el manifiesto no es válido: {problem}")]
     ManifestInvalid {
-        /// What the reader said.
-        detail: String,
+        /// What the reader found.
+        problem: FileProblem,
     },
     /// The file forbids writing.
     #[error("{path} es de solo lectura")]
@@ -329,6 +402,120 @@ impl From<crate::engine::ActionError> for CommandError {
     }
 }
 
+/// Something the core wants the person to know about, kept in the snapshot until it is gone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(tag = "code", rename_all = "camelCase")]
+pub enum Problem {
+    /// A folder could not be listed during discovery.
+    FolderUnreadable {
+        /// The folder.
+        path: String,
+        /// What the system said, as it said it.
+        detail: String,
+    },
+    /// A manifest could not be loaded; its project is not registered.
+    ManifestUnusable {
+        /// What is wrong with it.
+        problem: FileProblem,
+    },
+    /// A manifest loaded, with things that are probably not as intended.
+    ManifestWarnings {
+        /// The manifest.
+        path: String,
+        /// The warnings.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// Two projects declare the same name, so `--project <name>` is ambiguous.
+    DuplicateProjectName {
+        /// The repeated name.
+        name: String,
+        /// The folders of the projects that use it.
+        roots: Vec<String>,
+    },
+    /// The activity log could not be written.
+    ActivityLogWrite {
+        /// What the store said.
+        detail: String,
+    },
+    /// The activity log could not be pruned.
+    ActivityLogPrune {
+        /// What the store said.
+        detail: String,
+    },
+    /// An adoption was saved, but the catalog is not up to date yet.
+    CatalogNotRefreshed,
+    /// An instance could not be saved.
+    InstanceNotSaved {
+        /// Its reference.
+        reference: String,
+        /// What the store said.
+        detail: String,
+    },
+}
+
+/// The Spanish sentence of each problem: what logs and the CLI keep saying.
+impl std::fmt::Display for Problem {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FolderUnreadable { path, detail } => {
+                write!(formatter, "{path}: no se pudo leer: {detail}")
+            }
+            Self::ManifestUnusable { problem } => write!(formatter, "{problem}"),
+            Self::ManifestWarnings { path, diagnostics } => {
+                let first = diagnostics
+                    .first()
+                    .map(ToString::to_string)
+                    .unwrap_or_default();
+                write!(formatter, "{path}: {first}")
+            }
+            Self::DuplicateProjectName { name, roots } => write!(
+                formatter,
+                "el nombre de proyecto «{name}» se repite en {}",
+                roots.join(", ")
+            ),
+            Self::ActivityLogWrite { detail } => write!(
+                formatter,
+                "no se pudo escribir en el registro de actividad: {detail}"
+            ),
+            Self::ActivityLogPrune { detail } => write!(
+                formatter,
+                "no se pudo limpiar el registro de actividad: {detail}"
+            ),
+            Self::CatalogNotRefreshed => formatter.write_str(
+                "la declaración se guardó; el catálogo se actualizará en el próximo sondeo",
+            ),
+            Self::InstanceNotSaved { reference, detail } => write!(
+                formatter,
+                "no se pudo guardar la instancia {reference}: {detail}"
+            ),
+        }
+    }
+}
+
+/// Why Docker is not answering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(tag = "code", rename_all = "camelCase")]
+pub enum DockerProblem {
+    /// The connection that was working was lost.
+    ConnectionLost,
+    /// Docker could not be reached, in the client's own words.
+    Unreachable {
+        /// What it said.
+        detail: String,
+    },
+}
+
+impl std::fmt::Display for DockerProblem {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ConnectionLost => formatter.write_str("se perdió la conexión con Docker"),
+            Self::Unreachable { detail } => formatter.write_str(detail),
+        }
+    }
+}
+
 /// Why a process or container cannot be adopted into a destination right now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[cfg_attr(feature = "bindings", derive(specta::Type))]
@@ -381,10 +568,10 @@ pub enum Unsuitability {
     #[error("no se pudo describir ese proceso o contenedor desde esa carpeta")]
     NotDescribable,
     /// A file is not valid.
-    #[error("{detail}")]
+    #[error("{problem}")]
     FileInvalid {
-        /// What the reader said.
-        detail: String,
+        /// What the reader found.
+        problem: FileProblem,
     },
     /// Anything else the file system said.
     #[error("{detail}")]
@@ -432,11 +619,11 @@ pub enum ReviewNote {
     /// No start command could be proposed.
     #[error("no se pudo proponer un comando de inicio; puedes declararlo sin inicio automático")]
     NoStartCommand,
-    /// What the manifest reader warned about, as it said it.
-    #[error("{detail}")]
+    /// What the manifest reader warned about.
+    #[error("{diagnostic}")]
     ManifestWarning {
         /// The warning.
-        detail: String,
+        diagnostic: Diagnostic,
     },
 }
 
@@ -462,10 +649,13 @@ mod tests {
         assert_eq!(
             Limitation::EditInvalid {
                 document: DocumentKind::Config,
-                detail: "x".to_owned()
+                problem: FileProblem::Unreadable {
+                    path: "c".to_owned(),
+                    detail: "x".to_owned()
+                }
             }
             .to_string(),
-            "la edición no produjo una configuración válida: x"
+            "la edición no produjo una configuración válida: c: no se pudo leer: x"
         );
     }
 

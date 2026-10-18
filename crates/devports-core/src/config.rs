@@ -11,7 +11,7 @@ use std::time::Duration;
 use devports_proto::duration::parse_duration;
 use serde::Deserialize;
 
-use crate::diagnostic::{Diagnostic, has_errors};
+use crate::diagnostic::{Diagnostic, DiagnosticKind, has_errors};
 use crate::discovery::expand_tilde;
 use crate::manifest::{RawService, ServiceFile, ServiceSpec, unknown_keys, validate_services};
 use crate::yaml_keys;
@@ -169,7 +169,12 @@ impl Config {
             Ok(raw) => raw,
             Err(error) => {
                 let line = error.location().map(|location| location.line());
-                return Err(invalid(vec![Diagnostic::error(line, error.to_string())]));
+                return Err(invalid(vec![Diagnostic::error(
+                    line,
+                    DiagnosticKind::Syntax {
+                        detail: error.to_string(),
+                    },
+                )]));
             }
         };
         let keys = yaml_keys::index(text);
@@ -194,7 +199,9 @@ impl Config {
         {
             reader.error(
                 &["version"],
-                format!("versión {version} no soportada; actualiza devports"),
+                DiagnosticKind::UnsupportedVersion {
+                    version: version.to_string(),
+                },
             );
         }
         if let Some(roots) = raw.roots {
@@ -205,7 +212,9 @@ impl Config {
                 Some(depth) => config.max_depth = depth,
                 None => reader.error(
                     &["max_depth"],
-                    format!("«max_depth» debe estar entre 0 y 8, no {depth}"),
+                    DiagnosticKind::MaxDepthRange {
+                        value: depth.to_string(),
+                    },
                 ),
             }
         }
@@ -229,7 +238,9 @@ impl Config {
                 Some(days) => config.events_retention_days = days,
                 None => reader.error(
                     &["events_retention_days"],
-                    format!("«events_retention_days» debe ser al menos 1, no {days}"),
+                    DiagnosticKind::RetentionRange {
+                        value: days.to_string(),
+                    },
                 ),
             }
         }
@@ -305,16 +316,22 @@ struct Reader<'a> {
 }
 
 impl Reader<'_> {
-    fn error(&mut self, path: &[&str], message: String) {
+    fn error(&mut self, path: &[&str], kind: DiagnosticKind) {
         self.diagnostics
-            .push(Diagnostic::error(self.keys.line(path), message));
+            .push(Diagnostic::error(self.keys.line(path), kind));
     }
 
     fn duration(&mut self, path: &[&str], text: &str) -> Option<Duration> {
         match parse_duration(text) {
             Ok(duration) => Some(duration),
             Err(error) => {
-                self.error(path, format!("«{}»: {error}", path.join(".")));
+                self.error(
+                    path,
+                    DiagnosticKind::InvalidDuration {
+                        key: path.join("."),
+                        detail: error.to_string(),
+                    },
+                );
                 None
             }
         }
@@ -341,7 +358,9 @@ impl Reader<'_> {
                 Some(count) => lease.max_per_service = count,
                 None => self.error(
                     &["lease", "max_per_service"],
-                    format!("«lease.max_per_service» debe estar entre 1 y 16, no {count}"),
+                    DiagnosticKind::MaxPerServiceRange {
+                        value: count.to_string(),
+                    },
                 ),
             }
         }
@@ -356,7 +375,7 @@ impl Reader<'_> {
             } else {
                 self.error(
                     &["observation", "host_interval"],
-                    "«observation.host_interval» debe estar entre 250ms y 10s".to_owned(),
+                    DiagnosticKind::HostIntervalRange,
                 );
             }
         }
@@ -374,7 +393,7 @@ impl Reader<'_> {
                 }
                 _ => self.error(
                     &["observation", "temporal_port_range"],
-                    "«observation.temporal_port_range» debe ser [inicio, fin] con 1024 <= inicio < fin <= 65535".to_owned(),
+                    DiagnosticKind::TemporalPortRange,
                 ),
             }
         }
@@ -384,21 +403,15 @@ impl Reader<'_> {
     fn cross_checks(&mut self, config: &Config) {
         let lease = config.lease;
         if lease.default > lease.max_total {
-            self.error(
-                &["lease", "default"],
-                "«lease.default» no puede superar «lease.max_total»".to_owned(),
-            );
+            self.error(&["lease", "default"], DiagnosticKind::LeaseDefaultOverMax);
         }
         if lease.extend_by > lease.max_total {
-            self.error(
-                &["lease", "extend_by"],
-                "«lease.extend_by» no puede superar «lease.max_total»".to_owned(),
-            );
+            self.error(&["lease", "extend_by"], DiagnosticKind::LeaseExtendOverMax);
         }
         if lease.warn_before >= lease.default {
             self.error(
                 &["lease", "warn_before"],
-                "«lease.warn_before» debe ser menor que «lease.default»".to_owned(),
+                DiagnosticKind::LeaseWarnOverDefault,
             );
         }
     }
@@ -455,7 +468,12 @@ impl SharedServices {
             Ok(raw) => raw,
             Err(error) => {
                 let line = error.location().map(|location| location.line());
-                return Err(invalid(vec![Diagnostic::error(line, error.to_string())]));
+                return Err(invalid(vec![Diagnostic::error(
+                    line,
+                    DiagnosticKind::Syntax {
+                        detail: error.to_string(),
+                    },
+                )]));
             }
         };
         let keys = yaml_keys::index(text);
@@ -464,7 +482,7 @@ impl SharedServices {
         if raw.version != Some(1) {
             diagnostics.push(Diagnostic::error(
                 keys.line(&["version"]),
-                "«version» debe ser 1",
+                DiagnosticKind::VersionMustBeOne,
             ));
         }
         let services = validate_services(

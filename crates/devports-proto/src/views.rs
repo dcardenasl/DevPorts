@@ -102,6 +102,10 @@ pub struct InstanceView {
     pub duplicate_of: Option<String>,
     /// A warning that it may be running old code ("arrancó antes del último commit").
     pub stale: Option<String>,
+    /// When the repository last changed, ISO 8601: the fact `stale` is written from. Absent in
+    /// older cores.
+    #[serde(default)]
+    pub stale_at: Option<String>,
     /// Whether it is a shared service (`shared.yml`) rather than one of a project.
     pub shared: bool,
     /// The `docker compose` project it belongs to, for a compose container that
@@ -280,6 +284,7 @@ mod tests {
             }],
             duplicate_of: None,
             stale: None,
+            stale_at: None,
             shared: false,
             compose: None,
             argv: Vec::new(),

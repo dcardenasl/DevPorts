@@ -53,14 +53,14 @@ fn generated() -> String {
 /// person, and why each is allowed (ADR-041, point 6). Anything else the core tells the panel
 /// is a code and its parameters; a new free-text field fails the test below until it is either
 /// made typed or added here with its reason.
-const FREE_TEXT: [(&str, &str); 7] = [
+const FREE_TEXT: [(&str, &str); 5] = [
     (
         "reason: string | null",
         "InstanceView: why the person started a Temporal, written by them",
     ),
     (
         "stale: string | null",
-        "InstanceView: a Git-date hint, typed in UXR-9.8",
+        "InstanceView: the Spanish sentence of the CLI; the panel writes its own from `stale_at`",
     ),
     (
         "summary: string",
@@ -70,14 +70,6 @@ const FREE_TEXT: [(&str, &str); 7] = [
     (
         "reason: string | null",
         "LogFacts: the reason the person gave for a Temporal",
-    ),
-    (
-        "docker_error: string | null",
-        "Snapshot: Docker's own explanation, typed in UXR-9.8",
-    ),
-    (
-        "problems: string[]",
-        "Snapshot: diagnostics of manifests and configuration, typed in UXR-9.8",
     ),
 ];
 

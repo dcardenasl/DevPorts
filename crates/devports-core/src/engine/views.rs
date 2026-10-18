@@ -201,9 +201,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
 
     /// "Arrancó antes del último commit o checkout" when the repository changed
     /// after the process started.
-    fn stale_note(&self, cwd: &str, started: i64) -> Option<String> {
+    fn stale_change(&self, cwd: &str, started: i64) -> Option<i64> {
         let git = self.git_info(std::path::Path::new(cwd))?;
-        stale_from(git.last_change?, started)
+        stale_change(git.last_change?, started)
     }
 
     /// What the health prober must check now: running instances with a port.
@@ -350,11 +350,11 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             })),
             _ => None,
         };
-        let stale = record
+        let changed_at = record
             .cwd
             .as_deref()
             .zip(record.started_at)
-            .and_then(|(cwd, started)| self.stale_note(cwd, started));
+            .and_then(|(cwd, started)| self.stale_change(cwd, started));
         let view = InstanceView {
             instance_ref: record.reference.clone(),
             project: record.project.clone(),
@@ -377,7 +377,8 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             registered: true,
             launcher_chain: chain,
             duplicate_of: None,
-            stale,
+            stale: changed_at.map(stale_note),
+            stale_at: changed_at.map(messages::iso),
             shared,
             compose: None,
             argv: self.argv_of(record),
@@ -399,6 +400,10 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             i64::try_from(info.id.start.0.checked_div(1_000_000).unwrap_or(0)).unwrap_or(0);
         let cwd = info.cwd.as_ref().map(|path| path.display().to_string());
         let git = info.cwd.as_deref().and_then(|cwd| self.git_info(cwd));
+        let changed_at = git
+            .as_ref()
+            .and_then(|git| git.last_change)
+            .and_then(|change| stale_change(change, started));
         let port = process.ports.first().copied();
 
         let mut view = InstanceView {
@@ -429,10 +434,8 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             registered: false,
             launcher_chain: chain,
             duplicate_of: None,
-            stale: git
-                .as_ref()
-                .and_then(|git| git.last_change)
-                .and_then(|change| stale_from(change, started)),
+            stale: changed_at.map(stale_note),
+            stale_at: changed_at.map(messages::iso),
             shared: false,
             compose: None,
             argv: info.argv.clone(),
@@ -539,6 +542,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             launcher_chain: Vec::new(),
             duplicate_of: None,
             stale: None,
+            stale_at: None,
             shared: false,
             compose: None,
             argv: Vec::new(),
@@ -641,6 +645,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 launcher_chain: Vec::new(),
                 duplicate_of: None,
                 stale: None,
+                stale_at: None,
                 shared: project.is_none(),
                 compose: None,
                 argv: Vec::new(),
@@ -745,13 +750,17 @@ fn url(port: u16) -> String {
     format!("http://localhost:{port}")
 }
 
-fn stale_from(last_change: i64, started: i64) -> Option<String> {
-    (last_change > started).then(|| {
-        format!(
-            "arrancó antes del último commit o checkout ({})",
-            messages::clock(last_change)
-        )
-    })
+/// The time of the last commit or checkout, when it came after the process started.
+fn stale_change(last_change: i64, started: i64) -> Option<i64> {
+    (last_change > started).then_some(last_change)
+}
+
+/// The Spanish sentence (CLI and socket); the panel writes its own from `stale_at`.
+fn stale_note(last_change: i64) -> String {
+    format!(
+        "arrancó antes del último commit o checkout ({})",
+        messages::clock(last_change)
+    )
 }
 
 fn sort_key(a: &InstanceView, b: &InstanceView) -> std::cmp::Ordering {

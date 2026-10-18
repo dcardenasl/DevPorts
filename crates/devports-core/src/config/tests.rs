@@ -10,7 +10,7 @@ fn parse(text: &str) -> Result<(Config, Vec<Diagnostic>), ConfigError> {
 }
 
 #[track_caller]
-fn assert_invalid(text: &str, line: u64, fragment: &str) {
+fn assert_invalid(text: &str, line: u32, fragment: &str) {
     let Err(ConfigError::Invalid { diagnostics, .. }) = parse(text) else {
         panic!("expected an invalid config for: {text}");
     };
@@ -19,7 +19,7 @@ fn assert_invalid(text: &str, line: u64, fragment: &str) {
             .iter()
             .any(|diagnostic| diagnostic.severity == Severity::Error
                 && diagnostic.line == Some(line)
-                && diagnostic.message.contains(fragment)),
+                && diagnostic.message().contains(fragment)),
         "no error with «{fragment}» on line {line}; got {diagnostics:?}"
     );
 }
@@ -149,12 +149,12 @@ fn unknown_keys_are_warnings() {
     assert!(
         warnings
             .iter()
-            .any(|w| w.line == Some(2) && w.message.contains("colour"))
+            .any(|w| w.line == Some(2) && w.message().contains("colour"))
     );
     assert!(
         warnings
             .iter()
-            .any(|w| w.line == Some(4) && w.message.contains("nap"))
+            .any(|w| w.line == Some(4) && w.message().contains("nap"))
     );
 }
 
@@ -203,7 +203,7 @@ fn shared_services_follow_the_same_rules_but_with_absolute_paths() {
     else {
         panic!("a relative cwd must be refused in shared.yml");
     };
-    assert!(diagnostics.iter().any(|d| d.message.contains("absoluta")));
+    assert!(diagnostics.iter().any(|d| d.message().contains("absoluta")));
     let good = "version: 1\nservices:\n  api:\n    cwd: ~/work/api\n";
     assert!(SharedServices::parse(good, Path::new("s.yml")).is_ok());
     let missing_target = "version: 1\nservices:\n  api:\n    port: 3000\n";

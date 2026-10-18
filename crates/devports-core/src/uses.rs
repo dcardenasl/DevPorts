@@ -182,7 +182,7 @@ pub fn inspect(
             Err(error) => {
                 choice.reason = Some(UsesError::Ineligible {
                     reason: Ineligibility::ManifestInvalid {
-                        detail: error.to_string(),
+                        problem: error.into(),
                     },
                 });
             }
@@ -312,7 +312,7 @@ fn plan(
     let before = manifest::parse_checked(text, &path, Some(known_shared))
         .map_err(|error| UsesError::Ineligible {
             reason: Ineligibility::ManifestInvalid {
-                detail: error.to_string(),
+                problem: error.into(),
             },
         })?
         .manifest;
@@ -334,7 +334,7 @@ fn plan(
         .map_err(|error| UsesError::Unsupported {
             limitation: Limitation::EditInvalid {
                 document: DocumentKind::Manifest,
-                detail: error.to_string(),
+                problem: error.into(),
             },
         })?
         .manifest;

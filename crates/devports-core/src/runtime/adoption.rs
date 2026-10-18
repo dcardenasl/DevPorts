@@ -7,6 +7,7 @@ use crate::adopt::review::{
     self, AdoptionContext, AdoptionError, AdoptionOptions, AdoptionPreview, BeginApply,
     PreparedAdoption, ServiceEdits,
 };
+use crate::reasons::Problem;
 use crate::{adopt::apply::Applied, clock::Clock, ports::PortProbe, process::ProcessSource};
 use std::sync::Arc;
 use tokio::sync::oneshot;
@@ -198,7 +199,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                         self.engine.set_catalog(catalog, shared);
                         self.catalog_problems = problems;
                     } else {
-                        let warning = "la declaración se guardó; el catálogo se actualizará en el próximo sondeo".to_owned();
+                        let warning = Problem::CatalogNotRefreshed;
                         if !self.engine_problems.contains(&warning) {
                             self.engine_problems.push(warning);
                             self.engine_problems.truncate(MAX_ENGINE_PROBLEMS);

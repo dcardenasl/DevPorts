@@ -55,7 +55,7 @@ use crate::ipc::{IpcError, IpcServer, Limits, PeerInfo, RequestHandler};
 use crate::ports::{PortProbe, SystemPorts};
 use crate::process::terminate::{OsSignaler, Outcome, Refusal, Timings, protected_pids, terminate};
 use crate::process::{ListeningProcess, ProcessSource};
-use crate::reasons::{StopFailure, Unsuitability};
+use crate::reasons::{DockerProblem, Problem, StopFailure, Unsuitability};
 use crate::store::{Store, StoreError};
 
 /// How often the engine's clock-driven rules run.
@@ -149,10 +149,10 @@ pub struct Snapshot {
     /// Whether Docker answered the last time it was asked.
     pub docker_reachable: bool,
     /// Why Docker is not reachable, if it is not.
-    pub docker_error: Option<String>,
+    pub docker_error: Option<DockerProblem>,
     /// Problems the core wants the person to know about (invalid manifests,
     /// failed writes).
-    pub problems: Vec<String>,
+    pub problems: Vec<Problem>,
     /// The projects, laid out as repos with services.
     pub projects: Vec<ProjectSummary>,
     /// What each loose host process looks like, with the evidence and any correction.
@@ -235,7 +235,7 @@ enum Msg {
     PreviewProjectStop(String, oneshot::Sender<Vec<InstanceView>>),
     Extend(String, oneshot::Sender<Result<(), ActionError>>),
     Host(Vec<ListeningProcess>),
-    Containers(Result<Vec<Container>, String>),
+    Containers(Result<Vec<Container>, DockerProblem>),
     Health(Vec<(String, bool)>),
     Catalog(Box<CatalogUpdate>),
     Terminated(String, StopReason, Terminated),
@@ -260,7 +260,7 @@ struct Description {
 struct CatalogUpdate {
     catalog: Catalog,
     shared: SharedServices,
-    problems: Vec<String>,
+    problems: Vec<Problem>,
 }
 
 /// A cloneable handle to the running core.
@@ -667,18 +667,14 @@ fn discover_all(config: &Config, shared: &SharedServices) -> discovery::Discover
     discovery::discover_with(&config.roots, config.max_depth, Some(&shared.names()))
 }
 
-fn discovery_problems(issues: &[DiscoveryIssue]) -> Vec<String> {
-    issues
-        .iter()
-        .filter(|issue| !matches!(issue, DiscoveryIssue::RootMissing(_)))
-        .map(ToString::to_string)
-        .collect()
+fn discovery_problems(issues: &[DiscoveryIssue]) -> Vec<Problem> {
+    issues.iter().filter_map(DiscoveryIssue::problem).collect()
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct DockerState {
     reachable: bool,
-    error: Option<String>,
+    error: Option<DockerProblem>,
 }
 
 struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
@@ -692,7 +688,7 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     own_pid: u32,
     revision: u32,
     docker_state: DockerState,
-    catalog_problems: Vec<String>,
+    catalog_problems: Vec<Problem>,
     shutdown: watch::Receiver<bool>,
     projects: Vec<ProjectSummary>,
     shared: Vec<SharedSummary>,
@@ -702,7 +698,7 @@ struct Actor<C: Clock, S: ProcessSource + 'static, P: PortProbe> {
     /// Something other than the views changed since the last snapshot.
     dirty: bool,
     /// What the engine could not do, kept for the interface.
-    engine_problems: Vec<String>,
+    engine_problems: Vec<Problem>,
     pending_stops: std::collections::BTreeMap<String, oneshot::Sender<Result<(), ActionError>>>,
     adoptions: AdoptionBook,
     adoption_waiters: std::collections::BTreeMap<
@@ -1067,7 +1063,12 @@ async fn supervise_docker(
                 futures_util::pin_mut!(events);
                 let mut relist = tokio::time::interval(DOCKER_RELIST);
                 loop {
-                    let listed = source.list().await.map_err(|error| error.to_string());
+                    let listed = source
+                        .list()
+                        .await
+                        .map_err(|error| DockerProblem::Unreachable {
+                            detail: error.to_string(),
+                        });
                     let failed = listed.is_err();
                     if messages.send(Msg::Containers(listed)).await.is_err() {
                         return;
@@ -1098,13 +1099,15 @@ async fn supervise_docker(
                 }
                 let _ = shared.send(None);
                 let _ = messages
-                    .send(Msg::Containers(Err(
-                        "se perdió la conexión con Docker".to_owned()
-                    )))
+                    .send(Msg::Containers(Err(DockerProblem::ConnectionLost)))
                     .await;
             }
             Err(error) => {
-                let _ = messages.send(Msg::Containers(Err(error.to_string()))).await;
+                let _ = messages
+                    .send(Msg::Containers(Err(DockerProblem::Unreachable {
+                        detail: error.to_string(),
+                    })))
+                    .await;
             }
         }
         let wait = DOCKER_BACKOFF
