@@ -143,6 +143,10 @@ export function backend(): Promise<Backend> {
       return mockBackend();
     }
     throw new Error("DevPorts: the panel must run inside the application");
-  })();
+  })().catch((failure: unknown) => {
+    // A failed attempt must not be remembered: the next one has to try again.
+    cached = undefined;
+    throw failure;
+  });
   return cached;
 }

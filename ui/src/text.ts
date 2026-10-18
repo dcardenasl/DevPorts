@@ -376,12 +376,41 @@ export const text = {
   },
   status: {
     dockerDown: "Docker no responde",
-    dockerDownBody: "Los contenedores aparecen como desconocidos hasta que vuelva.",
+    dockerDownBody:
+      "Los contenedores aparecen como «sin confirmar», no como detenidos. Abre Docker Desktop: DevPorts vuelve a comprobarlo solo.",
     draftGone:
       "El proceso de este borrador ya no está disponible. Se descartó el formulario; no se realizó ninguna acción.",
     problems: "Avisos del núcleo",
     connecting: "Conectando con el núcleo…",
     failed: "No se pudo completar la acción",
+  },
+  link: {
+    connectingAttempt: (attempt: number, total: number) =>
+      `Conectando con DevPorts… intento ${attempt} de ${total}`,
+    cannotConnect: "No se pudo conectar",
+    cannotConnectBody:
+      "El panel no consigue hablar con DevPorts. Comprueba que la app sigue abierta (icono en la barra de menús) y reintenta. Las operaciones que ya confirmaste no se reenvían.",
+    reconnecting: (attempt: number, total: number, since: string) =>
+      `Sin conexión con DevPorts · reintentando (${attempt}/${total}). Estos datos son de ${since}.`,
+    lost: (since: string) =>
+      `No se pudo reconectar. Estos datos son de ${since} y las acciones pueden fallar.`,
+    retry: "Reintentar",
+    retryNow: "Reintentar ahora",
+    problems: (count: number) =>
+      count === 1
+        ? "1 aviso de configuración o manifiestos"
+        : `${count} avisos de configuración o manifiestos`,
+    details: "Ver detalle",
+    state: "Estado",
+    core: "Núcleo",
+    docker: "Docker",
+    coreOk: "Conectado",
+    coreRetrying: "Sin conexión; reintentando",
+    coreLost: "Sin conexión",
+    dockerOk: "Responde",
+    dockerDown: (reason: string) => `No responde: ${reason}`,
+    noProblems: "Sin avisos de configuración ni de manifiestos.",
+    problemsTitle: "Avisos",
   },
   relative: {
     now: "ahora",

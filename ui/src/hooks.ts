@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { backend, type Backend } from "./api";
+import { Connector, RETRY_DELAYS_MS, browserTimers, type Link } from "./connection";
 import { draftTargetExists } from "./model";
 import type { OperationRequest, OperationView, PanelState, Snapshot } from "./types";
 
@@ -21,29 +22,39 @@ export function useNow(everyMs = 1000): number {
 export interface Connection {
   api: Backend | undefined;
   snapshot: Snapshot | undefined;
-  error: string | undefined;
+  /** The link to the core: connecting, ready, reconnecting or failed, with the way out. */
+  link: Link;
+  /** Tries again at once; only meaningful while reconnecting or failed. */
+  retry: () => void;
   panelState: PanelState | undefined;
   missingDraft: boolean;
 }
 
-/** Connects to the core, follows its snapshots and reports the first paint. */
+const STARTING: Link = {
+  phase: "connecting",
+  attempt: 0,
+  attempts: RETRY_DELAYS_MS.length,
+  error: null,
+  receivedAt: null,
+  epoch: 0,
+};
+
+/** Connects to the core, follows its snapshots, recovers from transient failures and reports the first paint. */
 export function useConnection(): Connection {
   const [api, setApi] = useState<Backend>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
-  const [error, setError] = useState<string>();
+  const [link, setLink] = useState<Link>(STARTING);
   const [panelState, setPanelState] = useState<PanelState>();
   const [missingDraft, setMissingDraft] = useState(false);
+  const connector = useRef<Connector | undefined>(undefined);
   const reported = useRef(false);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    const life = { cancelled: false };
-    const gone = (): boolean => life.cancelled;
-    void (async () => {
-      try {
-        const connected = await backend();
-        const [first, stored] = await Promise.all([connected.snapshot(), connected.panelState()]);
-        if (gone()) return;
+    const next = new Connector({
+      connect: backend,
+      timers: browserTimers,
+      onLink: setLink,
+      onFirst: ({ api: connected, snapshot: first, stored }) => {
         const expandedProject = stored.expandedProjectSet
           ? first.projects.some((project) => project.name === stored.expandedProject)
             ? stored.expandedProject
@@ -72,21 +83,19 @@ export function useConnection(): Connection {
         }
         setApi(connected);
         setSnapshot(first);
-        const stop = await connected.subscribe((next) => {
-          setSnapshot((current) =>
-            current === undefined || next.revision >= current.revision ? next : current,
-          );
-        });
-        if (gone()) stop();
-        else unsubscribe = stop;
-      } catch (failure) {
-        if (!gone()) setError(failure instanceof Error ? failure.message : String(failure));
-      }
-    })();
+      },
+      onSnapshot: setSnapshot,
+    });
+    connector.current = next;
+    next.start();
     return () => {
-      life.cancelled = true;
-      unsubscribe?.();
+      next.stop();
+      connector.current = undefined;
     };
+  }, []);
+
+  const retry = useCallback(() => {
+    connector.current?.retry();
   }, []);
 
   // Two animation frames guarantee the browser has painted before the shell
@@ -101,7 +110,7 @@ export function useConnection(): Connection {
     });
   }, [api, snapshot]);
 
-  return { api, snapshot, error, panelState, missingDraft };
+  return { api, snapshot, link, retry, panelState, missingDraft };
 }
 
 /** Stable predicate that is true while the calling component is mounted. */
@@ -261,7 +270,10 @@ export function useToast(): [string | undefined, (message: string) => void] {
 }
 
 /** Tracks shell-owned operations so panel remounts recover their actual state. */
-export function useOperations(api: Backend | undefined): {
+export function useOperations(
+  api: Backend | undefined,
+  epoch = 0,
+): {
   operations: OperationView[];
   /** Starts the operation, or returns the equal one still waiting for a retry. */
   start: (request: Omit<OperationRequest, "id">) => Promise<OperationView | undefined>;
@@ -296,7 +308,7 @@ export function useOperations(api: Backend | undefined): {
       life.active = false;
       unsubscribe?.();
     };
-  }, [api, merge]);
+  }, [api, merge, epoch]);
   const start = useCallback(
     async (request: Omit<OperationRequest, "id">) => {
       if (!api) return undefined;

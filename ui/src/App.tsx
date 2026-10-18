@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState, type ReactElement } from "react";
 import type { Actions } from "./actions";
 import { ConfirmStop } from "./dialogs";
 import { AdoptSheet } from "./AdoptSheet";
+import { StatusStrip, shortReason } from "./StatusStrip";
 import { ConsumersSheet } from "./ConsumersSheet";
 import { ClassifySheet } from "./ClassifySheet";
 import { SettingsSheet } from "./SettingsSheet";
@@ -51,7 +52,14 @@ function initialTab(): Tab {
 }
 
 export function App(): ReactElement {
-  const { api, snapshot, error, panelState: hydratedState, missingDraft } = useConnection();
+  const {
+    api,
+    snapshot,
+    link,
+    retry: retryConnection,
+    panelState: hydratedState,
+    missingDraft,
+  } = useConnection();
   const now = useNow();
   const [highlight, setHighlight] = useState<string>();
   const [dialog, setDialog] = useState<DialogRequest>();
@@ -65,7 +73,7 @@ export function App(): ReactElement {
   const [failed, setFailed] = useState(false);
   const { panelState, persist: persistPanelState } = usePanelStore(api, hydratedState);
   const tab = panelState?.tab ?? initialTab();
-  const operationState = useOperations(api);
+  const operationState = useOperations(api, link.epoch);
   const { start: startOperation, retry: retryOperation, operations } = operationState;
   const runOperation = useCallback(
     (kind: "extend" | "keep", reference: string): void => {
@@ -226,22 +234,43 @@ export function App(): ReactElement {
     showToast,
   ]);
 
-  if (error !== undefined) {
-    return (
-      <Shell
-        title="DevPorts"
-        subtitle={text.status.failed}
-        body={<p className="empty">{error}</p>}
-      />
-    );
-  }
   if (
     api === undefined ||
     snapshot === undefined ||
     actions === undefined ||
     panelState === undefined
   ) {
-    return <Shell title="DevPorts" subtitle={text.status.connecting} body={null} />;
+    return link.phase === "failed" ? (
+      <Shell
+        title="DevPorts"
+        subtitle={text.link.cannotConnect}
+        body={
+          <div className="card coral" role="alert">
+            <p className="soft">{text.link.cannotConnectBody}</p>
+            {link.error !== null && (
+              <p className="soft mono" style={{ fontSize: 11 }}>
+                {shortReason(link.error)}
+              </p>
+            )}
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button type="button" className="btn primary-green" onClick={retryConnection}>
+                {text.link.retry}
+              </button>
+            </div>
+          </div>
+        }
+      />
+    ) : (
+      <Shell
+        title="DevPorts"
+        subtitle={
+          link.attempt > 0
+            ? text.link.connectingAttempt(link.attempt, link.attempts)
+            : text.status.connecting
+        }
+        body={null}
+      />
+    );
   }
 
   const orphanCount = buildOrphans(snapshot).length;
@@ -255,6 +284,13 @@ export function App(): ReactElement {
 
   const body = (
     <>
+      <StatusStrip
+        link={link}
+        snapshot={snapshot}
+        now={now}
+        onRetry={retryConnection}
+        onDetails={actions.openSettings}
+      />
       {operations.length > 0 && (
         <section className="card" aria-label="Operaciones">
           <div className="eyebrow">{text.operations.title}</div>
@@ -295,21 +331,7 @@ export function App(): ReactElement {
           {text.status.draftGone}
         </p>
       )}
-      {tab === "attention" && (
-        <>
-          <AttentionView actions={actions} />
-          {snapshot.problems.length > 0 && (
-            <div className="card blue">
-              <div className="eyebrow blue-text">{text.status.problems}</div>
-              <ul className="soft" style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                {snapshot.problems.map((problem) => (
-                  <li key={problem}>{problem}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
-      )}
+      {tab === "attention" && <AttentionView actions={actions} />}
       {tab === "projects" && (
         <ProjectsView
           actions={actions}
@@ -318,17 +340,7 @@ export function App(): ReactElement {
           onExpandedProjectChange={expandProject}
         />
       )}
-      {tab === "shared" && (
-        <>
-          {!snapshot.docker_reachable && snapshot.docker_error !== null && (
-            <div className="card blue">
-              <div className="eyebrow blue-text">{text.status.dockerDown}</div>
-              <div className="soft">{text.status.dockerDownBody}</div>
-            </div>
-          )}
-          <SharedView actions={actions} />
-        </>
-      )}
+      {tab === "shared" && <SharedView actions={actions} />}
       {tab === "orphans" && <OrphansView actions={actions} />}
       {tab === "activity" && (
         <ActivityView
@@ -457,6 +469,8 @@ export function App(): ReactElement {
           {settingsDraft !== null && (
             <SettingsSheet
               api={api}
+              link={link}
+              snapshot={snapshot}
               draft={settingsDraft}
               returnFocusTo={draftInvoker}
               onCopy={actions.copy}

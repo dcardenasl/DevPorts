@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -1341,5 +1341,106 @@ describe("the panel", () => {
       within(dialog).getByRole("button", { name: "Volver a leer la configuración" }),
     );
     expect(await within(dialog).findByLabelText("Carpeta 2")).toHaveValue("/Users/demo/extra");
+  });
+
+  describe("when the core is not reachable", () => {
+    // covers: UI, UXR-6.2
+    it("gives up after the bounded attempts, offers Reintentar and recovers without a restart", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const backend = fakeBackend(sampleSnapshot());
+        const working = backend.snapshot.bind(backend);
+        backend.snapshot = () => Promise.reject(new Error("el núcleo no responde"));
+        state.current = backend;
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+        render(<App />);
+        expect(
+          await screen.findByText(/Conectando con DevPorts… intento 1 de 5/),
+        ).toBeInTheDocument();
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(40_000);
+        });
+        const alert = await screen.findByRole("alert");
+        expect(within(alert).getByText(/Comprueba que la app sigue abierta/)).toBeInTheDocument();
+        expect(within(alert).getByText(/no se reenvían/)).toBeInTheDocument();
+        expect(screen.getByText("No se pudo conectar")).toBeInTheDocument();
+        backend.snapshot = working;
+        await user.click(within(alert).getByRole("button", { name: "Reintentar" }));
+        expect(await screen.findByRole("tab", { name: /Atención/ })).toBeInTheDocument();
+        expect(backend.calls.operation).toBeUndefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // covers: UI, UXR-6.2
+    it("keeps the data, sheets and context on screen when the link drops, and recovers by itself", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const backend = fakeBackend(sampleSnapshot());
+        state.current = backend;
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+        render(<App />);
+        await screen.findByRole("tab", { name: /Atención/ });
+        await user.click(screen.getByRole("tab", { name: /Proyectos/ }));
+        const working = backend.snapshot.bind(backend);
+        backend.snapshot = () => Promise.reject(new Error("el núcleo no responde"));
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(10_500);
+        });
+        const notice = await screen.findByText(/Sin conexión con DevPorts · reintentando \(1\/5\)/);
+        expect(notice).toBeInTheDocument();
+        expect(screen.getByRole("tab", { name: /Proyectos/ })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        expect(screen.getAllByText("tienda-demo").length).toBeGreaterThan(0);
+        backend.snapshot = working;
+        await user.click(screen.getByRole("button", { name: "Reintentar ahora" }));
+        await waitFor(() => {
+          expect(screen.queryByText(/Sin conexión con DevPorts/)).toBeNull();
+        });
+        expect(screen.getAllByText("tienda-demo").length).toBeGreaterThan(0);
+        expect(backend.calls.operation).toBeUndefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  // covers: UI, UXR-6.2
+  it("says Docker is unreachable on every tab and never shows its containers as stopped", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.docker_reachable = false;
+    snapshot.docker_error = "no se pudo conectar con /var/run/docker.sock";
+    const mysql = snapshot.instances.find((view) => view.service === "mysql" && view.shared);
+    if (mysql) mysql.state = "unknown";
+    const { user } = await open(snapshot);
+    expect(screen.getByText("Docker no responde")).toBeInTheDocument();
+    expect(screen.getByText(/no como detenidos/)).toBeInTheDocument();
+    await user.click(tab(/Compartidos/));
+    expect(screen.getAllByText("Docker no responde")).toHaveLength(1);
+    expect(screen.queryByText("Detenido")).toBeNull();
+    expect(screen.getAllByText(/Desconocido/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Copiar comando de inicio" })).toBeNull();
+  });
+
+  // covers: UI, UXR-6.2
+  it("points to the manifest and configuration warnings and lists them in Configuración", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.problems = [
+      "/work/blog/.devports.yml: línea 4: «api» necesita «cwd»",
+      "/work/old/.devports.yml: versión 2 no soportada",
+    ];
+    const { user } = await open(snapshot);
+    expect(screen.getByText("2 avisos de configuración o manifiestos")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ver detalle" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/«api» necesita «cwd»/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/versión 2 no soportada/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Conectado")).toBeInTheDocument();
+    expect(within(dialog).getByText("Responde")).toBeInTheDocument();
+    // The sheet still edits the folders: a warning is not a dead end.
+    expect(await within(dialog).findByLabelText("Carpeta 1")).toBeInTheDocument();
   });
 });

@@ -2,10 +2,19 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "
 
 import type { Backend } from "./api";
 import { useMounted, useOperationWatch, useSingleFlight } from "./hooks";
+import type { Link } from "./connection";
 import { Modal } from "./Modal";
 import { configuredRoots, rootsChanged, settingsFailure, settingsMessage } from "./settings";
+import { StatusDetails } from "./StatusStrip";
 import { text } from "./text";
-import type { RootProblem, ScanFolders, ScanPreview, SettingsDraft, SettingsError } from "./types";
+import type {
+  RootProblem,
+  ScanFolders,
+  ScanPreview,
+  SettingsDraft,
+  SettingsError,
+  Snapshot,
+} from "./types";
 
 const t = text.settings;
 
@@ -16,6 +25,8 @@ const t = text.settings;
  */
 export function SettingsSheet({
   api,
+  link,
+  snapshot,
   draft,
   onClose,
   onCopy,
@@ -23,6 +34,8 @@ export function SettingsSheet({
   returnFocusTo,
 }: {
   api: Backend;
+  link: Link;
+  snapshot: Snapshot;
   draft: SettingsDraft;
   onClose: () => void;
   onCopy: (value: string) => void;
@@ -189,6 +202,7 @@ export function SettingsSheet({
       returnFocusTo={returnFocusTo}
       initialFocusRef={firstRef}
     >
+      <StatusDetails link={link} snapshot={snapshot} />
       {failure !== undefined && (
         <p className="form-error" role="alert">
           {failure}

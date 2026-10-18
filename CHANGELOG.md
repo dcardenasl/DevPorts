@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Connection recovery** — if the panel loses DevPorts it keeps showing the last data (with its age), retries on its own a bounded number of times and offers Reintentar; Docker being unreachable and manifest or configuration warnings are now explained on every tab, with the details in Configuración.
+
 - **Scan folders in the panel** — a Configuración gear lets you add or remove the folders projects are searched in, with each folder checked, the projects that start or stop being listed shown before saving, and discovery applied at once; removing a folder deletes no file and stops no process.
 
 - **Auxiliary tools group** — loose processes are listed as development servers, unclassified, or «Posibles herramientas auxiliares» (folded, with their origin such as Homebrew or VS Code); the guess is advice only, can be corrected per exact folder and command, and never ignores, adopts or stops anything.

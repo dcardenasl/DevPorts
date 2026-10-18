@@ -37,3 +37,8 @@ export function clock(iso: string | null): string {
   if (Number.isNaN(moment.getTime())) return "";
   return moment.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
+
+/** `hace 2 h` for a moment given in milliseconds since the epoch. */
+export function agoFrom(ms: number | null, nowMs: number): string {
+  return ms === null ? "" : ago(new Date(ms).toISOString(), nowMs);
+}

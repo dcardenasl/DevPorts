@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createTauriBackend } from "./api";
 import type { OperationRequest, OperationView } from "./types";
@@ -42,5 +42,34 @@ describe("operation command recovery", () => {
 
     await expect(backend.startOperation(request)).resolves.toEqual(accepted);
     expect(calls).toEqual(["start_operation", "get_operation"]);
+  });
+});
+
+describe("the backend lookup", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(window, "__TAURI__");
+    vi.resetModules();
+  });
+
+  // covers: UXR-6.2
+  it("does not remember a failed attempt, so a retry can succeed", async () => {
+    vi.resetModules();
+    const { backend } = await import("./api");
+    let reads = 0;
+    Object.defineProperty(window, "__TAURI__", {
+      configurable: true,
+      get: () => {
+        reads += 1;
+        if (reads === 1) throw new Error("the bridge is not ready");
+        return {
+          core: { invoke: () => Promise.resolve(undefined) },
+          event: { listen: () => Promise.resolve(() => undefined) },
+        };
+      },
+    });
+    await expect(backend()).rejects.toThrow("the bridge is not ready");
+    const second = await backend();
+    expect(typeof second.snapshot).toBe("function");
+    expect(await backend()).toBe(second);
   });
 });
