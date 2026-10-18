@@ -74,6 +74,10 @@ describe("instance diagnostics", () => {
         argv: ["/a/very/long/path/node", "--token=secret"],
       }),
     ).toBe("node");
+    // A daemon that rewrites its title is named by the program, not by the last path in it.
+    const title = "php-fpm: master process (/opt/homebrew/etc/php/8.2/php-fpm.conf)";
+    expect(instanceTitle({ ...fixture(), service: null, argv: [title] })).toBe("php-fpm");
+    expect(commandLine([title])).toBe("php-fpm");
   });
 
   // covers: UXR-2.3

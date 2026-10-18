@@ -63,6 +63,34 @@ fn known_tools_are_recognised_by_origin_without_reading_their_arguments() {
 
 // covers: UXR-5.2
 #[test]
+fn a_daemon_that_rewrites_its_process_title_is_still_recognised() {
+    // Seen on the real machine: php-fpm shows its master process as one title string.
+    let master = listener(
+        &["php-fpm: master process (/opt/homebrew/etc/php/8.2/php-fpm.conf)"],
+        "/opt/homebrew/var",
+        Some("/opt/homebrew"),
+        None,
+    );
+    let found = classify(&master, None);
+    assert_eq!(found.class, ProcessClass::Auxiliary);
+    assert_eq!(found.origin.as_deref(), Some("Homebrew"));
+    assert_eq!(found.program.as_deref(), Some("php-fpm"));
+    assert!(
+        found.signals.contains(&"gitWorktree".to_owned()),
+        "the folder evidence is kept"
+    );
+    // The same title from a build outside Homebrew gives no such evidence.
+    let other = listener(
+        &["php-fpm: master process (/etc/php/php-fpm.conf)"],
+        "/srv/app",
+        None,
+        None,
+    );
+    assert_eq!(classify(&other, None).class, ProcessClass::Unclassified);
+}
+
+// covers: UXR-5.2
+#[test]
 fn only_evidence_classifies_and_the_rest_stays_unclassified() {
     let server = listener(
         &["php", "-S", "localhost:18080"],

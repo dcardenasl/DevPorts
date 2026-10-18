@@ -46,8 +46,18 @@ export function instanceTitle(view: InstanceView): string {
   );
 }
 
+/**
+ * The program's name. A daemon that rewrites its title (`php-fpm: master process
+ * (/opt/homebrew/…/php-fpm.conf)`) is named by what precedes the colon, not by the last
+ * path segment inside its description.
+ */
 function executableName(argv: readonly string[]): string | undefined {
-  return argv[0]?.split("/").filter(Boolean).at(-1);
+  const program = argv[0];
+  if (program === undefined) return undefined;
+  const title = program.split(": ")[0];
+  return title !== undefined && title !== program
+    ? title
+    : program.split("/").filter(Boolean).at(-1);
 }
 
 /** Diagnostic command shape, never raw argument values: even positional secrets

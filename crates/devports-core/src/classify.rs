@@ -104,22 +104,43 @@ const EDITOR_MARKERS: [(&str, &str); 7] = [
     ("/.config/Code/", "VS Code"),
 ];
 
+/// The program's name. Daemons such as `php-fpm` rewrite their title into
+/// `php-fpm: master process (/opt/homebrew/etc/php/8.3/php-fpm.conf)`, so the name is
+/// what precedes the colon; otherwise it is the executable's file name.
+fn program_name(program: &str) -> &str {
+    match program.split_once(": ") {
+        Some((title, _)) => title,
+        None => program.rsplit('/').next().unwrap_or(program),
+    }
+}
+
+/// Whether anything the process shows (its program, a title's path or its folder) is
+/// under one of Homebrew's prefixes.
+fn under_homebrew(view: &InstanceView) -> bool {
+    let under = |text: &str| {
+        HOMEBREW_PREFIXES
+            .iter()
+            .any(|prefix| text.starts_with(prefix))
+    };
+    view.argv.iter().any(|part| {
+        under(part)
+            || part
+                .split(|c: char| c.is_whitespace() || c == '(' || c == ')')
+                .any(under)
+    }) || view.cwd.as_deref().is_some_and(under)
+}
+
 /// What the evidence says about a loose host process, before any correction.
 #[must_use]
 pub fn detect(view: &InstanceView) -> (ProcessClass, Option<String>, Vec<String>) {
-    let program = view.argv.first();
     let mut signals = Vec::new();
     let mut origin = None;
-    if let Some(program) = program {
-        let name = program.rsplit('/').next().unwrap_or(program);
-        if HOMEBREW_PREFIXES
-            .iter()
-            .any(|prefix| program.starts_with(prefix))
-            && DAEMONS.contains(&name)
-        {
-            signals.push("homebrewDaemon".to_owned());
-            origin = Some("Homebrew".to_owned());
-        }
+    if let Some(program) = view.argv.first()
+        && DAEMONS.contains(&program_name(program))
+        && under_homebrew(view)
+    {
+        signals.push("homebrewDaemon".to_owned());
+        origin = Some("Homebrew".to_owned());
     }
     if let Some((_, owner)) = EDITOR_MARKERS
         .iter()
@@ -156,7 +177,7 @@ pub fn classify(view: &InstanceView, correction: Option<ProcessClass>) -> Classi
         program: view
             .argv
             .first()
-            .map(|program| program.rsplit('/').next().unwrap_or(program).to_owned()),
+            .map(|program| program_name(program).to_owned()),
         origin,
         signals,
         corrected: correction.is_some(),

@@ -169,14 +169,20 @@ function OrphanCard({
           {text.classify.action}
         </button>
       </div>
-      <div className="row" style={{ marginTop: 10 }}>
-        {view.project !== null && <Tag tone="green">{text.orphans.seems(view.project)}</Tag>}
-        {classification?.origin && <Tag tone="blue">{classification.origin}</Tag>}
-        {classification?.program && classification.class === "auxiliary" && (
-          <Tag>{classification.program}</Tag>
-        )}
-        {classification?.corrected === true && <Tag tone="amber">{text.classify.corrected}</Tag>}
-        <span className="grow" />
+      {(view.project !== null ||
+        classification?.origin ||
+        classification?.corrected === true ||
+        classification?.class === "auxiliary") && (
+        <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
+          {view.project !== null && <Tag tone="green">{text.orphans.seems(view.project)}</Tag>}
+          {classification?.origin && <Tag tone="blue">{classification.origin}</Tag>}
+          {classification?.program && classification.class === "auxiliary" && (
+            <Tag>{classification.program}</Tag>
+          )}
+          {classification?.corrected === true && <Tag tone="amber">{text.classify.corrected}</Tag>}
+        </div>
+      )}
+      <div className="row" style={{ marginTop: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
         <button
           type="button"
           className="btn"
