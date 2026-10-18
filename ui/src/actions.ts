@@ -14,6 +14,8 @@ export interface Actions {
   ignore: (view: InstanceView, invoker: HTMLButtonElement) => void;
   /** Lets the person correct where this process is listed, with the exact scope shown. */
   classify: (view: InstanceView, invoker: HTMLButtonElement) => void;
+  /** Opens the scan-folder editor. */
+  openSettings: (invoker: HTMLButtonElement) => void;
   /** Lists the saved ignore rules so each can be restored. */
   showIgnored: (invoker: HTMLButtonElement) => void;
   openUrl: (url: string) => void;

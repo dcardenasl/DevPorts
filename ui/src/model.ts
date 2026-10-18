@@ -239,7 +239,7 @@ export function whoAsked(view: InstanceView): string | null {
  * kept either way: its result matters more than its subject.
  */
 export function draftTargetExists(draft: PanelDraft, snapshot: Snapshot): boolean {
-  if (draft.operationId != null) return true;
+  if (draft.operationId != null || draft.kind === "settings") return true;
   return draft.kind === "adopt"
     ? snapshot.instances.some((view) => view.ref === draft.reference)
     : snapshot.shared.some((item) => item.name === draft.shared);

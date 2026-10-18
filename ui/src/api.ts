@@ -6,6 +6,8 @@ import type {
   AdoptionPreview,
   AdoptTarget,
   ConsumerOptions,
+  ScanFolders,
+  ScanPreview,
   IgnoreRule,
   ServiceEdits,
   InstanceView,
@@ -26,6 +28,10 @@ export interface Backend {
   sharedConsumers(shared: string): Promise<ConsumerOptions>;
   /** The exact criterion a rule about `reference` (an ignore or a classification) is stored under. */
   rulePreview(reference: string): Promise<IgnoreRule>;
+  /** The scan folders in force, with what each holds and whether they can be edited. */
+  scanFolders(): Promise<ScanFolders>;
+  /** What saving this list would add to or remove from the project list. Writes nothing. */
+  previewScanFolders(roots: string[]): Promise<ScanPreview>;
   /** Every saved ignore rule, with or without a running instance. */
   ignoredRules(): Promise<IgnoreRule[]>;
   panelState(): Promise<PanelState>;
@@ -74,6 +80,8 @@ export function createTauriBackend(tauri: TauriGlobal): Backend {
     sharedConsumers: (shared) => invoke<ConsumerOptions>("shared_consumers", { shared }),
     rulePreview: (reference) => invoke<IgnoreRule>("rule_preview", { reference }),
     ignoredRules: () => invoke<IgnoreRule[]>("ignored_rules"),
+    scanFolders: () => invoke<ScanFolders>("scan_folders"),
+    previewScanFolders: (roots) => invoke<ScanPreview>("preview_scan_folders", { roots }),
     panelState: () => invoke<PanelState>("get_panel_state"),
     savePanelState: (state) => {
       stateWrites = stateWrites

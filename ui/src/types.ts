@@ -8,6 +8,11 @@ export type {
   AdoptionOptions,
   AdoptionPreview,
   Classification,
+  RootProblem,
+  ScanFolders,
+  ScanPreview,
+  ScanRoot,
+  SettingsError,
   ConsumerChoice,
   IgnoreRule,
   ProcessClass,
@@ -61,7 +66,14 @@ export interface ConsumersDraft {
   focus: string | null;
   operationId?: string | null;
 }
-export type PanelDraft = AdoptDraft | ConsumersDraft;
+/** The scan-folder list being edited; the files and their versions are read again on restore. */
+export interface SettingsDraft {
+  kind: "settings";
+  roots: string[];
+  reviewing: boolean;
+  operationId?: string | null;
+}
+export type PanelDraft = AdoptDraft | ConsumersDraft | SettingsDraft;
 export interface PanelState {
   version: 1;
   tab: PanelTab;
@@ -72,7 +84,15 @@ export interface PanelState {
 }
 
 export type OperationKind =
-  "stop" | "stopProject" | "extend" | "keep" | "adopt" | "setConsumers" | "restore" | "classify";
+  | "stop"
+  | "stopProject"
+  | "extend"
+  | "keep"
+  | "adopt"
+  | "setConsumers"
+  | "restore"
+  | "classify"
+  | "setScanFolders";
 export type OperationStatus = "queued" | "running" | "succeeded" | "partial" | "failed";
 export type OperationTargetStatus = "queued" | "running" | "succeeded" | "failed";
 export interface OperationTargetRequest {
@@ -84,6 +104,8 @@ export interface OperationTargetRequest {
   consumers?: { shared: string; include: boolean; base: string };
   /** Classification change: `class: null` goes back to the automatic guess. */
   classification?: { class: import("./bindings").ProcessClass | null };
+  /** Scan-folder change: `reference` is `config`; `base` comes from `ScanFolders`. */
+  scanFolders?: { roots: string[]; base: string };
 }
 export interface StopExpectation {
   targetIdentity: string | null;
@@ -110,6 +132,8 @@ export interface OperationTargetResult {
   consumers?: { shared: string; include: boolean } | null;
   usesError?: import("./bindings").UsesError | null;
   classification?: { class: import("./bindings").ProcessClass | null } | null;
+  scanFolderCount?: number | null;
+  settingsError?: import("./bindings").SettingsError | null;
   stopExpectation?: StopExpectation | null;
   status: OperationTargetStatus;
   error: string | null;

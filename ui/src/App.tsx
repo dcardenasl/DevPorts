@@ -5,6 +5,7 @@ import { ConfirmStop } from "./dialogs";
 import { AdoptSheet } from "./AdoptSheet";
 import { ConsumersSheet } from "./ConsumersSheet";
 import { ClassifySheet } from "./ClassifySheet";
+import { SettingsSheet } from "./SettingsSheet";
 import { IgnoreConfirm, IgnoredList } from "./IgnoreSheets";
 import { consumersDraft } from "./consumers";
 import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
@@ -13,6 +14,7 @@ import {
   CheckIcon,
   DatabaseIcon,
   FolderIcon,
+  GearIcon,
   ListIcon,
   OrphanIcon,
   WarningIcon,
@@ -172,6 +174,10 @@ export function App(): ReactElement {
       },
       classify: (view, invoker) => {
         setClassifyRequest({ view, invoker });
+      },
+      openSettings: (invoker) => {
+        updatePanelState({ draft: { kind: "settings", roots: [], reviewing: false } });
+        setDraftInvoker(invoker);
       },
       showIgnored: (invoker) => {
         setListInvoker(invoker);
@@ -341,6 +347,7 @@ export function App(): ReactElement {
   const confirmed = dialog;
   const adoptionDraft = panelState.draft?.kind === "adopt" ? panelState.draft : null;
   const sharedDraft = panelState.draft?.kind === "consumers" ? panelState.draft : null;
+  const settingsDraft = panelState.draft?.kind === "settings" ? panelState.draft : null;
   const adoptionView =
     adoptionDraft === null
       ? undefined
@@ -349,6 +356,7 @@ export function App(): ReactElement {
     <Shell
       title={text.tabs[tab]}
       subtitle={subtitle[tab]}
+      onSettings={actions.openSettings}
       body={body}
       tabKey={tab}
       footer={
@@ -446,6 +454,19 @@ export function App(): ReactElement {
                 }}
               />
             )}
+          {settingsDraft !== null && (
+            <SettingsSheet
+              api={api}
+              draft={settingsDraft}
+              returnFocusTo={draftInvoker}
+              onCopy={actions.copy}
+              onClose={() => {
+                updatePanelState({ draft: null });
+                setDraftInvoker(null);
+              }}
+              onDraftChange={(draft) => persistPanelState({ draft })}
+            />
+          )}
           {ignoreRequest !== undefined && (
             <IgnoreConfirm
               api={api}
@@ -531,6 +552,7 @@ export function App(): ReactElement {
 function Shell({
   title,
   subtitle,
+  onSettings,
   body,
   footer,
   overlay,
@@ -538,6 +560,7 @@ function Shell({
 }: {
   title: string;
   subtitle: string;
+  onSettings?: (invoker: HTMLButtonElement) => void;
   body: ReactElement | null;
   footer?: ReactElement;
   overlay?: ReactElement;
@@ -546,7 +569,22 @@ function Shell({
   return (
     <div className="panel">
       <header className="head">
-        <h1>{title}</h1>
+        <div className="head-row">
+          <h1>{title}</h1>
+          {onSettings && (
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={text.settings.open}
+              title={text.settings.open}
+              onClick={(event) => {
+                onSettings(event.currentTarget);
+              }}
+            >
+              <GearIcon size={16} />
+            </button>
+          )}
+        </div>
         <p>{subtitle}</p>
       </header>
       <main className="body" key={tabKey} role="tabpanel">

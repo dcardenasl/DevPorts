@@ -5,6 +5,7 @@ import { mockAdoption } from "./mock-adoption";
 import { mockClassify } from "./mock-classify";
 import { mockConsumers } from "./mock-consumers";
 import { mockIgnored } from "./mock-ignored";
+import { mockSettings } from "./mock-settings";
 import { adoptionFailure, adoptionMessage } from "./adoption";
 import type { Backend } from "./api";
 import { sampleLog, sampleSnapshot } from "./sample";
@@ -42,6 +43,7 @@ export function mockBackend(): Backend {
   const consumers = mockConsumers(() => state, publish);
   const ignored = mockIgnored(() => state, publish);
   const classify = mockClassify(() => state, publish);
+  const settings = mockSettings();
   return {
     adoptionOptions: adoption.adoptionOptions,
     previewAdoption: adoption.previewAdoption,
@@ -49,6 +51,8 @@ export function mockBackend(): Backend {
     sharedConsumers: consumers.sharedConsumers,
     rulePreview: ignored.rulePreview,
     ignoredRules: ignored.ignoredRules,
+    scanFolders: settings.scanFolders,
+    previewScanFolders: settings.previewScanFolders,
     snapshot: () => Promise.resolve(state),
     previewProjectStop: (project) =>
       Promise.resolve(
@@ -97,6 +101,20 @@ export function mockBackend(): Backend {
       opListeners.forEach((listener) => {
         listener(op);
       });
+      if (request.kind === "setScanFolders") {
+        settings.settle(request).forEach((settled, index) => {
+          const result = op.targets[index];
+          if (result) Object.assign(result, settled);
+        });
+        op.status = op.targets.every((item) => item.status === "succeeded")
+          ? "succeeded"
+          : "failed";
+        op.revision++;
+        opListeners.forEach((listener) => {
+          listener(op);
+        });
+        return op;
+      }
       if (request.kind === "setConsumers") {
         consumers.settle(request).forEach((settled, index) => {
           const result = op.targets[index];

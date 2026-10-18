@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Scan folders in the panel** — a Configuración gear lets you add or remove the folders projects are searched in, with each folder checked, the projects that start or stop being listed shown before saving, and discovery applied at once; removing a folder deletes no file and stops no process.
+
 - **Auxiliary tools group** — loose processes are listed as development servers, unclassified, or «Posibles herramientas auxiliares» (folded, with their origin such as Homebrew or VS Code); the guess is advice only, can be corrected per exact folder and command, and never ignores, adopts or stops anything.
 
 - **Ignored services** — «Ignorar» is now its own action that shows the exact rule (folder and command, or container and Docker context) before saving, and «Ver ignorados» lists every saved rule, including ones from earlier versions, with a one-click restore that starts or stops nothing.
