@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{Config, config_dir};
 use crate::discovery::{discover, expand_tilde};
 use crate::document::{EditError, FileSnapshot};
+use crate::reasons::{DocumentKind, FormKey, FormProblem, Ineligibility, Limitation};
 
 /// Most folders the panel will write.
 pub const MAX_ROOTS: usize = 32;
@@ -26,10 +27,10 @@ const MAX_ROOT_BYTES: usize = 1024;
 #[serde(tag = "code", rename_all = "camelCase")]
 pub enum SettingsError {
     /// The configuration cannot be edited as it is; nothing was changed.
-    #[error("{message}")]
+    #[error("{reason}")]
     Ineligible {
         /// Why, with the file's own problem when it has one.
-        message: String,
+        reason: Ineligibility,
     },
     /// One or more of the folders typed is not acceptable.
     #[error("hay carpetas no válidas")]
@@ -38,10 +39,10 @@ pub enum SettingsError {
         problems: Vec<RootProblem>,
     },
     /// The list as a whole is not acceptable (empty or too long).
-    #[error("{message}")]
+    #[error("{reason}")]
     InvalidList {
         /// What is wrong with it.
-        message: String,
+        reason: ListProblem,
     },
     /// `config.yml` changed after it was reviewed; review it again.
     #[error("{path} cambió desde la revisión; vuelve a revisarlo")]
@@ -50,17 +51,60 @@ pub enum SettingsError {
         path: String,
     },
     /// The file writes `roots` in a form DevPorts does not edit.
-    #[error("{message}")]
+    #[error("{limitation}")]
     Unsupported {
         /// Why it cannot be edited safely.
-        message: String,
+        limitation: Limitation,
     },
     /// A file or worker operation failed.
-    #[error("{message}")]
+    #[error("{detail}")]
     Io {
-        /// OS or runtime explanation.
-        message: String,
+        /// OS or runtime explanation, as it said it.
+        detail: String,
     },
+}
+
+/// Why the list as a whole is not acceptable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(tag = "code", rename_all = "camelCase")]
+pub enum ListProblem {
+    /// No folder at all: no project would be discovered.
+    #[error("deja al menos una carpeta: sin ellas no se descubriría ningún proyecto")]
+    Empty,
+    /// More folders than the panel will write.
+    #[error("como máximo {max} carpetas")]
+    TooMany {
+        /// The most folders accepted.
+        max: u32,
+    },
+}
+
+/// Why one folder typed is not acceptable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum RootProblemKind {
+    /// Nothing was typed.
+    #[error("escribe una carpeta")]
+    Empty,
+    /// Control characters, quotes or backslashes, or too long.
+    #[error(
+        "la ruta contiene caracteres que no se admiten (comillas, barras invertidas o saltos de línea)"
+    )]
+    UnsafeText,
+    /// Neither absolute nor starting with `~/`.
+    #[error("usa una ruta absoluta o que empiece por ~/")]
+    NotAbsolute,
+    /// The home folder or a top-level one.
+    #[error("esa carpeta es demasiado amplia; elige la que contiene tus proyectos")]
+    TooBroad,
+    /// Already in the list.
+    #[error("esa carpeta ya está en la lista")]
+    Duplicate,
+    /// A new folder that does not exist.
+    #[error("la carpeta no existe")]
+    Missing,
 }
 
 /// A folder the person typed that cannot be used, and why.
@@ -70,8 +114,8 @@ pub enum SettingsError {
 pub struct RootProblem {
     /// Position in the submitted list.
     pub index: u32,
-    /// Reason to display beside the folder.
-    pub message: String,
+    /// Why, to be written beside the folder.
+    pub kind: RootProblemKind,
 }
 
 /// One folder projects are searched in.
@@ -105,7 +149,7 @@ pub struct ScanFolders {
     /// Whether the panel can edit them now.
     pub editable: bool,
     /// Why not, when it cannot.
-    pub reason: Option<String>,
+    pub reason: Option<Ineligibility>,
     /// Version token of the reviewed file; send it back with the new list.
     pub base: String,
 }
@@ -163,9 +207,9 @@ fn load(home: &Path) -> Result<Current, SettingsError> {
         Some(text) => {
             Config::parse(text, &path, home)
                 .map_err(|error| SettingsError::Ineligible {
-                    message: format!(
-                        "config.yml tiene errores; corrígelos a mano antes de editar: {error}"
-                    ),
+                    reason: Ineligibility::ConfigInvalid {
+                        detail: error.to_string(),
+                    },
                 })?
                 .0
         }
@@ -234,14 +278,11 @@ pub fn read(home: &Path) -> Result<ScanFolders, SettingsError> {
                 from_defaults: current.configured.is_none(),
                 max_depth: u32::try_from(depth).unwrap_or(u32::MAX),
                 editable,
-                reason: (!editable).then(|| {
-                    "config.yml escribe «roots» en una forma que DevPorts no edita; edítalo a mano"
-                        .to_owned()
-                }),
+                reason: (!editable).then_some(Ineligibility::RootsNotEditable),
                 base,
             })
         }
-        Err(SettingsError::Ineligible { message }) => {
+        Err(SettingsError::Ineligible { reason }) => {
             let text = std::fs::read_to_string(&path).unwrap_or_default();
             Ok(ScanFolders {
                 config_path: path.display().to_string(),
@@ -249,7 +290,7 @@ pub fn read(home: &Path) -> Result<ScanFolders, SettingsError> {
                 from_defaults: false,
                 max_depth: u32::try_from(crate::discovery::DEFAULT_MAX_DEPTH).unwrap_or(0),
                 editable: false,
-                reason: Some(message),
+                reason: Some(reason),
                 base: token(&text),
             })
         }
@@ -267,13 +308,14 @@ fn validate(
 ) -> Result<Vec<PathBuf>, SettingsError> {
     if roots.is_empty() {
         return Err(SettingsError::InvalidList {
-            message: "deja al menos una carpeta: sin ellas no se descubriría ningún proyecto"
-                .to_owned(),
+            reason: ListProblem::Empty,
         });
     }
     if roots.len() > MAX_ROOTS {
         return Err(SettingsError::InvalidList {
-            message: format!("como máximo {MAX_ROOTS} carpetas"),
+            reason: ListProblem::TooMany {
+                max: u32::try_from(MAX_ROOTS).unwrap_or(u32::MAX),
+            },
         });
     }
     let current: Vec<PathBuf> = current
@@ -285,15 +327,15 @@ fn validate(
     let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
     for (index, root) in roots.iter().enumerate() {
         let position = u32::try_from(index).unwrap_or(u32::MAX);
-        let mut problem = |message: &str| {
+        let mut problem = |kind: RootProblemKind| {
             problems.push(RootProblem {
                 index: position,
-                message: message.to_owned(),
+                kind,
             });
         };
         let root = root.trim();
         if root.is_empty() {
-            problem("escribe una carpeta");
+            problem(RootProblemKind::Empty);
             continue;
         }
         if root.len() > MAX_ROOT_BYTES
@@ -301,28 +343,26 @@ fn validate(
                 .chars()
                 .any(|character| character.is_control() || character == '"' || character == '\\')
         {
-            problem(
-                "la ruta contiene caracteres que no se admiten (comillas, barras invertidas o saltos de línea)",
-            );
+            problem(RootProblemKind::UnsafeText);
             continue;
         }
         let path = expand_tilde(root, home);
         if !path.is_absolute() {
-            problem("usa una ruta absoluta o que empiece por ~/");
+            problem(RootProblemKind::NotAbsolute);
             continue;
         }
         let path: PathBuf = path.components().collect();
         if path == home || path.parent().is_none() || path.components().count() <= 2 {
-            problem("esa carpeta es demasiado amplia; elige la que contiene tus proyectos");
+            problem(RootProblemKind::TooBroad);
             continue;
         }
         let known = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
         if !seen.insert(known) {
-            problem("esa carpeta ya está en la lista");
+            problem(RootProblemKind::Duplicate);
             continue;
         }
         if !current.contains(&path) && !path.is_dir() {
-            problem("la carpeta no existe");
+            problem(RootProblemKind::Missing);
             continue;
         }
         expanded.push(path);
@@ -385,14 +425,19 @@ pub fn apply(home: &Path, roots: &[String], base: &str) -> Result<SettingsOutcom
     let path = config_file(home);
     let after = Config::parse(&edited, &path, home)
         .map_err(|error| SettingsError::Unsupported {
-            message: format!("la edición no produjo una configuración válida: {error}"),
+            limitation: Limitation::EditInvalid {
+                document: DocumentKind::Config,
+                detail: error.to_string(),
+            },
         })?
         .0;
     let mut expected = current.config.clone();
     expected.roots = candidate;
     if after != expected {
         return Err(SettingsError::Unsupported {
-            message: "la edición habría cambiado algo más que «roots»; edítalo a mano".to_owned(),
+            limitation: Limitation::EditTouchedMore {
+                key: FormKey::Roots,
+            },
         });
     }
     current.snapshot.commit(&edited).map_err(edit_error)?;
@@ -405,16 +450,20 @@ fn edit_error(error: EditError) -> SettingsError {
             path: path.display().to_string(),
         },
         EditError::ReadOnly(path) => SettingsError::Ineligible {
-            message: format!("{} es de solo lectura", path.display()),
+            reason: Ineligibility::read_only(&path),
         },
-        EditError::Unsupported(message) => SettingsError::Unsupported { message },
-        EditError::Io(message) => SettingsError::Io { message },
+        EditError::Unsupported(limitation) => SettingsError::Unsupported { limitation },
+        EditError::Io(detail) => SettingsError::Io { detail },
     }
 }
 
-fn unsupported(message: &str) -> SettingsError {
+/// `roots` is written in a way that cannot be edited.
+fn unsupported(problem: FormProblem) -> SettingsError {
     SettingsError::Unsupported {
-        message: message.to_owned(),
+        limitation: Limitation::Form {
+            key: FormKey::Roots,
+            problem,
+        },
     }
 }
 
@@ -446,7 +495,7 @@ fn item(text: &str) -> Result<String, SettingsError> {
         Some(quote @ ('"' | '\'')) => text
             .strip_prefix(quote)
             .and_then(|rest| rest.strip_suffix(quote))
-            .ok_or_else(|| unsupported("«roots» tiene un elemento que DevPorts no edita"))?,
+            .ok_or_else(|| unsupported(FormProblem::InvalidValue))?,
         _ => text,
     };
     if inner.is_empty()
@@ -457,9 +506,7 @@ fn item(text: &str) -> Result<String, SettingsError> {
             )
         })
     {
-        return Err(unsupported(
-            "«roots» tiene valores que DevPorts no edita (anclas, escapes o estructuras)",
-        ));
+        return Err(unsupported(FormProblem::InvalidValue));
     }
     Ok(inner.to_owned())
 }
@@ -484,7 +531,7 @@ fn edit_roots(text: &str, roots: &[String]) -> Result<String, SettingsError> {
         Some(index) => {
             let line = lines
                 .get(index)
-                .ok_or_else(|| unsupported("no se encontró «roots»"))?;
+                .ok_or_else(|| unsupported(FormProblem::NotFound))?;
             let (content, eol) = split_eol(line);
             let rest = content.trim_start_matches("roots:");
             let (value, comment) = split_comment(rest);
@@ -493,13 +540,11 @@ fn edit_roots(text: &str, roots: &[String]) -> Result<String, SettingsError> {
                 let replacement = flow_line(rest, value, comment, eol, roots)?;
                 *lines
                     .get_mut(index)
-                    .ok_or_else(|| unsupported("no se encontró «roots»"))? = replacement;
+                    .ok_or_else(|| unsupported(FormProblem::NotFound))? = replacement;
             } else if trimmed.is_empty() {
                 replace_block(&mut lines, index, roots, newline)?;
             } else {
-                return Err(unsupported(
-                    "«roots» no es una lista de carpetas; edítalo a mano",
-                ));
+                return Err(unsupported(FormProblem::NotAList));
             }
         }
     }
@@ -541,7 +586,7 @@ fn flow_line(
         .trim()
         .strip_prefix('[')
         .and_then(|inner| inner.strip_suffix(']'))
-        .ok_or_else(|| unsupported("«roots» abarca varias líneas; edítalo a mano"))?;
+        .ok_or_else(|| unsupported(FormProblem::MultiLine))?;
     for part in inner.split(',').filter(|part| !part.trim().is_empty()) {
         item(part)?;
     }
@@ -580,9 +625,9 @@ fn replace_block(
         let value = entry
             .strip_prefix('-')
             .filter(|value| value.starts_with([' ', '\t']))
-            .ok_or_else(|| unsupported("«roots» no es una lista de carpetas simples"))?;
+            .ok_or_else(|| unsupported(FormProblem::NotSimpleList))?;
         if indent.is_some_and(|first| first != width) {
-            return Err(unsupported("«roots» mezcla sangrías; edítalo a mano"));
+            return Err(unsupported(FormProblem::MixedIndent));
         }
         indent = Some(width);
         item(value)?;

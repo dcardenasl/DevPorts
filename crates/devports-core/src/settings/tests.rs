@@ -185,9 +185,9 @@ fn unacceptable_folders_are_reported_by_position_and_nothing_is_written() {
     };
     let indexes: Vec<u32> = problems.iter().map(|p| p.index).collect();
     assert_eq!(indexes, [1, 2, 3, 4, 5, 6, 7]);
-    assert!(problems[1].message.contains("ya está"));
-    assert!(problems[2].message.contains("no existe"));
-    assert!(problems[3].message.contains("amplia"));
+    assert_eq!(problems[1].kind, RootProblemKind::Duplicate);
+    assert_eq!(problems[2].kind, RootProblemKind::Missing);
+    assert_eq!(problems[3].kind, RootProblemKind::TooBroad);
     assert_eq!(h.config(), before);
     assert!(matches!(
         apply(&h.path(), &[], &h.base()),
@@ -249,13 +249,7 @@ fn a_broken_unsupported_or_read_only_configuration_is_explained_and_never_writte
     use std::os::unix::fs::PermissionsExt;
     let h = home(Some("version: 1\nroots: [oops\n"));
     let seen = read(&h.path()).unwrap();
-    assert!(
-        !seen.editable
-            && seen
-                .reason
-                .as_deref()
-                .is_some_and(|r| r.contains("errores"))
-    );
+    assert!(!seen.editable && matches!(seen.reason, Some(Ineligibility::ConfigInvalid { .. })));
     let extra = h.folder("more", None);
     assert!(matches!(
         apply(&h.path(), std::slice::from_ref(&extra), &seen.base),

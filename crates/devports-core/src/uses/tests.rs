@@ -257,12 +257,12 @@ fn a_read_only_manifest_is_listed_with_its_reason_and_never_written() {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444)).unwrap();
     let choice = inspect("locked", &locked.1, "mysql", &shared());
     assert!(!choice.eligible && !choice.declared);
-    assert!(
-        choice
-            .reason
-            .as_deref()
-            .is_some_and(|r| r.contains("solo lectura"))
-    );
+    assert!(matches!(
+        choice.reason,
+        Some(UsesError::Ineligible {
+            reason: Ineligibility::ReadOnly { .. }
+        })
+    ));
     let before = text(&locked);
     let reports = run(
         std::slice::from_ref(&locked),
@@ -297,11 +297,11 @@ fn inspection_explains_each_ineligible_project_and_marks_declared_ones() {
     assert!(!no.declared && no.eligible);
     let missing = inspect("bare", &bare.1, "mysql", &shared());
     assert!(!missing.eligible && missing.base.is_none());
-    assert!(
-        missing
-            .reason
-            .as_deref()
-            .is_some_and(|r| r.contains("adopta primero"))
+    assert_eq!(
+        missing.reason,
+        Some(UsesError::Ineligible {
+            reason: Ineligibility::NoManifest
+        })
     );
     let unsupported = inspect("odd", &odd.1, "mysql", &shared());
     assert!(!unsupported.eligible && unsupported.reason.is_some());

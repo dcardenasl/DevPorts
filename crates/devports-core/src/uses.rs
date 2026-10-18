@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::document::{EditError, FileSnapshot};
 use crate::manifest::{self, MANIFEST_FILE, is_valid_name};
+use crate::reasons::{DocumentKind, FormKey, FormProblem, Ineligibility, Limitation};
 
 /// Most projects one save may touch.
 pub const MAX_REQUESTS: usize = 64;
@@ -36,10 +37,10 @@ pub enum UsesError {
         project: String,
     },
     /// The manifest is absent, invalid or read-only: nothing was changed.
-    #[error("{message}")]
+    #[error("{reason}")]
     Ineligible {
-        /// Reason to display beside the project.
-        message: String,
+        /// Why, to be written beside the project.
+        reason: Ineligibility,
     },
     /// The manifest changed after it was reviewed; review it again.
     #[error("{path} cambió desde la revisión; vuelve a revisarlo")]
@@ -48,25 +49,25 @@ pub enum UsesError {
         path: String,
     },
     /// The manifest writes `uses` in a form DevPorts does not edit.
-    #[error("{message}")]
+    #[error("{limitation}")]
     Unsupported {
         /// Why it cannot be edited safely.
-        message: String,
+        limitation: Limitation,
     },
     /// Another project of the same save failed validation, so nothing was written.
     #[error("no se escribió nada: otro proyecto de esta selección no pasó la validación")]
     Blocked,
-    /// The request itself is malformed.
-    #[error("{message}")]
-    InvalidRequest {
-        /// What is wrong with it.
-        message: String,
-    },
+    /// The selection repeats a project, is too long or names an invalid shared service.
+    #[error("la selección repite un proyecto o supera el máximo")]
+    InvalidRequest,
+    /// DevPorts is closing, so the request was not served.
+    #[error("DevPorts se está cerrando")]
+    Closing,
     /// A file or worker operation failed.
-    #[error("{message}")]
+    #[error("{detail}")]
     Io {
-        /// OS or runtime explanation.
-        message: String,
+        /// OS or runtime explanation, as it said it.
+        detail: String,
     },
 }
 
@@ -86,7 +87,7 @@ pub struct ConsumerChoice {
     /// Whether the manifest can currently be edited.
     pub eligible: bool,
     /// Why it cannot be edited, instead of hiding the project.
-    pub reason: Option<String>,
+    pub reason: Option<UsesError>,
     /// Version token of the reviewed content; send it back with the request.
     pub base: Option<String>,
 }
@@ -171,22 +172,27 @@ pub fn inspect(
             Ok((snapshot, text))
         });
     match loaded {
-        Err(error) => choice.reason = Some(error.to_string()),
+        Err(error) => choice.reason = Some(error),
         Ok((_, None)) => {
-            choice.reason = Some(
-                "el proyecto aún no tiene .devports.yml; adopta primero uno de sus servicios"
-                    .to_owned(),
-            );
+            choice.reason = Some(UsesError::Ineligible {
+                reason: Ineligibility::NoManifest,
+            });
         }
         Ok((_, Some(text))) => match manifest::parse_checked(&text, &path, Some(known_shared)) {
-            Err(error) => choice.reason = Some(format!("el manifiesto no es válido: {error}")),
+            Err(error) => {
+                choice.reason = Some(UsesError::Ineligible {
+                    reason: Ineligibility::ManifestInvalid {
+                        detail: error.to_string(),
+                    },
+                });
+            }
             Ok(loaded) => {
                 choice.declared = loaded.manifest.uses.iter().any(|name| name == shared);
                 choice.base = Some(token(&text));
                 // A form DevPorts cannot edit is explained now, not at save time.
                 match edit_uses(&text, shared, !choice.declared) {
                     Ok(_) => choice.eligible = true,
-                    Err(error) => choice.reason = Some(error.to_string()),
+                    Err(error) => choice.reason = Some(error),
                 }
             }
         },
@@ -272,9 +278,7 @@ fn validate_request(
             > 1
         || !is_valid_name(shared)
     {
-        return Err(UsesError::InvalidRequest {
-            message: "la selección repite un proyecto o supera el máximo".to_owned(),
-        });
+        return Err(UsesError::InvalidRequest);
     }
     if request.include && !known_shared.contains(shared) {
         return Err(UsesError::UnknownShared {
@@ -302,13 +306,14 @@ fn plan(
     let text = snapshot
         .text()
         .map_err(edit_error)?
-        .ok_or_else(|| UsesError::Ineligible {
-            message: "el proyecto aún no tiene .devports.yml; adopta primero uno de sus servicios"
-                .to_owned(),
+        .ok_or(UsesError::Ineligible {
+            reason: Ineligibility::NoManifest,
         })?;
     let before = manifest::parse_checked(text, &path, Some(known_shared))
         .map_err(|error| UsesError::Ineligible {
-            message: format!("el manifiesto no es válido: {error}"),
+            reason: Ineligibility::ManifestInvalid {
+                detail: error.to_string(),
+            },
         })?
         .manifest;
     let declared = before.uses.iter().any(|name| name == shared);
@@ -327,7 +332,10 @@ fn plan(
     let edited = edit_uses(text, shared, request.include)?;
     let after = manifest::parse_checked(&edited, &path, Some(known_shared))
         .map_err(|error| UsesError::Unsupported {
-            message: format!("la edición no produjo un manifiesto válido: {error}"),
+            limitation: Limitation::EditInvalid {
+                document: DocumentKind::Manifest,
+                detail: error.to_string(),
+            },
         })?
         .manifest;
     let mut expected = before.clone();
@@ -337,7 +345,7 @@ fn plan(
     }
     if after != expected {
         return Err(UsesError::Unsupported {
-            message: "la edición habría cambiado algo más que `uses`; edítalo a mano".to_owned(),
+            limitation: Limitation::EditTouchedMore { key: FormKey::Uses },
         });
     }
     Ok(Plan {
@@ -352,16 +360,21 @@ fn edit_error(error: EditError) -> UsesError {
             path: path.display().to_string(),
         },
         EditError::ReadOnly(path) => UsesError::Ineligible {
-            message: format!("{} es de solo lectura", path.display()),
+            reason: Ineligibility::read_only(&path),
         },
-        EditError::Unsupported(message) => UsesError::Unsupported { message },
-        EditError::Io(message) => UsesError::Io { message },
+        EditError::Unsupported(limitation) => UsesError::Unsupported { limitation },
+        EditError::Io(detail) => UsesError::Io { detail },
     }
 }
 
-fn unsupported(message: &str) -> UsesError {
+/// The `uses` key is written in a way that cannot be edited.
+fn unsupported(problem: FormProblem) -> UsesError {
+    unsupported_key(FormKey::Uses, problem)
+}
+
+fn unsupported_key(key: FormKey, problem: FormProblem) -> UsesError {
     UsesError::Unsupported {
-        message: message.to_owned(),
+        limitation: Limitation::Form { key, problem },
     }
 }
 
@@ -407,7 +420,7 @@ fn insert_key(lines: &mut Vec<String>, name: &str, newline: &str) -> Result<(), 
     let project = lines
         .iter()
         .position(|line| line.starts_with("project:"))
-        .ok_or_else(|| unsupported("no se encontró `project:` para ubicar `uses`"))?;
+        .ok_or_else(|| unsupported_key(FormKey::Project, FormProblem::NotFound))?;
     let continues = lines
         .get(project.saturating_add(1))
         .is_some_and(|next| next.starts_with([' ', '\t']) && !next.trim().is_empty());
@@ -418,9 +431,7 @@ fn insert_key(lines: &mut Vec<String>, name: &str, newline: &str) -> Result<(), 
         !value.is_empty() && !value.starts_with(['|', '>'])
     });
     if continues || !single {
-        return Err(unsupported(
-            "`project` ocupa varias líneas; añade `uses` a mano",
-        ));
+        return Err(unsupported_key(FormKey::Project, FormProblem::MultiLine));
     }
     if let Some(line) = lines.get_mut(project)
         && !line.ends_with('\n')
@@ -442,7 +453,7 @@ fn edit_existing(
     newline: &str,
 ) -> Result<(), UsesError> {
     let Some(line) = lines.get(index) else {
-        return Err(unsupported("no se encontró `uses`"));
+        return Err(unsupported(FormProblem::NotFound));
     };
     let (content, eol) = split_eol(line);
     let rest = content.trim_start_matches("uses:");
@@ -452,7 +463,7 @@ fn edit_existing(
         let flow = trimmed
             .strip_prefix('[')
             .and_then(|inner| inner.strip_suffix(']'))
-            .ok_or_else(|| unsupported("`uses` abarca varias líneas; edítalo a mano"))?;
+            .ok_or_else(|| unsupported(FormProblem::MultiLine))?;
         let mut names = plain_names(flow.split(','), true)?;
         update_names(&mut names, name, include);
         let lead = rest.get(..rest.len().saturating_sub(rest.trim_start().len()));
@@ -464,13 +475,11 @@ fn edit_existing(
         );
         *lines
             .get_mut(index)
-            .ok_or_else(|| unsupported("no se encontró `uses`"))? = replacement;
+            .ok_or_else(|| unsupported(FormProblem::NotFound))? = replacement;
         return Ok(());
     }
     if !trimmed.is_empty() {
-        return Err(unsupported(
-            "`uses` no es una lista de nombres simples; edítalo a mano",
-        ));
+        return Err(unsupported(FormProblem::NotAList));
     }
     let comment = comment.to_owned();
     edit_block(lines, index, &comment, name, include, newline)
@@ -503,9 +512,9 @@ fn edit_block(
         let value = entry
             .strip_prefix('-')
             .filter(|value| value.starts_with([' ', '\t']))
-            .ok_or_else(|| unsupported("`uses` no es una lista de nombres simples"))?;
+            .ok_or_else(|| unsupported(FormProblem::NotSimpleList))?;
         if indent.is_some_and(|first| first != width) {
-            return Err(unsupported("`uses` mezcla sangrías; edítalo a mano"));
+            return Err(unsupported(FormProblem::MixedIndent));
         }
         indent = Some(width);
         let parsed = plain_names(std::iter::once(value), false)?;
@@ -564,12 +573,10 @@ fn plain_names<'a>(
             if allow_empty {
                 continue;
             }
-            return Err(unsupported("`uses` tiene un elemento vacío"));
+            return Err(unsupported(FormProblem::EmptyItem));
         }
         if !is_valid_name(item) {
-            return Err(unsupported(
-                "`uses` contiene valores que no son nombres simples; edítalo a mano",
-            ));
+            return Err(unsupported(FormProblem::InvalidValue));
         }
         names.push(item.to_owned());
     }

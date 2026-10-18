@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use devports_core::adopt::review::{AdoptionError, AdoptionTarget as AdoptTarget, ServiceEdits};
 use devports_core::classify::ProcessClass;
-use devports_core::engine::StopExpectation;
+use devports_core::engine::{ActionError, StopExpectation};
+use devports_core::reasons::CommandError;
 use devports_core::runtime::CoreHandle;
 use devports_core::settings::SettingsError;
 use devports_core::uses::{UseOutcome, UseReport, UseRequest, UsesError};
@@ -193,6 +194,8 @@ pub struct OperationTargetView {
     pub scan_folder_count: Option<u32>,
     /// Typed scan-folder failure, alongside the human-readable message.
     pub settings_error: Option<SettingsError>,
+    /// Typed failure of an action on an instance or a rule, alongside the message.
+    pub action_error: Option<ActionError>,
     /// Typed consumer-change failure, alongside the human-readable message.
     pub uses_error: Option<UsesError>,
     /// Minimal confirmed stop identity, never process arguments or secrets.
@@ -296,6 +299,7 @@ impl OperationStore {
                     .as_ref()
                     .map(|folders| u32::try_from(folders.roots.len()).unwrap_or(u32::MAX)),
                 settings_error: None,
+                action_error: None,
                 stop_expectation: target.stop_expectation.clone(),
                 status: TargetStatus::Queued,
                 error: None,
@@ -369,6 +373,7 @@ impl OperationStore {
                     target.adoption_error = None;
                     target.uses_error = None;
                     target.settings_error = None;
+                    target.action_error = None;
                     target.result = result;
                 }
                 Err(error) => {
@@ -378,11 +383,13 @@ impl OperationStore {
                         target.adoption_error,
                         target.uses_error,
                         target.settings_error,
-                    ) = (None, None, None);
+                        target.action_error,
+                    ) = (None, None, None, None);
                     match error.typed.map(|typed| *typed) {
                         Some(TypedFailure::Adoption(error)) => target.adoption_error = Some(error),
                         Some(TypedFailure::Uses(error)) => target.uses_error = Some(error),
                         Some(TypedFailure::Settings(error)) => target.settings_error = Some(error),
+                        Some(TypedFailure::Action(error)) => target.action_error = Some(error),
                         None => {}
                     }
                 }
@@ -453,6 +460,7 @@ enum TypedFailure {
     Adoption(AdoptionError),
     Uses(UsesError),
     Settings(SettingsError),
+    Action(ActionError),
 }
 
 /// Safe failure payload retained by the shell, without command arguments. The typed
@@ -489,6 +497,31 @@ impl From<AdoptionError> for OperationFailure {
 impl From<SettingsError> for OperationFailure {
     fn from(error: SettingsError) -> Self {
         Self::typed(error.to_string(), TypedFailure::Settings(error))
+    }
+}
+
+impl From<ActionError> for OperationFailure {
+    fn from(error: ActionError) -> Self {
+        Self::typed(error.to_string(), TypedFailure::Action(error))
+    }
+}
+
+/// A request that reached the shell without what its kind needs (the panel checks first).
+fn missing(what: &str) -> OperationFailure {
+    OperationFailure::from(ActionError::Internal {
+        detail: format!("the request is missing {what}"),
+    })
+}
+
+impl From<OperationError> for CommandError {
+    fn from(error: OperationError) -> Self {
+        match error {
+            OperationError::InvalidRequest => Self::OperationInvalid,
+            OperationError::IdConflict => Self::OperationIdConflict,
+            OperationError::AtCapacity => Self::OperationAtCapacity,
+            OperationError::NotFound => Self::OperationNotFound,
+            OperationError::NothingToRetry => Self::NothingToRetry,
+        }
     }
 }
 
@@ -720,59 +753,59 @@ async fn perform(
 ) -> Result<Option<AdoptedSummary>, OperationFailure> {
     match kind {
         OperationKind::Stop | OperationKind::StopProject => {
-            let expected = target.stop_expectation.clone().ok_or_else(|| {
-                OperationFailure::from("falta confirmar la identidad del objetivo".to_owned())
-            })?;
+            let expected = target
+                .stop_expectation
+                .clone()
+                .ok_or_else(|| missing("the confirmed identity of the target"))?;
             let outcome = if kind == OperationKind::StopProject {
                 core.stop_project(&target.reference, expected).await
             } else {
                 core.stop(&target.reference, expected).await
             };
-            outcome
-                .map(|()| None)
-                .map_err(|error| OperationFailure::from(error.to_string()))
+            outcome.map(|()| None).map_err(OperationFailure::from)
         }
         OperationKind::Extend => core
             .extend(&target.reference)
             .await
             .map(|()| None)
-            .map_err(|error| OperationFailure::from(error.to_string())),
+            .map_err(OperationFailure::from),
         OperationKind::Keep => core
             .ignore(&target.reference)
             .await
             .map(|()| None)
-            .map_err(|error| OperationFailure::from(error.to_string())),
+            .map_err(OperationFailure::from),
         OperationKind::SetScanFolders => {
             let folders = target
                 .scan_folders
                 .clone()
-                .ok_or_else(|| OperationFailure::from("falta indicar las carpetas".to_owned()))?;
+                .ok_or_else(|| missing("the folders"))?;
             core.set_scan_folders(folders.roots, folders.base)
                 .await
                 .map(|_| None)
                 .map_err(OperationFailure::from)
         }
         OperationKind::Classify => {
-            let choice = target.classification.ok_or_else(|| {
-                OperationFailure::from("falta indicar la clasificación".to_owned())
-            })?;
+            let choice = target
+                .classification
+                .ok_or_else(|| missing("the classification"))?;
             core.set_classification(&target.reference, choice.class)
                 .await
                 .map(|()| None)
-                .map_err(|error| OperationFailure::from(error.to_string()))
+                .map_err(OperationFailure::from)
         }
         OperationKind::Restore => core
             .restore_ignored(&target.reference)
             .await
             .map(|()| None)
-            .map_err(|error| OperationFailure::from(error.to_string())),
-        OperationKind::SetConsumers => Err(OperationFailure::from(
-            "los cambios de consumidores se ejecutan como lote".to_owned(),
-        )),
+            .map_err(OperationFailure::from),
+        OperationKind::SetConsumers => Err(OperationFailure::from(ActionError::Internal {
+            detail: "consumer changes run as one batch".to_owned(),
+        })),
         OperationKind::Adopt => {
-            let reviewed = target.adoption.as_ref().ok_or_else(|| {
-                OperationFailure::from("falta revisar la adopción antes de guardar".to_owned())
-            })?;
+            let reviewed = target
+                .adoption
+                .as_ref()
+                .ok_or_else(|| missing("a reviewed adoption"))?;
             core.apply_adoption(&reviewed.id, reviewed.edits.clone())
                 .await
                 .map(|applied| {
@@ -1038,7 +1071,7 @@ mod tests {
             UseReport {
                 project: "project-1".to_owned(),
                 result: Err(UsesError::Io {
-                    message: "disk full".to_owned(),
+                    detail: "disk full".to_owned(),
                 }),
             },
             UseReport {
@@ -1057,7 +1090,7 @@ mod tests {
         assert_eq!(
             view.targets[1].uses_error,
             Some(UsesError::Io {
-                message: "disk full".to_owned()
+                detail: "disk full".to_owned()
             })
         );
         assert!(view.targets[0].uses_error.is_none());

@@ -105,13 +105,11 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
 }
 
 fn closing() -> UsesError {
-    UsesError::Io {
-        message: "DevPorts se está cerrando".to_owned(),
-    }
+    UsesError::Closing
 }
 
 fn worker_error(error: &tokio::task::JoinError) -> UsesError {
     UsesError::Io {
-        message: error.to_string(),
+        detail: error.to_string(),
     }
 }

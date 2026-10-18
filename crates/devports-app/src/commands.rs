@@ -5,6 +5,7 @@
     reason = "Tauri extracts command arguments by value; the signatures are fixed"
 )]
 
+use devports_core::reasons::CommandError;
 use devports_core::runtime::Snapshot;
 use devports_proto::views::LogEntry;
 use devports_proto::{LogArgs, Preferences};
@@ -24,17 +25,12 @@ pub fn get_snapshot(core: State<'_, CoreState>) -> Snapshot {
 pub async fn preview_project_stop(
     core: State<'_, CoreState>,
     project: String,
-) -> Result<Vec<devports_proto::views::InstanceView>, String> {
-    let targets = core
-        .0
-        .preview_project_stop(&project)
-        .await
-        .map_err(|error| error.to_string())?;
+) -> Result<Vec<devports_proto::views::InstanceView>, CommandError> {
+    let targets = core.0.preview_project_stop(&project).await?;
     if targets.len() > operations::MAX_TARGETS {
-        return Err(
-            "hay demasiadas instancias para una sola operación; detén servicios individualmente"
-                .to_owned(),
-        );
+        return Err(CommandError::TooManyTargets {
+            max: u32::try_from(operations::MAX_TARGETS).unwrap_or(u32::MAX),
+        });
     }
     Ok(targets)
 }
@@ -86,21 +82,15 @@ pub async fn shared_consumers(
 pub async fn rule_preview(
     core: State<'_, CoreState>,
     reference: String,
-) -> Result<devports_core::ignore::IgnoreRule, String> {
-    core.0
-        .rule_preview(&reference)
-        .await
-        .map_err(|error| error.to_string())
+) -> Result<devports_core::ignore::IgnoreRule, CommandError> {
+    Ok(core.0.rule_preview(&reference).await?)
 }
 
 #[tauri::command]
 pub async fn ignored_rules(
     core: State<'_, CoreState>,
-) -> Result<Vec<devports_core::ignore::IgnoreRule>, String> {
-    core.0
-        .ignored_rules()
-        .await
-        .map_err(|error| error.to_string())
+) -> Result<Vec<devports_core::ignore::IgnoreRule>, CommandError> {
+    Ok(core.0.ignored_rules().await?)
 }
 
 #[tauri::command]
@@ -124,8 +114,15 @@ pub fn get_panel_state(state: State<'_, PanelStateStore>) -> PanelState {
 }
 
 #[tauri::command]
-pub fn set_panel_state(store: State<'_, PanelStateStore>, state: PanelState) -> Result<(), String> {
-    store.set(state).map_err(str::to_owned)
+pub fn set_panel_state(
+    store: State<'_, PanelStateStore>,
+    state: PanelState,
+) -> Result<(), CommandError> {
+    store
+        .set(state)
+        .map_err(|detail| CommandError::InvalidPanelState {
+            detail: detail.to_owned(),
+        })
 }
 
 #[tauri::command]
@@ -140,12 +137,8 @@ pub async fn set_preferences(
     core: State<'_, CoreState>,
     store: State<'_, PreferencesStore>,
     preferences: Preferences,
-) -> Result<Preferences, String> {
-    let saved = core
-        .0
-        .set_preferences(preferences)
-        .await
-        .map_err(|error| error.to_string())?;
+) -> Result<Preferences, CommandError> {
+    let saved = core.0.set_preferences(preferences).await?;
     store.replace(saved);
     crate::panel::apply_theme(&app, saved.theme);
     let locale = crate::i18n::current(&app);
@@ -170,8 +163,8 @@ pub fn start_operation(
     core: State<'_, CoreState>,
     store: State<'_, OperationStore>,
     request: OperationRequest,
-) -> Result<OperationView, String> {
-    let (operation, start) = store.start(request).map_err(|error| error.to_string())?;
+) -> Result<OperationView, CommandError> {
+    let (operation, start) = store.start(request).map_err(CommandError::from)?;
     if start {
         operations::spawn(
             app,
@@ -189,8 +182,8 @@ pub fn retry_operation(
     core: State<'_, CoreState>,
     store: State<'_, OperationStore>,
     id: String,
-) -> Result<OperationView, String> {
-    let operation = store.retry(&id).map_err(|error| error.to_string())?;
+) -> Result<OperationView, CommandError> {
+    let operation = store.retry(&id).map_err(CommandError::from)?;
     operations::spawn(app, core.0.clone(), store.inner().clone(), id);
     Ok(operation)
 }
@@ -215,15 +208,17 @@ pub async fn get_log(
     clippy::disallowed_methods,
     reason = "`open` is the only way to hand a URL to the default browser; the argument is validated first"
 )]
-pub fn open_url(url: String) -> Result<(), String> {
+pub fn open_url(url: String) -> Result<(), CommandError> {
     if !is_local_http(&url) {
-        return Err("solo se abren direcciones locales".to_owned());
+        return Err(CommandError::OnlyLocalUrls);
     }
     std::process::Command::new("open")
         .arg(&url)
         .spawn()
         .map(drop)
-        .map_err(|error| error.to_string())
+        .map_err(|error| CommandError::Io {
+            detail: error.to_string(),
+        })
 }
 
 fn is_local_http(url: &str) -> bool {

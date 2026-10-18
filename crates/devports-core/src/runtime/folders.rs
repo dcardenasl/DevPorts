@@ -60,6 +60,6 @@ impl CoreHandle {
 
 fn worker_error(error: &tokio::task::JoinError) -> SettingsError {
     SettingsError::Io {
-        message: error.to_string(),
+        detail: error.to_string(),
     }
 }

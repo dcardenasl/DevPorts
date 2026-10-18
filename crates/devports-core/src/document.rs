@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::SystemTime;
 
+use crate::reasons::Limitation;
+
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 
@@ -31,7 +33,7 @@ pub enum EditError {
     ReadOnly(PathBuf),
     /// The shape or size is not supported for safe automatic editing.
     #[error("{0}")]
-    Unsupported(String),
+    Unsupported(Limitation),
     /// An operating system operation failed before committing the edit.
     #[error("{0}")]
     Io(String),
@@ -134,15 +136,11 @@ impl FileSnapshot {
             Err(error) => return Err(io_error(&snapshot.path, &error)),
         };
         if !before.is_file() || before.file_type().is_symlink() {
-            return Err(EditError::Unsupported(
-                "solo se editan archivos regulares, sin enlaces simbólicos".to_owned(),
-            ));
+            return Err(EditError::Unsupported(Limitation::NotRegularFile));
         }
         #[cfg(unix)]
         if before.nlink() != 1 {
-            return Err(EditError::Unsupported(
-                "no se reemplazan manifiestos con enlaces físicos".to_owned(),
-            ));
+            return Err(EditError::Unsupported(Limitation::HardLinked));
         }
         if before.permissions().readonly() {
             return Err(EditError::ReadOnly(snapshot.path));
@@ -180,8 +178,7 @@ impl FileSnapshot {
         if bytes.len() > MAX_DOCUMENT_BYTES {
             return Err(too_large());
         }
-        std::str::from_utf8(&bytes)
-            .map_err(|_| EditError::Unsupported("el archivo no es texto UTF-8".to_owned()))?;
+        std::str::from_utf8(&bytes).map_err(|_| EditError::Unsupported(Limitation::NotUtf8))?;
         let after = std::fs::symlink_metadata(&snapshot.path)
             .map_err(|error| io_error(&snapshot.path, &error))?;
         if Stamp::of(&before) != Stamp::of(&after) || after.file_type().is_symlink() {
@@ -208,7 +205,7 @@ impl FileSnapshot {
             .as_deref()
             .map(std::str::from_utf8)
             .transpose()
-            .map_err(|_| EditError::Unsupported("el archivo no es texto UTF-8".to_owned()))
+            .map_err(|_| EditError::Unsupported(Limitation::NotUtf8))
     }
 
     /// Checks the version without creating or changing any file.
@@ -242,7 +239,7 @@ impl FileSnapshot {
         let parent = self
             .path
             .parent()
-            .ok_or_else(|| EditError::Unsupported("el destino no tiene carpeta".to_owned()))?;
+            .ok_or(EditError::Unsupported(Limitation::NoTargetFolder))?;
         std::fs::create_dir_all(parent).map_err(|error| io_error(parent, &error))?;
         self.check()?;
         let (temporary, mut file) = Temporary::create(parent)?;
@@ -265,9 +262,7 @@ impl FileSnapshot {
                 .metadata()
                 .map_err(|error| io_error(&self.path, &error))?;
             if metadata.uid() != stamp.uid || metadata.gid() != stamp.gid {
-                return Err(EditError::Unsupported(
-                    "no se puede conservar el propietario o grupo del archivo".to_owned(),
-                ));
+                return Err(EditError::Unsupported(Limitation::OwnerNotKept));
             }
         }
         if let Some(permissions) = &self.permissions {
@@ -330,32 +325,28 @@ fn io_error(path: &Path, error: &std::io::Error) -> EditError {
 }
 
 fn too_large() -> EditError {
-    EditError::Unsupported(format!(
-        "la edición automática admite como máximo {MAX_DOCUMENT_BYTES} bytes"
-    ))
+    EditError::Unsupported(Limitation::TooLarge {
+        max: u32::try_from(MAX_DOCUMENT_BYTES).unwrap_or(u32::MAX),
+    })
 }
 
 fn parent_identity(path: &Path) -> Result<(PathBuf, DirectoryIdentity), EditError> {
     let parent = path
         .parent()
-        .ok_or_else(|| EditError::Unsupported("falta la carpeta destino".to_owned()))?;
+        .ok_or(EditError::Unsupported(Limitation::NoTargetFolder))?;
     for ancestor in parent.ancestors() {
         match std::fs::symlink_metadata(ancestor) {
             Ok(metadata) if metadata.is_dir() => {
                 return Ok((ancestor.to_path_buf(), DirectoryIdentity::of(&metadata)));
             }
             Ok(_) => {
-                return Err(EditError::Unsupported(
-                    "la carpeta destino no es un directorio regular".to_owned(),
-                ));
+                return Err(EditError::Unsupported(Limitation::TargetFolderNotDirectory));
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(io_error(ancestor, &error)),
         }
     }
-    Err(EditError::Unsupported(
-        "no se encontró la carpeta destino".to_owned(),
-    ))
+    Err(EditError::Unsupported(Limitation::TargetFolderNotFound))
 }
 
 fn resolved_destination(path: &Path) -> Result<PathBuf, EditError> {
@@ -364,31 +355,29 @@ fn resolved_destination(path: &Path) -> Result<PathBuf, EditError> {
             .components()
             .any(|component| matches!(component, std::path::Component::ParentDir))
     {
-        return Err(EditError::Unsupported(
-            "el destino debe ser absoluto y no contener «..»".to_owned(),
-        ));
+        return Err(EditError::Unsupported(Limitation::TargetNotAbsolute));
     }
     let filename = path
         .file_name()
-        .ok_or_else(|| EditError::Unsupported("falta el archivo destino".to_owned()))?;
+        .ok_or(EditError::Unsupported(Limitation::NoTargetFile))?;
     let parent = path
         .parent()
-        .ok_or_else(|| EditError::Unsupported("falta la carpeta destino".to_owned()))?;
+        .ok_or(EditError::Unsupported(Limitation::NoTargetFolder))?;
     for ancestor in parent.ancestors() {
         match std::fs::canonicalize(ancestor) {
             Ok(existing) => {
-                let remainder = parent
-                    .strip_prefix(ancestor)
-                    .map_err(|error| EditError::Unsupported(error.to_string()))?;
+                let remainder = parent.strip_prefix(ancestor).map_err(|error| {
+                    EditError::Unsupported(Limitation::Other {
+                        detail: error.to_string(),
+                    })
+                })?;
                 return Ok(existing.join(remainder).join(filename));
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(io_error(ancestor, &error)),
         }
     }
-    Err(EditError::Unsupported(
-        "no se puede resolver la carpeta destino".to_owned(),
-    ))
+    Err(EditError::Unsupported(Limitation::TargetFolderUnresolvable))
 }
 
 #[cfg(test)]

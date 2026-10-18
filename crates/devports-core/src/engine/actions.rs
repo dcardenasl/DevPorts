@@ -6,6 +6,7 @@ use devports_proto::{
     ErrorBody, ErrorCode, LogArgs, LogEntry, LogResult, LsArgs, LsResult, Op, PingResult, Request,
     Response,
 };
+use serde::Serialize;
 use serde_json::{Value, json};
 
 /// Most classification corrections kept; each is one exact criterion.
@@ -18,23 +19,57 @@ use crate::engine::StopExpectation;
 use crate::messages;
 use crate::ports::PortProbe;
 use crate::process::ProcessSource;
+use crate::reasons::StopFailure;
 use crate::store::{Role, State};
 
-/// Why an action asked for from the application could not be done.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+/// Why an action asked for from the application could not be done: a code and its
+/// parameters, so the interface can say it in the language in force (ADR-041).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, thiserror::Error)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+#[serde(tag = "code", rename_all = "camelCase")]
 pub enum ActionError {
     /// No instance has that reference.
-    #[error("no existe la instancia «{0}»")]
-    UnknownInstance(String),
+    #[error("no existe la instancia «{reference}»")]
+    UnknownInstance {
+        /// The reference asked for.
+        reference: String,
+    },
     /// There is nothing running to stop.
-    #[error("la instancia «{0}» no está en marcha")]
-    NotRunning(String),
-    /// The action was refused for a stated reason.
-    #[error("{0}")]
-    Refused(String),
+    #[error("la instancia «{reference}» no está en marcha")]
+    NotRunning {
+        /// The reference asked for.
+        reference: String,
+    },
     /// The target changed since the UI showed its stop confirmation.
     #[error("la instancia cambió desde la confirmación; revísala de nuevo")]
     TargetChanged,
+    /// DevPorts is closing, so the request was not served.
+    #[error("DevPorts se está cerrando")]
+    Closing,
+    /// A rule is remembered by folder, and the process has none known.
+    #[error("no se puede recordar un proceso sin carpeta conocida")]
+    NoKnownFolder,
+    /// The classification corrections are at their limit.
+    #[error("hay demasiadas correcciones de clasificación; restablece alguna")]
+    TooManyCorrections,
+    /// Stopping the instance did not work.
+    #[error("{failure}")]
+    StopFailed {
+        /// Why.
+        failure: StopFailure,
+    },
+    /// The store could not be read or written.
+    #[error("{detail}")]
+    Storage {
+        /// What the store said.
+        detail: String,
+    },
+    /// The panel and the shell broke their contract (a bug, not something the person can fix).
+    #[error("{detail}")]
+    Internal {
+        /// What was missing, in English: it is for a bug report.
+        detail: String,
+    },
 }
 
 /// Why the activity log could not be read.
@@ -126,11 +161,13 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     ///
     /// [`ActionError`] if the instance does not exist or has nothing to stop.
     pub fn stop_instance(&mut self, reference: &str) -> Result<Vec<Effect>, ActionError> {
-        let target = self
-            .targets
-            .get(reference)
-            .cloned()
-            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+        let target =
+            self.targets
+                .get(reference)
+                .cloned()
+                .ok_or_else(|| ActionError::UnknownInstance {
+                    reference: reference.to_owned(),
+                })?;
         if let Some(mut record) = self
             .tracked
             .iter()
@@ -138,7 +175,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .cloned()
         {
             if matches!(record.state, State::Stopping) {
-                return Err(ActionError::NotRunning(reference.to_owned()));
+                return Err(ActionError::NotRunning {
+                    reference: reference.to_owned(),
+                });
             }
             record.state = State::Stopping;
             self.persist(&record);
@@ -168,7 +207,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .views
             .iter()
             .find(|view| view.instance_ref == reference)
-            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+            .ok_or_else(|| ActionError::UnknownInstance {
+                reference: reference.to_owned(),
+            })?;
         let target_identity = self.targets.get(reference).map(super::Target::identity);
         if view.state == devports_proto::views::InstanceState::Down
             || !expected.matches(view)
@@ -209,7 +250,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .views
             .iter()
             .find(|view| view.instance_ref == reference)
-            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
+            .ok_or_else(|| ActionError::UnknownInstance {
+                reference: reference.to_owned(),
+            })?;
         if !project_stop_eligible(view, project) {
             return Err(ActionError::TargetChanged);
         }
@@ -229,14 +272,17 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .iter()
             .find(|view| view.instance_ref == reference)
             .cloned()
-            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
-        let key = crate::ignore::rule_key(&view, &self.docker_context).ok_or_else(|| {
-            ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
-        })?;
+            .ok_or_else(|| ActionError::UnknownInstance {
+                reference: reference.to_owned(),
+            })?;
+        let key = crate::ignore::rule_key(&view, &self.docker_context)
+            .ok_or(ActionError::NoKnownFolder)?;
         let now = self.now();
         self.store
             .add_ignored(&key, now)
-            .map_err(|error| ActionError::Refused(error.to_string()))?;
+            .map_err(|error| ActionError::Storage {
+                detail: error.to_string(),
+            })?;
         self.ignored.insert(key);
         self.event(
             "kept",
@@ -260,10 +306,11 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .views
             .iter()
             .find(|view| view.instance_ref == reference)
-            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
-        let key = crate::ignore::rule_key(view, &self.docker_context).ok_or_else(|| {
-            ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
-        })?;
+            .ok_or_else(|| ActionError::UnknownInstance {
+                reference: reference.to_owned(),
+            })?;
+        let key = crate::ignore::rule_key(view, &self.docker_context)
+            .ok_or(ActionError::NoKnownFolder)?;
         Ok(crate::ignore::describe(&key, 0))
     }
 
@@ -306,16 +353,17 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .iter()
             .find(|view| view.instance_ref == reference)
             .cloned()
-            .ok_or_else(|| ActionError::UnknownInstance(reference.to_owned()))?;
-        let key = crate::ignore::rule_key(&view, &self.docker_context).ok_or_else(|| {
-            ActionError::Refused("no se puede recordar un proceso sin carpeta conocida".to_owned())
-        })?;
-        let refused = |error: crate::store::StoreError| ActionError::Refused(error.to_string());
+            .ok_or_else(|| ActionError::UnknownInstance {
+                reference: reference.to_owned(),
+            })?;
+        let key = crate::ignore::rule_key(&view, &self.docker_context)
+            .ok_or(ActionError::NoKnownFolder)?;
+        let refused = |error: crate::store::StoreError| ActionError::Storage {
+            detail: error.to_string(),
+        };
         if let Some(class) = class {
             if !self.corrections.contains_key(&key) && self.corrections.len() >= MAX_CORRECTIONS {
-                return Err(ActionError::Refused(
-                    "hay demasiadas correcciones de clasificación; restablece alguna".to_owned(),
-                ));
+                return Err(ActionError::TooManyCorrections);
             }
             let now = self.now();
             self.store
@@ -344,7 +392,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     pub fn preferences(&self) -> Result<devports_proto::Preferences, ActionError> {
         self.store
             .preferences()
-            .map_err(|error| ActionError::Refused(error.to_string()))
+            .map_err(|error| ActionError::Storage {
+                detail: error.to_string(),
+            })
     }
 
     /// Saves the preferences and returns what is now stored. It is not an event of
@@ -360,7 +410,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let now = self.now();
         self.store
             .set_preferences(preferences, now)
-            .map_err(|error| ActionError::Refused(error.to_string()))?;
+            .map_err(|error| ActionError::Storage {
+                detail: error.to_string(),
+            })?;
         Ok(preferences)
     }
 
@@ -373,7 +425,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let mut rules: Vec<_> = self
             .store
             .ignored_rules()
-            .map_err(|error| ActionError::Refused(error.to_string()))?
+            .map_err(|error| ActionError::Storage {
+                detail: error.to_string(),
+            })?
             .into_iter()
             .map(|(key, at)| crate::ignore::describe(&key, at))
             .collect();
@@ -395,7 +449,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let found = self
             .store
             .ignored_rules()
-            .map_err(|error| ActionError::Refused(error.to_string()))?
+            .map_err(|error| ActionError::Storage {
+                detail: error.to_string(),
+            })?
             .into_iter()
             .map(|(key, _)| key)
             .find(|key| crate::ignore::rule_id(key) == id);
@@ -404,7 +460,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         };
         self.store
             .remove_ignored(&key)
-            .map_err(|error| ActionError::Refused(error.to_string()))?;
+            .map_err(|error| ActionError::Storage {
+                detail: error.to_string(),
+            })?;
         self.ignored.remove(&key);
         self.event("restored", None, None, None, &json!({"rule": id}));
         self.rebuild_views();
@@ -420,7 +478,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     pub fn extend_instance(&mut self, reference: &str) -> Result<(), ActionError> {
         self.extend_reference(reference, None)
             .map(|_| ())
-            .map_err(|error| ActionError::Refused(error.message))
+            .map_err(|error| ActionError::Storage {
+                detail: error.message,
+            })
     }
 
     /// Proposes a manifest for `dir` from what runs inside it. Read-only.

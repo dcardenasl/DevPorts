@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use devports_proto::views::InstanceView;
 
 use crate::fingerprint::Fingerprint;
+use crate::reasons::ReviewNote;
 
 pub mod apply;
 pub mod review;
@@ -52,7 +53,7 @@ pub struct ProposedService {
     /// `data` for databases and caches.
     pub is_data: bool,
     /// Why the proposed `start` needs a person's eyes.
-    pub review: Option<String>,
+    pub review: Option<ReviewNote>,
 }
 
 /// A manifest proposal for a folder.
@@ -134,9 +135,11 @@ fn process_service(dir: &Path, cwd: &Path, view: &InstanceView) -> ProposedServi
         .and_then(|program| program.rsplit('/').next())
         .unwrap_or_default()
         .to_owned();
-    let review = LAUNCHERS.contains(&program.as_str()).then(|| {
-        format!("«{program}» suele lanzar el servidor real como proceso hijo: revisa el comando")
-    });
+    let review = LAUNCHERS
+        .contains(&program.as_str())
+        .then(|| ReviewNote::LauncherProgram {
+            program: program.clone(),
+        });
     ProposedService {
         name,
         cwd: Some(relative.map_or_else(|| ".".to_owned(), |rel| format!("./{}", rel.display()))),

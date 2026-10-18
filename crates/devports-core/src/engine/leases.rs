@@ -282,7 +282,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             ),
             Terminated::StillAlive => ("stop_failed", json!({"port": port, "why": "still_alive"})),
             Terminated::Refused(why) | Terminated::Failed(why) => {
-                ("stop_failed", json!({"port": port, "why": why}))
+                ("stop_failed", json!({"port": port, "why": why.to_string()}))
             }
         };
         if let Some(mut record) = found {

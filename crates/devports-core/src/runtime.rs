@@ -53,8 +53,9 @@ use crate::engine::{
 };
 use crate::ipc::{IpcError, IpcServer, Limits, PeerInfo, RequestHandler};
 use crate::ports::{PortProbe, SystemPorts};
-use crate::process::terminate::{OsSignaler, Outcome, Timings, protected_pids, terminate};
+use crate::process::terminate::{OsSignaler, Outcome, Refusal, Timings, protected_pids, terminate};
 use crate::process::{ListeningProcess, ProcessSource};
+use crate::reasons::{StopFailure, Unsuitability};
 use crate::store::{Store, StoreError};
 
 /// How often the engine's clock-driven rules run.
@@ -397,7 +398,11 @@ impl CoreHandle {
         let description = self
             .describe_for_adoption(reference)
             .await
-            .map_err(|error| ApplyError::Unsuitable(error.to_string()))?;
+            .map_err(|error| {
+                ApplyError::Unsuitable(Unsuitability::Other {
+                    detail: error.to_string(),
+                })
+            })?;
         let Description {
             view,
             projects,
@@ -410,9 +415,7 @@ impl CoreHandle {
                     .iter()
                     .find(|(candidate, _)| *candidate == name)
                     .map(|(_, root)| root.clone())
-                    .ok_or_else(|| {
-                        ApplyError::Unsuitable(format!("no existe el proyecto «{name}»"))
-                    })?;
+                    .ok_or(ApplyError::Unsuitable(Unsuitability::ProjectNotInCatalog))?;
                 apply::add_service(&root, &view, Some(&shared))
             }
             AdoptTarget::Shared => {
@@ -426,9 +429,7 @@ impl CoreHandle {
                     .map(PathBuf::from)
                     // The project is the repository, not the folder being served.
                     .map(|cwd| crate::gitinfo::read(&cwd).map_or(cwd, |git| git.worktree))
-                    .ok_or_else(|| {
-                        ApplyError::Unsuitable("el proceso no tiene carpeta conocida".to_owned())
-                    })?;
+                    .ok_or(ApplyError::Unsuitable(Unsuitability::NoKnownFolder))?;
                 apply::create_project(
                     &root,
                     &home_for_write,
@@ -474,7 +475,7 @@ impl CoreHandle {
 }
 
 fn gone() -> ActionError {
-    ActionError::Refused("DevPorts se está cerrando".to_owned())
+    ActionError::Closing
 }
 
 fn unavailable(id: String) -> Response {
@@ -836,11 +837,11 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
         if let Some(reply) = self.pending_stops.remove(reference) {
             let result = match outcome {
                 Terminated::Stopped | Terminated::AlreadyGone => Ok(()),
-                Terminated::StillAlive => Err(ActionError::Refused(
-                    "la instancia sigue activa tras intentar detenerla".to_owned(),
-                )),
-                Terminated::Refused(reason) | Terminated::Failed(reason) => {
-                    Err(ActionError::Refused(reason))
+                Terminated::StillAlive => Err(ActionError::StopFailed {
+                    failure: StopFailure::StillAlive,
+                }),
+                Terminated::Refused(failure) | Terminated::Failed(failure) => {
+                    Err(ActionError::StopFailed { failure })
                 }
             };
             let _ = reply.send(result);
@@ -855,7 +856,9 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
         reply: oneshot::Sender<Result<(), ActionError>>,
     ) -> Vec<Effect> {
         if self.pending_stops.contains_key(reference) {
-            let _ = reply.send(Err(ActionError::NotRunning(reference.to_owned())));
+            let _ = reply.send(Err(ActionError::NotRunning {
+                reference: reference.to_owned(),
+            }));
             return Vec::new();
         }
         let result = match scope {
@@ -920,18 +923,23 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                         Outcome::Stopped => Terminated::Stopped,
                         Outcome::AlreadyGone => Terminated::AlreadyGone,
                         Outcome::StillAlive(_) => Terminated::StillAlive,
-                        Outcome::Refused(refusal) => Terminated::Refused(refusal.to_string()),
+                        Outcome::Refused(refusal) => Terminated::Refused(match refusal {
+                            Refusal::Protected(pid) => StopFailure::Protected { pid },
+                            Refusal::OtherUser(pid) => StopFailure::OtherUser { pid },
+                        }),
                         Outcome::Unreadable => {
-                            Terminated::Failed("no se pudo leer la tabla de procesos".to_owned())
+                            Terminated::Failed(StopFailure::ProcessTableUnreadable)
                         }
                     }
                 }
                 Target::Container(id) => match docker {
                     Some(docker) => match docker.stop(&id).await {
                         Ok(()) => Terminated::Stopped,
-                        Err(error) => Terminated::Failed(error.to_string()),
+                        Err(error) => Terminated::Failed(StopFailure::Failed {
+                            detail: error.to_string(),
+                        }),
                     },
-                    None => Terminated::Failed("Docker no está disponible".to_owned()),
+                    None => Terminated::Failed(StopFailure::DockerUnavailable),
                 },
             };
             let _ = messages

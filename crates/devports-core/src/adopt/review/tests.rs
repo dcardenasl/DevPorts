@@ -58,7 +58,14 @@ fn destinations_explain_outside_roots_and_provisional_git_projects_without_writi
         .find(|choice| choice.target == AdoptionTarget::Project("outside".to_owned()))
         .unwrap();
     assert!(!rejected.eligible);
-    assert!(rejected.reason.as_ref().unwrap().contains("fuera"));
+    assert!(
+        rejected
+            .reason
+            .as_ref()
+            .unwrap()
+            .to_string()
+            .contains("fuera")
+    );
     let prepared = prepare(&context, AdoptionTarget::New(None)).unwrap();
     let preview = prepared.validate(&prepared.defaults()).unwrap();
     assert_eq!(preview.root, context.projects[0].1.display().to_string());
@@ -81,7 +88,14 @@ fn destinations_explain_outside_roots_and_provisional_git_projects_without_writi
         .find(|choice| choice.target == AdoptionTarget::Shared)
         .unwrap();
     assert!(!shared.eligible);
-    assert!(shared.reason.as_ref().unwrap().contains("contenedores"));
+    assert!(
+        shared
+            .reason
+            .as_ref()
+            .unwrap()
+            .to_string()
+            .contains("contenedores")
+    );
 }
 
 // covers: UXR-3.1
@@ -341,7 +355,7 @@ fn field_errors_and_conflicts_have_stable_wire_codes() {
     assert_eq!(value["code"], "documentChanged");
     assert_eq!(value["path"], "/work/.devports.yml");
     assert_eq!(
-        serde_json::to_value(invalid("name", "invalid name")).unwrap()["field"],
+        serde_json::to_value(invalid("name", FieldProblem::InvalidName)).unwrap()["field"],
         "name"
     );
 }

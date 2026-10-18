@@ -26,6 +26,7 @@ pub mod messages;
 pub mod platform;
 pub mod ports;
 pub mod process;
+pub mod reasons;
 pub mod runtime;
 pub mod settings;
 mod shell;

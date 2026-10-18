@@ -1551,7 +1551,9 @@ fn a_person_can_stop_a_principal_and_a_process_nobody_registered() {
     );
     assert_eq!(
         world.engine.stop_instance("ffff").unwrap_err(),
-        ActionError::UnknownInstance("ffff".to_owned())
+        ActionError::UnknownInstance {
+            reference: "ffff".to_owned()
+        }
     );
     world.engine.termination_finished(
         &duplicate.instance_ref,
@@ -1640,7 +1642,9 @@ fn a_manual_stop_rejects_a_changed_or_disappeared_confirmation_target() {
             .engine
             .stop_confirmed(&vanished.instance_ref, &expectation)
             .unwrap_err(),
-        ActionError::UnknownInstance(vanished.instance_ref)
+        ActionError::UnknownInstance {
+            reference: vanished.instance_ref
+        }
     );
 }
 

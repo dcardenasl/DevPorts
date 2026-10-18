@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 
 use super::{AdoptionError, AdoptionPreview, PreparedAdoption, ServiceEdits};
 use crate::adopt::apply::Applied;
+use crate::reasons::FieldProblem;
 use devports_proto::views::InstanceView;
 use std::path::PathBuf;
 
@@ -50,7 +51,7 @@ impl AdoptionBook {
     ) -> Result<AdoptionPreview, AdoptionError> {
         let id = loop {
             let entropy = crate::ids::system_entropy().map_err(|error| AdoptionError::Io {
-                message: error.to_string(),
+                detail: error.to_string(),
             })?;
             let id = crate::ids::token_text(&entropy);
             if !self.entries.iter().any(|entry| entry.id == id) {
@@ -154,23 +155,17 @@ impl AdoptionBook {
 fn request_digest(edits: &ServiceEdits) -> Result<String, AdoptionError> {
     // Bound even a conflicting replay before allocating/serializing its content.
     if edits.name.len() > 63 {
-        return Err(super::invalid(
-            "name",
-            "el nombre supera el límite permitido",
-        ));
+        return Err(super::invalid("name", FieldProblem::TooLong));
     }
     if edits
         .start
         .as_ref()
         .is_some_and(|start| start.len() > super::MAX_START_BYTES)
     {
-        return Err(super::invalid(
-            "start",
-            "los campos superan el límite permitido",
-        ));
+        return Err(super::invalid("start", FieldProblem::TooLong));
     }
     let bytes = serde_json::to_vec(edits).map_err(|error| AdoptionError::Io {
-        message: error.to_string(),
+        detail: error.to_string(),
     })?;
     Ok(crate::hash::sha256_hex(&bytes))
 }

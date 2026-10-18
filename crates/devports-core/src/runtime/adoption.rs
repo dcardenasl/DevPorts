@@ -60,7 +60,7 @@ impl CoreHandle {
                 .await
                 .map_err(|error| worker_error(&error))?
                 .map_err(|error| AdoptionError::Io {
-                    message: error.to_string(),
+                    detail: error.to_string(),
                 })?;
         Ok(AdoptionContext {
             view,
@@ -267,7 +267,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                     let (result, update) = tokio::task::spawn_blocking(move || {
                         let result = load_settings(&home)
                             .map_err(|error| AdoptionError::Io {
-                                message: error.to_string(),
+                                detail: error.to_string(),
                             })
                             .and_then(|(config, _)| {
                                 prepared.check_discovery(&config.roots, config.max_depth)
@@ -305,12 +305,10 @@ pub(super) fn load_catalog(home: &std::path::Path) -> Result<CatalogUpdate, Runt
     })
 }
 fn closing() -> AdoptionError {
-    AdoptionError::Io {
-        message: "DevPorts se está cerrando".to_owned(),
-    }
+    AdoptionError::Closing
 }
 fn worker_error(error: &tokio::task::JoinError) -> AdoptionError {
     AdoptionError::Io {
-        message: error.to_string(),
+        detail: error.to_string(),
     }
 }

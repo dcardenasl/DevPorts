@@ -40,6 +40,7 @@ use crate::config::{Config, SharedServices};
 use crate::docker::Container;
 use crate::ports::PortProbe;
 use crate::process::{ListeningProcess, ProcessId, ProcessSource};
+use crate::reasons::StopFailure;
 use crate::store::{InstanceRecord, Store, StoreError};
 
 pub use actions::{ActionError, LogError};
@@ -201,9 +202,9 @@ pub enum Terminated {
     /// Something survived `SIGKILL`.
     StillAlive,
     /// The safety rules refused (with the reason, for the log).
-    Refused(String),
-    /// The container could not be stopped.
-    Failed(String),
+    Refused(StopFailure),
+    /// The instance could not be stopped.
+    Failed(StopFailure),
 }
 
 /// Why the engine could not start.

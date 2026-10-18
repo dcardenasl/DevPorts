@@ -109,7 +109,7 @@ fn the_port_is_replaced_in_every_form_it_appears() {
 fn a_launcher_is_flagged_for_review() {
     let views = [process("/work/shop/web", 5173, &["npm", "run", "dev"])];
     let proposal = propose(Path::new("/work/shop"), &views);
-    let review = proposal.services[0].review.as_deref().unwrap();
+    let review = proposal.services[0].review.as_ref().unwrap().to_string();
     assert!(review.contains("npm"));
     assert!(proposal.to_yaml().contains("# revisar"));
 }

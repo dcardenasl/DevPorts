@@ -2,10 +2,11 @@
 
 use std::sync::{Mutex, PoisonError};
 
+use devports_core::reasons::ReviewNote;
 use serde::{Deserialize, Serialize};
 
 /// Contract version of the serialized panel context.
-pub const PANEL_STATE_VERSION: u32 = 2;
+pub const PANEL_STATE_VERSION: u32 = 3;
 /// Most projects either manual list may hold.
 const MAX_FOLDED_PROJECTS: usize = 256;
 
@@ -190,8 +191,8 @@ pub struct AdoptionDraftContext {
     pub creates_manifest: bool,
     /// Port observed when the review was prepared.
     pub observed_port: Option<u16>,
-    /// Proposal warnings shown before confirmation.
-    pub warnings: Vec<String>,
+    /// Proposal warnings shown before confirmation, as the core described them.
+    pub warnings: Vec<ReviewNote>,
 }
 
 /// Adoption dialog step.

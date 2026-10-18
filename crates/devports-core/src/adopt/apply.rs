@@ -13,6 +13,7 @@ use devports_proto::views::InstanceView;
 
 use super::{ProposedService, propose, service_for, slug};
 use crate::manifest::{self, MANIFEST_FILE};
+use crate::reasons::{FormKey, FormProblem, Limitation, Unsuitability};
 
 /// What was written.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,13 +34,13 @@ pub enum ApplyError {
     Exists(PathBuf),
     /// The process or container cannot be described inside that project.
     #[error("{0}")]
-    Unsuitable(String),
+    Unsuitable(Unsuitability),
     /// The service name is already used in the manifest.
     #[error("el manifiesto ya tiene un servicio llamado «{0}»")]
     Duplicate(String),
     /// The manifest could not be edited safely.
     #[error("{0}")]
-    Unsupported(String),
+    Unsupported(Limitation),
     /// The manifest, before or after the edit, does not validate.
     #[error("el manifiesto no es válido: {0}")]
     Invalid(String),
@@ -69,12 +70,8 @@ pub fn add_service(
         .ok_or_else(|| ApplyError::Io("el manifiesto ya no existe".to_owned()))?;
     let before = manifest::parse_checked(text, &path, known_shared)
         .map_err(|error| ApplyError::Invalid(error.to_string()))?;
-    let service = service_for(root, view).ok_or_else(|| {
-        ApplyError::Unsuitable(
-            "la carpeta del proceso no está dentro del proyecto: créalo como proyecto nuevo"
-                .to_owned(),
-        )
-    })?;
+    let service =
+        service_for(root, view).ok_or(ApplyError::Unsuitable(Unsuitability::OutsideProjectRoot))?;
     let name = unused_name(&service.name, &before.manifest.services);
     let service = ProposedService { name, ..service };
     let edited = insert_service(text, &service.yaml_lines())?;
@@ -102,9 +99,7 @@ pub fn add_service(
 /// See [`ApplyError`].
 pub fn add_shared(path: &Path, view: &InstanceView) -> Result<Applied, ApplyError> {
     if view.container.is_none() {
-        return Err(ApplyError::Unsuitable(
-            "solo un contenedor puede ser un servicio compartido".to_owned(),
-        ));
+        return Err(ApplyError::Unsuitable(Unsuitability::SharedNeedsContainer));
     }
     let service = container_service_for(view)?;
     let snapshot = crate::document::FileSnapshot::capture(path).map_err(edit_error)?;
@@ -137,8 +132,7 @@ pub fn add_shared(path: &Path, view: &InstanceView) -> Result<Applied, ApplyErro
 }
 
 fn container_service_for(view: &InstanceView) -> Result<ProposedService, ApplyError> {
-    service_for(Path::new("/"), view)
-        .ok_or_else(|| ApplyError::Unsuitable("no se pudo describir ese contenedor".to_owned()))
+    service_for(Path::new("/"), view).ok_or(ApplyError::Unsuitable(Unsuitability::NotDescribable))
 }
 
 /// Creates a manifest in `root` for the project `name` (the folder's name by
@@ -158,10 +152,7 @@ pub fn create_project(
     // system or the volume root (a server started from `/` or `~` says nothing
     // about where its project is).
     if root == home || root.components().count() <= 2 {
-        return Err(ApplyError::Unsuitable(
-            "esa carpeta es demasiado amplia para ser un proyecto; adopta el proceso desde la carpeta de su repositorio"
-                .to_owned(),
-        ));
+        return Err(ApplyError::Unsuitable(Unsuitability::FolderTooBroad));
     }
     let path = root.join(MANIFEST_FILE);
     let snapshot = crate::document::FileSnapshot::capture(&path).map_err(edit_error)?;
@@ -170,9 +161,7 @@ pub fn create_project(
     }
     let mut proposal = propose(root, std::slice::from_ref(&with_no_service(view)));
     if proposal.services.is_empty() {
-        return Err(ApplyError::Unsuitable(
-            "no se pudo describir ese proceso desde esa carpeta".to_owned(),
-        ));
+        return Err(ApplyError::Unsuitable(Unsuitability::NotDescribable));
     }
     if let Some(name) = name.map(str::trim).filter(|name| !name.is_empty()) {
         proposal.project = slug(name);
@@ -224,12 +213,22 @@ pub(super) fn insert_service(text: &str, block: &[String]) -> Result<String, App
     // Retain each original line terminator and byte of unrelated content.
     let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
     let mut lines: Vec<String> = text.split_inclusive('\n').map(str::to_owned).collect();
-    let services_at = lines.iter().position(|line| {
-        line.strip_prefix("services:").is_some_and(|rest| {
-            let rest = rest.trim();
-            rest.is_empty() || rest.starts_with('#') || rest.strip_prefix("{}").is_some_and(|tail| tail.trim().is_empty() || tail.trim_start().starts_with('#'))
+    let services_at = lines
+        .iter()
+        .position(|line| {
+            line.strip_prefix("services:").is_some_and(|rest| {
+                let rest = rest.trim();
+                rest.is_empty()
+                    || rest.starts_with('#')
+                    || rest.strip_prefix("{}").is_some_and(|tail| {
+                        tail.trim().is_empty() || tail.trim_start().starts_with('#')
+                    })
+            })
         })
-    }).ok_or_else(|| ApplyError::Unsupported("el manifiesto escribe `services` en una forma que DevPorts no edita; agrega el servicio a mano".to_owned()))?;
+        .ok_or(ApplyError::Unsupported(Limitation::Form {
+            key: FormKey::Services,
+            problem: FormProblem::NotEditable,
+        }))?;
     if let Some(line) = lines.get_mut(services_at)
         && let Some(rest) = line.strip_prefix("services:")
         && rest.trim_start().starts_with("{}")

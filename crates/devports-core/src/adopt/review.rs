@@ -15,6 +15,7 @@ use super::{Proposal, ProposedService, service_for, slug};
 use crate::config::SharedServices;
 use crate::document::{EditError, FileSnapshot};
 use crate::manifest::{self, MANIFEST_FILE};
+use crate::reasons::{FieldProblem, Limitation, ReviewNote, Unsuitability};
 
 pub(crate) use book::{AdoptionBook, BeginApply};
 
@@ -54,7 +55,7 @@ pub struct AdoptionDestination {
     /// Whether this destination can currently be edited.
     pub eligible: bool,
     /// Why it cannot be used, without hiding it as an unexplained missing option.
-    pub reason: Option<String>,
+    pub reason: Option<AdoptionError>,
     /// Actual project directory, when it can be resolved.
     pub root: Option<String>,
     /// Actual manifest destination, when it can be resolved.
@@ -98,7 +99,7 @@ pub struct AdoptionPreview {
     /// The exact proposed service, including editable defaults.
     pub service: ProposedService,
     /// Warnings requiring review; not authorization to skip the review when empty.
-    pub warnings: Vec<String>,
+    pub warnings: Vec<ReviewNote>,
     /// Fully validated candidate document, for review only.
     pub yaml: String,
 }
@@ -109,18 +110,18 @@ pub struct AdoptionPreview {
 #[serde(tag = "code", rename_all = "camelCase")]
 pub enum AdoptionError {
     /// A destination is not eligible.
-    #[error("{message}")]
+    #[error("{reason}")]
     Unsuitable {
-        /// Reason to display beside the choice.
-        message: String,
+        /// Why, to be written beside the choice.
+        reason: Unsuitability,
     },
     /// One editable value is invalid.
-    #[error("{message}")]
+    #[error("{problem}")]
     InvalidField {
         /// Field name (`name` or `start`).
         field: String,
-        /// Validation explanation.
-        message: String,
+        /// What is wrong with it.
+        problem: FieldProblem,
     },
     /// A known external file change requires a new preview.
     #[error("{path} cambió desde la revisión; vuelve a revisarlo")]
@@ -141,16 +142,19 @@ pub enum AdoptionError {
     #[error("hay demasiadas revisiones guardándose; espera a que terminen")]
     AtCapacity,
     /// The file cannot be safely edited in its current representation.
-    #[error("{message}")]
+    #[error("{limitation}")]
     Unsupported {
         /// Safe editing limitation.
-        message: String,
+        limitation: Limitation,
     },
+    /// DevPorts is closing, so the request was not served.
+    #[error("DevPorts se está cerrando")]
+    Closing,
     /// A file or worker operation failed.
-    #[error("{message}")]
+    #[error("{detail}")]
     Io {
-        /// OS or runtime explanation.
-        message: String,
+        /// OS or runtime explanation, as it said it.
+        detail: String,
     },
 }
 
@@ -200,7 +204,7 @@ pub(crate) fn options(context: &AdoptionContext) -> AdoptionOptions {
             Err(error) => AdoptionDestination {
                 target,
                 eligible: false,
-                reason: Some(error.to_string()),
+                reason: Some(error),
                 root: None,
                 manifest: None,
                 creates_manifest: false,
@@ -227,19 +231,21 @@ pub(crate) fn prepare(
                 | devports_proto::views::InstanceState::Unknown
         )
     {
-        return Err(unsuitable("esa instancia no está disponible para adopción"));
+        return Err(unsuitable(Unsuitability::InstanceUnavailable));
     }
     if matches!(target, AdoptionTarget::Shared) && view.container.is_none() {
-        return Err(unsuitable(
-            "solo los contenedores pueden declararse como compartidos",
-        ));
+        return Err(unsuitable(Unsuitability::SharedNeedsContainer));
     }
     if let Some(cwd) = &view.cwd
         && view.container.is_none()
     {
         view.cwd = Some(
             std::fs::canonicalize(cwd)
-                .map_err(|error| unsuitable(&format!("no se puede resolver la carpeta: {error}")))?
+                .map_err(|error| {
+                    unsuitable(Unsuitability::FolderUnresolvable {
+                        detail: error.to_string(),
+                    })
+                })?
                 .display()
                 .to_string(),
         );
@@ -249,32 +255,26 @@ pub(crate) fn prepare(
     let root = file
         .path()
         .parent()
-        .ok_or_else(|| unsuitable("el destino no tiene raíz"))?
+        .ok_or_else(|| unsuitable(Unsuitability::NoRoot))?
         .to_path_buf();
     if !matches!(target, AdoptionTarget::Shared) && file.text().map_err(document_error)?.is_none() {
-        let home =
-            std::fs::canonicalize(&context.home).map_err(|error| unsuitable(&error.to_string()))?;
+        let home = std::fs::canonicalize(&context.home).map_err(|error| other(&error))?;
         if root == home || root.components().count() <= 2 {
-            return Err(unsuitable(
-                "esa carpeta es demasiado amplia para crear un proyecto",
-            ));
+            return Err(unsuitable(Unsuitability::FolderTooBroad));
         }
     }
     if matches!(target, AdoptionTarget::New(_)) && file.text().map_err(document_error)?.is_some() {
-        return Err(unsuitable(
-            "ya hay un manifiesto en la raíz; elige ese proyecto y revisa su contenido",
-        ));
+        return Err(unsuitable(Unsuitability::ManifestExists));
     }
-    let mut service = service_for(&root, &view)
-        .ok_or_else(|| unsuitable("la carpeta del proceso está fuera de la raíz del proyecto"))?;
+    let mut service =
+        service_for(&root, &view).ok_or_else(|| unsuitable(Unsuitability::OutsideProjectRoot))?;
     if let Some(text) = file.text().map_err(document_error)? {
         if matches!(target, AdoptionTarget::Shared) {
-            let (before, _) = SharedServices::parse(text, file.path())
-                .map_err(|error| unsuitable(&error.to_string()))?;
+            let (before, _) = SharedServices::parse(text, file.path()).map_err(file_invalid)?;
             service.name = unused_name(&service.name, &before.services);
         } else {
             let before = manifest::parse_checked(text, file.path(), Some(&context.shared))
-                .map_err(|error| unsuitable(&error.to_string()))?;
+                .map_err(file_invalid)?;
             if before.manifest.project != project {
                 return Err(AdoptionError::DocumentChanged {
                     path: file.path().display().to_string(),
@@ -289,7 +289,7 @@ pub(crate) fn prepare(
         .is_some_and(|start| start.len() > MAX_START_BYTES || start.contains(['\n', '\r', '\0']))
     {
         service.start = None;
-        service.review = Some("el comando observado no se representa como una línea; indica un comando o script estable".to_owned());
+        service.review = Some(ReviewNote::NotOneLine);
     }
     let prepared = PreparedAdoption {
         id: String::new(),
@@ -318,9 +318,7 @@ impl PreparedAdoption {
         if !matches!(self.target, AdoptionTarget::Shared)
             && !crate::discovery::includes_directory(roots, max_depth, &self.root)
         {
-            return Err(unsuitable(
-                "esta raíz no está en el alcance de exploración; añade su carpeta a config.yml antes de adoptar",
-            ));
+            return Err(unsuitable(Unsuitability::OutOfScanScope));
         }
         Ok(())
     }
@@ -349,49 +347,39 @@ impl PreparedAdoption {
 
     pub(crate) fn validate(&self, edits: &ServiceEdits) -> Result<AdoptionPreview, AdoptionError> {
         if !manifest::is_valid_name(&edits.name) {
-            return Err(invalid(
-                "name",
-                "usa de 1 a 63 letras minúsculas, números o guiones",
-            ));
+            return Err(invalid("name", FieldProblem::InvalidName));
         }
         if edits.start.as_ref().is_some_and(|start| {
             start.len() > MAX_START_BYTES
                 || start.trim().is_empty()
                 || start.contains(['\0', '\n', '\r'])
         }) {
-            return Err(invalid(
-                "start",
-                "el comando debe tener una sola línea, sin NUL, entre 1 y 16384 bytes",
-            ));
+            return Err(invalid("start", FieldProblem::InvalidStart));
         }
         let mut service = self.service.clone();
         service.name.clone_from(&edits.name);
         service.start.clone_from(&edits.start);
-        let mut warnings: Vec<String> = service.review.iter().cloned().collect();
+        let mut warnings: Vec<ReviewNote> = service.review.iter().cloned().collect();
         if service.start.is_none() {
-            warnings.push(
-                "no se pudo proponer un comando de inicio; puedes declararlo sin inicio automático"
-                    .to_owned(),
-            );
+            warnings.push(ReviewNote::NoStartCommand);
         }
         let before = self.file.text().map_err(document_error)?;
         let yaml = if matches!(self.target, AdoptionTarget::Shared) {
             let text = before.unwrap_or("version: 1\nservices: {}\n");
-            let (parsed, _) = SharedServices::parse(text, self.file.path())
-                .map_err(|error| unsuitable(&error.to_string()))?;
+            let (parsed, _) =
+                SharedServices::parse(text, self.file.path()).map_err(file_invalid)?;
             if parsed.services.contains_key(&service.name) {
-                return Err(invalid("name", "ya existe un servicio con ese nombre"));
+                return Err(invalid("name", FieldProblem::NameTaken));
             }
             let candidate = insert_service(text, &service.yaml_lines()).map_err(apply_error)?;
-            SharedServices::parse(&candidate, self.file.path())
-                .map_err(|error| unsuitable(&error.to_string()))?;
+            SharedServices::parse(&candidate, self.file.path()).map_err(file_invalid)?;
             candidate
         } else {
             let candidate = if let Some(text) = before {
                 let parsed = manifest::parse_checked(text, self.file.path(), Some(&self.shared))
-                    .map_err(|error| unsuitable(&error.to_string()))?;
+                    .map_err(file_invalid)?;
                 if parsed.manifest.services.contains_key(&service.name) {
-                    return Err(invalid("name", "ya existe un servicio con ese nombre"));
+                    return Err(invalid("name", FieldProblem::NameTaken));
                 }
                 insert_service(text, &service.yaml_lines()).map_err(apply_error)?
             } else {
@@ -403,14 +391,19 @@ impl PreparedAdoption {
                 .to_yaml()
             };
             let loaded = manifest::parse_checked(&candidate, self.file.path(), Some(&self.shared))
-                .map_err(|error| unsuitable(&error.to_string()))?;
-            warnings.extend(loaded.warnings.iter().map(ToString::to_string));
+                .map_err(file_invalid)?;
+            warnings.extend(
+                loaded
+                    .warnings
+                    .iter()
+                    .map(|warning| ReviewNote::ManifestWarning {
+                        detail: warning.to_string(),
+                    }),
+            );
             candidate
         };
         if yaml.len() > crate::document::MAX_DOCUMENT_BYTES {
-            return Err(unsuitable(
-                "el resultado supera el límite de edición automática",
-            ));
+            return Err(unsuitable(Unsuitability::ResultTooLarge));
         }
         Ok(AdoptionPreview {
             id: self.id.clone(),
@@ -461,23 +454,21 @@ fn resolve(
                 .iter()
                 .find(|(candidate, _)| candidate == name)
                 .map(|(_, root)| root)
-                .ok_or_else(|| unsuitable("ese proyecto ya no está en el catálogo"))?;
+                .ok_or_else(|| unsuitable(Unsuitability::ProjectNotInCatalog))?;
             (
-                std::fs::canonicalize(root).map_err(|error| unsuitable(&error.to_string()))?,
+                std::fs::canonicalize(root).map_err(|error| other(&error))?,
                 name.clone(),
             )
         }
         AdoptionTarget::New(name) => {
             if view.container.is_some() {
-                return Err(unsuitable(
-                    "para ese contenedor elige un proyecto existente o Compartidos",
-                ));
+                return Err(unsuitable(Unsuitability::ContainerNeedsProject));
             }
             let cwd = view
                 .cwd
                 .as_deref()
                 .map(Path::new)
-                .ok_or_else(|| unsuitable("el proceso no tiene carpeta conocida"))?;
+                .ok_or_else(|| unsuitable(Unsuitability::NoKnownFolder))?;
             let root =
                 crate::gitinfo::read(cwd).map_or_else(|| cwd.to_path_buf(), |git| git.worktree);
             let project = name.as_deref().map_or_else(
@@ -498,12 +489,9 @@ fn resolve(
         }
     };
     if matches!(target, AdoptionTarget::New(_)) {
-        let home =
-            std::fs::canonicalize(&context.home).map_err(|error| unsuitable(&error.to_string()))?;
+        let home = std::fs::canonicalize(&context.home).map_err(|error| other(&error))?;
         if root == home || root.components().count() <= 2 {
-            return Err(unsuitable(
-                "esa carpeta es demasiado amplia para ser un proyecto",
-            ));
+            return Err(unsuitable(Unsuitability::FolderTooBroad));
         }
     }
     let path = root.join(MANIFEST_FILE);
@@ -514,25 +502,46 @@ fn argv_digest(argv: &[String]) -> Result<String, AdoptionError> {
     serde_json::to_vec(argv)
         .map(|bytes| crate::hash::sha256_hex(&bytes))
         .map_err(|error| AdoptionError::Io {
-            message: error.to_string(),
+            detail: error.to_string(),
         })
 }
 
-fn unsuitable(message: &str) -> AdoptionError {
-    AdoptionError::Unsuitable {
-        message: message.to_owned(),
-    }
+fn unsuitable(reason: Unsuitability) -> AdoptionError {
+    AdoptionError::Unsuitable { reason }
 }
-fn invalid(field: &str, message: &str) -> AdoptionError {
+/// A file system error nobody has a better word for.
+fn other(error: &std::io::Error) -> AdoptionError {
+    unsuitable(Unsuitability::Other {
+        detail: error.to_string(),
+    })
+}
+/// A file the reader found invalid.
+fn file_invalid(error: impl std::fmt::Display) -> AdoptionError {
+    unsuitable(Unsuitability::FileInvalid {
+        detail: error.to_string(),
+    })
+}
+fn invalid(field: &str, problem: FieldProblem) -> AdoptionError {
     AdoptionError::InvalidField {
         field: field.to_owned(),
-        message: message.to_owned(),
+        problem,
     }
 }
 fn apply_error(error: super::apply::ApplyError) -> AdoptionError {
     match error {
-        super::apply::ApplyError::Unsupported(message) => AdoptionError::Unsupported { message },
-        other => unsuitable(&other.to_string()),
+        super::apply::ApplyError::Unsupported(limitation) => {
+            AdoptionError::Unsupported { limitation }
+        }
+        super::apply::ApplyError::Unsuitable(reason) => unsuitable(reason),
+        super::apply::ApplyError::Exists(_) => unsuitable(Unsuitability::ManifestExists),
+        super::apply::ApplyError::Duplicate(_) => invalid("name", FieldProblem::NameTaken),
+        super::apply::ApplyError::Invalid(detail) => {
+            unsuitable(Unsuitability::FileInvalid { detail })
+        }
+        super::apply::ApplyError::Io(detail) => AdoptionError::Io { detail },
+        super::apply::ApplyError::Conflict(path) => AdoptionError::DocumentChanged {
+            path: path.display().to_string(),
+        },
     }
 }
 pub(crate) fn document_error(error: EditError) -> AdoptionError {
@@ -540,9 +549,9 @@ pub(crate) fn document_error(error: EditError) -> AdoptionError {
         EditError::Conflict(path) => AdoptionError::DocumentChanged {
             path: path.display().to_string(),
         },
-        EditError::Unsupported(message) => AdoptionError::Unsupported { message },
+        EditError::Unsupported(limitation) => AdoptionError::Unsupported { limitation },
         other => AdoptionError::Io {
-            message: other.to_string(),
+            detail: other.to_string(),
         },
     }
 }
