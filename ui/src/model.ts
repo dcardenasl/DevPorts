@@ -118,6 +118,36 @@ function serviceNode(
   };
 }
 
+export interface PortChip {
+  port: number;
+  tone: "green" | "coral" | "amber";
+}
+
+/** Ports a project occupies right now, ascending, with the health of whoever holds them. */
+export function occupiedPorts(node: ProjectNode): PortChip[] {
+  const chips = new Map<number, PortChip["tone"]>();
+  for (const service of node.repos.flatMap((repo) => repo.services)) {
+    const holders = [service.principal, ...service.temporals, ...service.duplicates];
+    for (const view of holders) {
+      if (view === undefined || view.port === null || !isRunning(view) || view.ignored) continue;
+      chips.set(
+        view.port,
+        view.state === "healthy" ? "green" : view.state === "unhealthy" ? "coral" : "amber",
+      );
+    }
+  }
+  return [...chips].sort(([a], [b]) => a - b).map(([port, tone]) => ({ port, tone }));
+}
+
+/** Projects with something running (or unconfirmed) first, then by name; stable inside each. */
+export function orderProjects(nodes: readonly ProjectNode[]): ProjectNode[] {
+  const active = (node: ProjectNode): number =>
+    node.runningCount > 0 || node.unknownCount > 0 ? 0 : 1;
+  return [...nodes].sort(
+    (a, b) => active(a) - active(b) || a.summary.name.localeCompare(b.summary.name),
+  );
+}
+
 export function buildShared(snapshot: Snapshot): SharedNode[] {
   return snapshot.instances
     .filter((view) => view.shared && view.role === "principal" && view.service !== null)

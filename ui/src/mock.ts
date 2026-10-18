@@ -14,10 +14,10 @@ import type { InstanceView, OperationRequest, OperationView, PanelState, Snapsho
 export function mockBackend(): Backend {
   let state: Snapshot = sampleSnapshot();
   let panelState: PanelState = {
-    version: 1,
+    version: 2,
     tab: "attention",
-    expandedProject: null,
-    expandedProjectSet: false,
+    openProjects: [],
+    closedProjects: [],
     activityFilter: "all",
     draft: null,
   };

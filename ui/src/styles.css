@@ -363,9 +363,19 @@ button {
   padding: 10px 14px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   text-align: left;
+  min-width: 0;
+}
+.project-head .where {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.project-head .ports {
+  display: flex;
+  gap: 4px;
+  flex: none;
 }
 .project.dim-project {
   border-style: dashed;
@@ -387,6 +397,48 @@ button {
   border-top: 1px solid var(--line);
   color: var(--text-soft);
 }
+.svc-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.svc-main:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.svc-facts {
+  padding: 0 14px 6px 22px;
+}
+.projects-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+.project-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--line);
+  color: var(--text-soft);
+}
+.project-foot .uses-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+}
 .svc {
   display: flex;
   align-items: center;
@@ -405,15 +457,6 @@ button {
   padding-left: 36px;
   background: rgba(255, 106, 85, 0.07);
 }
-.uses {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border-top: 1px solid var(--line);
-  color: var(--text-soft);
-}
-
 .pills {
   display: flex;
   gap: 6px;
@@ -555,10 +598,6 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
-
-.project-actions {
-  padding: 8px 14px;
-}
 .stop-targets {
   max-height: 240px;
   overflow-y: auto;
@@ -581,18 +620,23 @@ button {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
-.instance-details dl {
+.instance-facts dl {
   margin: 8px 0;
 }
-.instance-details dl > div {
+.instance-facts dl > div {
   margin-block: 8px;
 }
-.instance-details dt {
+.instance-facts dt {
   color: var(--text-soft);
 }
-.instance-details dd {
+.instance-facts dd {
   margin: 2px 0 0;
   white-space: pre-wrap;
+}
+.instance-facts {
+  font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .instance-chain {
   padding-left: 20px;

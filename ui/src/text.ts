@@ -115,6 +115,8 @@ export const text = {
     noneBody:
       "Un proyecto es una carpeta con un archivo .devports.yml. Adopta un proceso desde «Sin proyecto» para crear el primero.",
     noActive: "sin servicios activos",
+    foldAll: "Plegar todo",
+    openAll: "Abrir todo",
     unconfirmed: "estado sin confirmar",
     uses: "Usa",
     temporal: "Temporal",

@@ -77,10 +77,12 @@ export interface SettingsDraft {
 }
 export type PanelDraft = AdoptDraft | ConsumersDraft | SettingsDraft;
 export interface PanelState {
-  version: 1;
+  version: 2;
   tab: PanelTab;
-  expandedProject: string | null;
-  expandedProjectSet: boolean;
+  /** Projects the person opened by hand. */
+  openProjects: string[];
+  /** Projects the person folded by hand. */
+  closedProjects: string[];
   activityFilter: ActivityFilter;
   draft: PanelDraft | null;
 }

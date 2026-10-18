@@ -1,13 +1,29 @@
-import { useEffect, useMemo, useRef, type MouseEvent, type ReactElement } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactElement,
+} from "react";
 
 import type { Actions } from "../actions";
 import { ChevronIcon, CopyIcon, ExternalIcon, FolderIcon, LinkIcon, StopIcon } from "../icons";
-import { buildProjects, startCommand, type ProjectNode, type ServiceNode } from "../model";
+import {
+  buildProjects,
+  occupiedPorts,
+  orderProjects,
+  startCommand,
+  type ProjectNode,
+  type ServiceNode,
+} from "../model";
+import { isOpen, revealed, setAll, toggled, type ProjectFolds } from "../projectFolds";
 import { text } from "../text";
 import { countdown, secondsUntil } from "../time";
 import type { InstanceView } from "../types";
-import { canRequestStop } from "../instance";
-import { InstanceDetails } from "./InstanceDetails";
+import { canRequestStop, instanceTitle } from "../instance";
+import { InstanceDetails, InstanceFacts } from "./InstanceDetails";
 import { Dot, Empty, Tag, dotFor, stateLabel } from "./shared-parts";
 
 /** Smooth scrolling is motion: it is skipped when the person asked for less. */
@@ -28,18 +44,17 @@ export function projectsSubtitle(actions: Actions): string {
 export function ProjectsView({
   actions,
   highlight,
-  expandedProject,
-  onExpandedProjectChange,
+  folds,
+  onFoldsChange,
 }: {
   actions: Actions;
   highlight: string | undefined;
-  expandedProject: string | null;
-  onExpandedProjectChange: (name: string | null) => void;
+  folds: ProjectFolds;
+  onFoldsChange: (folds: ProjectFolds) => void;
 }): ReactElement {
-  const nodes = useMemo(() => buildProjects(actions.snapshot), [actions.snapshot]);
-  const open = expandedProject;
+  const nodes = useMemo(() => orderProjects(buildProjects(actions.snapshot)), [actions.snapshot]);
 
-  // Showing a service from "Atención" opens its project in the shell state.
+  // Showing a service from "Atención" opens its project and leaves the others as they are.
   const seenHighlight = useRef(highlight);
   useEffect(() => {
     if (seenHighlight.current === highlight) return;
@@ -50,21 +65,33 @@ export function ProjectsView({
         repo.services.some((service) => service.principal?.ref === highlight),
       ),
     );
-    if (owner !== undefined) onExpandedProjectChange(owner.summary.name);
-  }, [highlight, nodes, onExpandedProjectChange]);
+    if (owner !== undefined) onFoldsChange(revealed(folds, owner.summary.name));
+  }, [highlight, nodes, folds, onFoldsChange]);
 
   if (nodes.length === 0) {
     return <Empty title={text.projects.none} body={text.projects.noneBody} />;
   }
+  const allOpen = nodes.every((node) => isOpen(folds, node));
   return (
     <>
+      <div className="projects-bar">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            onFoldsChange(setAll(nodes, !allOpen));
+          }}
+        >
+          {allOpen ? text.projects.foldAll : text.projects.openAll}
+        </button>
+      </div>
       {nodes.map((node) => (
         <ProjectCard
           key={node.summary.name}
           node={node}
-          open={open === node.summary.name}
+          open={isOpen(folds, node)}
           onToggle={() => {
-            onExpandedProjectChange(open === node.summary.name ? null : node.summary.name);
+            onFoldsChange(toggled(folds, node));
           }}
           actions={actions}
           highlight={highlight}
@@ -73,6 +100,9 @@ export function ProjectsView({
     </>
   );
 }
+
+/** Ports shown in a folded header before «+N». */
+const CHIPS_SHOWN = 3;
 
 function ProjectCard({
   node,
@@ -88,29 +118,93 @@ function ProjectCard({
   highlight: string | undefined;
 }): ReactElement {
   const quiet = node.runningCount === 0 && node.unknownCount === 0;
+  const ports = occupiedPorts(node);
+  const single = node.repos.length === 1 ? node.repos[0]?.repo : undefined;
+  const place = [shortPath(node.summary.root), single?.branch ?? null]
+    .filter((part) => part !== null && part.length > 0)
+    .join(" · ");
   return (
     <section className={quiet ? "project dim-project" : "project"}>
       <button type="button" className="project-head" aria-expanded={open} onClick={onToggle}>
         <span className={open ? "chev open" : "chev"}>
           <ChevronIcon size={16} />
         </span>
-        <span className="grow">
-          <div className="name ellipsis">{node.summary.name}</div>
-          <div className="dim mono ellipsis" style={{ fontSize: 11 }}>
-            {shortPath(node.summary.root)}
-          </div>
+        <span className="name ellipsis" style={{ flex: "0 1 auto" }}>
+          {node.summary.name}
         </span>
-        <span className="soft" style={{ fontSize: 12 }}>
-          {node.runningCount === 0 && node.unknownCount > 0
-            ? text.projects.unconfirmed
-            : quiet
-              ? text.projects.noActive
-              : `${node.repos.length} ${node.repos.length === 1 ? "repo" : "repos"} · ${node.serviceCount} ${node.serviceCount === 1 ? "servicio" : "servicios"}`}
+        <span className="where dim mono ellipsis" style={{ fontSize: 11 }}>
+          {place}
         </span>
+        {ports.length > 0 ? (
+          <span className="ports">
+            {ports.slice(0, CHIPS_SHOWN).map((chip) => (
+              <Tag key={chip.port} tone={chip.tone}>
+                :{chip.port}
+              </Tag>
+            ))}
+            {ports.length > CHIPS_SHOWN && <Tag>+{ports.length - CHIPS_SHOWN}</Tag>}
+          </span>
+        ) : (
+          <span className="soft" style={{ fontSize: 12 }}>
+            {node.unknownCount > 0 ? text.projects.unconfirmed : text.projects.noActive}
+          </span>
+        )}
       </button>
       {open && (
         <>
-          <div className="project-actions">
+          {node.repos.map((repo) => (
+            <div key={repo.repo.path}>
+              {single === undefined && (
+                <div className="repo">
+                  <FolderIcon size={14} />
+                  <span className="mono grow ellipsis">{repo.repo.name}</span>
+                  {repo.repo.branch !== null && <Tag>{repo.repo.branch}</Tag>}
+                </div>
+              )}
+              {repo.services.map((service) => (
+                <ServiceRows
+                  key={service.name}
+                  node={node}
+                  service={service}
+                  actions={actions}
+                  highlight={highlight}
+                />
+              ))}
+            </div>
+          ))}
+          <div className="project-foot">
+            <LinkIcon size={14} />
+            <span className="uses-list">
+              <span>{text.projects.uses}</span>
+              {node.summary.uses.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className="tag blue"
+                  aria-label={text.consumers.manageFor(name)}
+                  onClick={(event) => {
+                    actions.manageConsumers(name, event.currentTarget, node.summary.name);
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+              {actions.snapshot.shared
+                .filter((item) => !node.summary.uses.includes(item.name))
+                .map((item) => (
+                  <button
+                    key={item.name}
+                    type="button"
+                    className="tag add"
+                    aria-label={text.consumers.associate(item.name)}
+                    onClick={(event) => {
+                      actions.manageConsumers(item.name, event.currentTarget, node.summary.name);
+                    }}
+                  >
+                    + {item.name}
+                  </button>
+                ))}
+            </span>
             <button
               type="button"
               className="btn"
@@ -123,56 +217,6 @@ function ProjectCard({
                 ? text.projects.preparingStop
                 : text.projects.stopProject}
             </button>
-          </div>
-          {node.repos.map((repo) => (
-            <div key={repo.repo.path}>
-              <div className="repo">
-                <FolderIcon size={14} />
-                <span className="mono grow ellipsis">{repo.repo.name}</span>
-                {repo.repo.branch !== null && <Tag>{repo.repo.branch}</Tag>}
-              </div>
-              {repo.services.map((service) => (
-                <ServiceRows
-                  key={service.name}
-                  node={node}
-                  service={service}
-                  actions={actions}
-                  highlight={highlight}
-                />
-              ))}
-            </div>
-          ))}
-          <div className="uses">
-            <LinkIcon size={14} />
-            <span>{text.projects.uses}</span>
-            {node.summary.uses.map((name) => (
-              <button
-                key={name}
-                type="button"
-                className="tag blue"
-                aria-label={text.consumers.manageFor(name)}
-                onClick={(event) => {
-                  actions.manageConsumers(name, event.currentTarget, node.summary.name);
-                }}
-              >
-                {name}
-              </button>
-            ))}
-            {actions.snapshot.shared
-              .filter((item) => !node.summary.uses.includes(item.name))
-              .map((item) => (
-                <button
-                  key={item.name}
-                  type="button"
-                  className="tag add"
-                  aria-label={text.consumers.associate(item.name)}
-                  onClick={(event) => {
-                    actions.manageConsumers(item.name, event.currentTarget, node.summary.name);
-                  }}
-                >
-                  + {item.name}
-                </button>
-              ))}
           </div>
         </>
       )}
@@ -193,6 +237,8 @@ function ServiceRows({
 }): ReactElement {
   const principal = service.principal;
   const ref = useRef<HTMLDivElement>(null);
+  const factsId = useId();
+  const [showFacts, setShowFacts] = useState(false);
   const flagged = highlight !== undefined && principal?.ref === highlight;
   useEffect(() => {
     if (flagged)
@@ -205,33 +251,31 @@ function ServiceRows({
   return (
     <>
       <div className={flagged ? "svc highlight" : "svc"} ref={ref}>
-        <Dot kind={principal === undefined ? "down" : dotFor(principal.state)} />
-        <span className="name" style={{ fontSize: 14 }}>
-          {service.name}
-        </span>
-        <span
-          className={
-            principal?.state === "unhealthy"
-              ? "coral-text"
-              : principal?.state === "healthy"
-                ? "green-text"
-                : "dim"
-          }
-          style={{ fontSize: 12 }}
-        >
-          {principal === undefined ? stateLabel("down") : stateLabel(principal.state)}
-        </span>
-        <span className="grow" />
-        <span className="mono soft">
-          {principal?.port === null || principal === undefined
-            ? service.port === null
-              ? ""
-              : `:${service.port}`
-            : `:${principal.port}`}
-        </span>
+        {principal === undefined ? (
+          <span className="svc-main">
+            <ServiceSummary service={service} />
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="svc-main"
+            aria-expanded={showFacts}
+            aria-controls={factsId}
+            aria-label={text.instance.detailsIdentity(instanceTitle(principal), principal.ref)}
+            onClick={() => {
+              setShowFacts(!showFacts);
+            }}
+          >
+            <ServiceSummary service={service} />
+          </button>
+        )}
         <ServiceButtons node={node} service={service} actions={actions} />
       </div>
-      {principal !== undefined && <InstanceDetails view={principal} />}
+      {principal !== undefined && showFacts && (
+        <div className="svc-facts" id={factsId}>
+          <InstanceFacts view={principal} />
+        </div>
+      )}
       {service.temporals.map((temporal) => (
         <TemporalRow key={temporal.ref} view={temporal} actions={actions} />
       ))}
@@ -269,6 +313,33 @@ function ServiceRows({
             <InstanceDetails view={view} />
           </div>
         ))}
+    </>
+  );
+}
+
+function ServiceSummary({ service }: { service: ServiceNode }): ReactElement {
+  const principal = service.principal;
+  const port = principal?.port ?? service.port;
+  return (
+    <>
+      <Dot kind={principal === undefined ? "down" : dotFor(principal.state)} />
+      <span className="name ellipsis" style={{ fontSize: 14 }}>
+        {service.name}
+      </span>
+      <span
+        className={
+          principal?.state === "unhealthy"
+            ? "coral-text"
+            : principal?.state === "healthy"
+              ? "green-text"
+              : "dim"
+        }
+        style={{ fontSize: 12 }}
+      >
+        {principal === undefined ? stateLabel("down") : stateLabel(principal.state)}
+      </span>
+      <span className="grow" />
+      <span className="mono soft">{port === null ? "" : `:${port}`}</span>
     </>
   );
 }

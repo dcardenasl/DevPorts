@@ -25,10 +25,10 @@ function fakeBackend(
 ): Backend & { calls: Record<string, unknown[][]>; getPersisted: () => PanelState } {
   const calls: Record<string, unknown[][]> = {};
   let persisted: PanelState = initialState ?? {
-    version: 1,
+    version: 2,
     tab: "attention",
-    expandedProject: null,
-    expandedProjectSet: false,
+    openProjects: [],
+    closedProjects: [],
     activityFilter: "all",
     draft: null,
   };
@@ -281,20 +281,66 @@ describe("the panel", () => {
   });
 
   // covers: UI
-  it("lays projects out as repos and services, one project open at a time", async () => {
+  it("opens active projects by default and lists their ports even when folded", async () => {
     const { user } = await open();
     await user.click(tab(/Proyectos/));
-    expect(screen.getByText("2 repos · 2 servicios")).toBeInTheDocument();
+    const active = screen.getByRole("button", { name: /tienda-demo/ });
+    const quiet = screen.getByRole("button", { name: /ci4-kickstart/ });
+    expect(active).toHaveAttribute("aria-expanded", "true");
+    expect(quiet).toHaveAttribute("aria-expanded", "false");
+    // Name and folder share the header row; two repos keep a light repo subheader.
+    expect(active).toHaveTextContent("tienda-demo");
+    expect(active).toHaveTextContent("work/tienda-demo");
     expect(screen.getByText("tienda-api")).toBeInTheDocument();
     expect(screen.getByText("tienda-admin")).toBeInTheDocument();
     expect(screen.getByText("Usa")).toBeInTheDocument();
-    expect(screen.getByText("mysql")).toBeInTheDocument();
-    // The temporal hangs under its service, with its reason.
     expect(screen.getByText("QA login")).toBeInTheDocument();
-    // Opening the other project folds this one.
-    await user.click(screen.getByRole("button", { name: /ci4-kickstart/ }));
+    // Folding keeps the occupied ports visible in the header.
+    await user.click(active);
+    expect(active).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("tienda-api")).not.toBeInTheDocument();
-    expect(screen.getByText("ci4-kickstart", { selector: ".mono" })).toBeInTheDocument();
+    expect(active).toHaveTextContent(":8080");
+    expect(quiet).toHaveTextContent("sin servicios activos");
+  });
+
+  // covers: UI
+  it("keeps several projects open at once and folds or opens all of them", async () => {
+    const { user } = await open();
+    await user.click(tab(/Proyectos/));
+    const quiet = screen.getByRole("button", { name: /ci4-kickstart/ });
+    await user.click(quiet);
+    expect(quiet).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /tienda-demo/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    // One repo: no repo subheader, the branch rides in the header.
+    expect(quiet).toHaveTextContent("main");
+    expect(screen.queryByText("ci4-kickstart", { selector: ".mono" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Plegar todo" }));
+    for (const name of [/tienda-demo/, /ci4-kickstart/]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
+    }
+    await user.click(screen.getByRole("button", { name: "Abrir todo" }));
+    expect(screen.getByRole("button", { name: /tienda-demo/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  // covers: UI
+  it("opens a service's details from its own row", async () => {
+    const { user } = await open();
+    await user.click(tab(/Proyectos/));
+    const row = screen.getByRole("button", { name: /Detalles de api · ref/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    await user.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    const facts = document.getElementById(row.getAttribute("aria-controls") ?? "");
+    expect(facts).not.toBeNull();
+    expect(facts).toHaveTextContent("Comando (valores ocultos)");
+    await user.click(row);
+    expect(document.getElementById(row.getAttribute("aria-controls") ?? "")).toBeNull();
   });
 
   // covers: UI
@@ -819,6 +865,7 @@ describe("the panel", () => {
     await screen.findByRole("tab", { name: /Atención/ });
     await user.click(tab(/Proyectos/));
     await user.click(screen.getByRole("button", { name: /ci4-kickstart/ }));
+    await user.click(screen.getByRole("button", { name: /tienda-demo/ }));
     await user.click(tab(/Actividad/));
     await user.click(screen.getByRole("button", { name: "Alertas" }));
     await waitFor(() => {
@@ -830,18 +877,24 @@ describe("the panel", () => {
     await waitFor(() => expect(tab(/Actividad/)).toHaveAttribute("aria-selected", "true"));
     expect(screen.getByRole("button", { name: "Alertas" })).toHaveAttribute("aria-pressed", "true");
     await user.click(tab(/Proyectos/));
-    expect(screen.queryByText("tienda-api")).not.toBeInTheDocument();
-    expect(screen.getByText("ci4-kickstart", { selector: ".mono" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ci4-kickstart/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /tienda-demo/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     cleanup();
   });
 
   // covers: UI, UXR-1.2
   it("restores an adoption draft without restoring a destructive confirmation", async () => {
     const backend = fakeBackend(sampleSnapshot(), {
-      version: 1,
+      version: 2,
       tab: "orphans",
-      expandedProject: null,
-      expandedProjectSet: true,
+      openProjects: [],
+      closedProjects: [],
       activityFilter: "all",
       draft: {
         kind: "adopt",
@@ -867,10 +920,10 @@ describe("the panel", () => {
   // covers: UI, UXR-1.2
   it("discards and explains a draft whose process no longer exists", async () => {
     const backend = fakeBackend(sampleSnapshot(), {
-      version: 1,
+      version: 2,
       tab: "orphans",
-      expandedProject: null,
-      expandedProjectSet: true,
+      openProjects: [],
+      closedProjects: [],
       activityFilter: "all",
       draft: {
         kind: "adopt",
@@ -1011,10 +1064,10 @@ describe("the panel", () => {
       focus: null,
     });
     const base = {
-      version: 1 as const,
+      version: 2 as const,
       tab: "shared" as const,
-      expandedProject: null,
-      expandedProjectSet: true,
+      openProjects: [],
+      closedProjects: [],
       activityFilter: "all" as const,
     };
     const restored = fakeBackend(sampleSnapshot(), { ...base, draft: draft("mysql") });
@@ -1287,10 +1340,10 @@ describe("the panel", () => {
       reviewing: true,
     };
     const backend = fakeBackend(sampleSnapshot(), {
-      version: 1,
+      version: 2,
       tab: "attention",
-      expandedProject: null,
-      expandedProjectSet: true,
+      openProjects: [],
+      closedProjects: [],
       activityFilter: "all",
       draft,
     });

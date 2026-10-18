@@ -6,6 +6,19 @@ import type { InstanceView } from "../types";
 
 /** Reusable, read-only diagnostics. No inferred ancestry, missing ports or actions. */
 export function InstanceDetails({ view }: { view: InstanceView }): ReactElement {
+  return (
+    <details className="instance-details">
+      <summary aria-label={text.instance.detailsIdentity(instanceTitle(view), view.ref)}>
+        {text.instance.details(instanceTitle(view))}
+        {view.stale !== null && <span className="amber-text"> · {text.instance.stale}</span>}
+      </summary>
+      <InstanceFacts view={view} />
+    </details>
+  );
+}
+
+/** The diagnostics themselves, for rows that act as their own trigger. */
+export function InstanceFacts({ view }: { view: InstanceView }): ReactElement {
   const missing = text.instance.unavailable;
   const ports = view.ports ?? [];
   const facts: [string, string][] = [
@@ -41,11 +54,7 @@ export function InstanceDetails({ view }: { view: InstanceView }): ReactElement 
     if (value !== null) facts.push([label, value]);
   }
   return (
-    <details className="instance-details">
-      <summary aria-label={text.instance.detailsIdentity(instanceTitle(view), view.ref)}>
-        {text.instance.details(instanceTitle(view))}
-        {view.stale !== null && <span className="amber-text"> · {text.instance.stale}</span>}
-      </summary>
+    <div className="instance-facts">
       <dl>
         {facts.map(([label, value]) => (
           <div key={label}>
@@ -74,6 +83,6 @@ export function InstanceDetails({ view }: { view: InstanceView }): ReactElement 
       <div className="soft">{text.instance.command}</div>
       <code className="instance-command">{commandLine(view.argv)}</code>
       <p className="dim">{text.instance.commandPrivacy}</p>
-    </details>
+    </div>
   );
 }

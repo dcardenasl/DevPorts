@@ -9,6 +9,7 @@ import { ClassifySheet } from "./ClassifySheet";
 import { SettingsSheet } from "./SettingsSheet";
 import { IgnoreConfirm, IgnoredList } from "./IgnoreSheets";
 import { consumersDraft } from "./consumers";
+import { revealed, type ProjectFolds } from "./projectFolds";
 import { useConnection, useNow, useOperations, usePanelStore, useToast } from "./hooks";
 import {
   BellIcon,
@@ -140,9 +141,9 @@ export function App(): ReactElement {
     [updatePanelState],
   );
 
-  const expandProject = useCallback(
-    (expandedProject: string | null): void => {
-      updatePanelState({ expandedProject, expandedProjectSet: true });
+  const changeFolds = useCallback(
+    (folds: ProjectFolds): void => {
+      updatePanelState({ openProjects: [...folds.open], closedProjects: [...folds.closed] });
     },
     [updatePanelState],
   );
@@ -356,8 +357,8 @@ export function App(): ReactElement {
         <ProjectsView
           actions={actions}
           highlight={highlight}
-          expandedProject={panelState.expandedProject}
-          onExpandedProjectChange={expandProject}
+          folds={{ open: panelState.openProjects, closed: panelState.closedProjects }}
+          onFoldsChange={changeFolds}
         />
       )}
       {tab === "shared" && <SharedView actions={actions} />}
@@ -490,11 +491,16 @@ export function App(): ReactElement {
                       (view) => view.project === project && view.service === service,
                     )?.ref,
                   );
+                  const shown = revealed(
+                    { open: panelState.openProjects, closed: panelState.closedProjects },
+                    project,
+                  );
                   updatePanelState({
                     draft: null,
                     tab: shared ? "shared" : "projects",
-                    expandedProject: shared ? panelState.expandedProject : project,
-                    expandedProjectSet: true,
+                    ...(shared
+                      ? {}
+                      : { openProjects: [...shown.open], closedProjects: [...shown.closed] }),
                   });
                   setDraftInvoker(null);
                 }}

@@ -50,10 +50,10 @@ const flush = async (): Promise<void> => {
 };
 
 const stored: PanelState = {
-  version: 1,
+  version: 2,
   tab: "attention",
-  expandedProject: null,
-  expandedProjectSet: true,
+  openProjects: [],
+  closedProjects: [],
   activityFilter: "all",
   draft: null,
 };

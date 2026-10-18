@@ -1,3 +1,4 @@
+import { pruned } from "./projectFolds";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { backend, type Backend } from "./api";
@@ -55,16 +56,15 @@ export function useConnection(): Connection {
       timers: browserTimers,
       onLink: setLink,
       onFirst: ({ api: connected, snapshot: first, stored }) => {
-        const expandedProject = stored.expandedProjectSet
-          ? first.projects.some((project) => project.name === stored.expandedProject)
-            ? stored.expandedProject
-            : null
-          : (first.projects[0]?.name ?? null);
+        const folds = pruned(
+          { open: stored.openProjects, closed: stored.closedProjects },
+          first.projects.map((project) => project.name),
+        );
         const draftExists = stored.draft === null || draftTargetExists(stored.draft, first);
         const restored: PanelState = {
           ...stored,
-          expandedProject,
-          expandedProjectSet: true,
+          openProjects: [...folds.open],
+          closedProjects: [...folds.closed],
           draft: draftExists ? stored.draft : null,
         };
         const requestedTab = new URLSearchParams(window.location.search).get("tab");
@@ -75,8 +75,8 @@ export function useConnection(): Connection {
         setMissingDraft(!draftExists);
         setPanelState(restored);
         if (
-          restored.expandedProject !== stored.expandedProject ||
-          !stored.expandedProjectSet ||
+          restored.openProjects.length !== stored.openProjects.length ||
+          restored.closedProjects.length !== stored.closedProjects.length ||
           !draftExists
         ) {
           void connected.savePanelState(restored);
