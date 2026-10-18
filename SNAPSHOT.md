@@ -7,8 +7,8 @@
 |---|---|
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
 | **Última sesión** | 2026-10-17 |
-| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-5, UXR-6.1 y UXR-6.2 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Ejecutar [UXR-6.3](TASKS.md#uxr-6-3): actividad exacta y recuperable (carga/error/vacío, ventana temporal, conteos coherentes). UXR-6.2 cerrada: [informe](docs/audits/2026-10-18-uxr-6-2.md). Después UXR-7.1/7.2. UXR-0 sigue abierta por timeout nativo; app instalada sin actualizar. Tauri/VoiceOver, recorrido a 380×520 y presupuesto quedan en UXR-7.x. |
+| **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-6 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
+| **Próximo paso** | Ejecutar [UXR-7.1](TASKS.md#uxr-7-1): accesibilidad y densidad (tabs con flechas y roles, foco en las hojas nuevas, zoom, textos largos, movimiento reducido). UXR-6.3 cerrada: [informe](docs/audits/2026-10-18-uxr-6-3.md). Después UXR-7.2 (recorridos reales; depende de UXR-0, abierta por timeout nativo). App instalada sin actualizar. |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 

@@ -3,6 +3,15 @@
 > Evidencia de las tareas completadas de [`TASKS.md`](TASKS.md). Una entrada por tarea, la más reciente arriba.
 > Formato: `ID — título · fecha · commits · verificación (comando y resultado) · hallazgos`.
 
+## UXR-6.3 — Hacer exacta y recuperable la actividad · 2026-10-18
+- **Commits de implementación:** ver `git log` (`feat(core)` temas y errores de registro, `feat(ui)` Actividad).
+- **Resultado:** fallo de almacenamiento o canal cerrado ya no se ve como «sin actividad» (UI, panel y `devports log`); ventana explícita de 24 h; conteos solo de eventos visibles y subtotal con filtro; filtros por temas tipados; cargando/error/vacío/sin coincidencias diferenciados con Reintentar; lectura previa conservada si un refresco falla.
+- **Archivos/contratos:** `LogError`, `Engine::log -> Result`, `LogEntry.topics` y `LogTopic` (aditivo), `messages::event_topics`, comando `get_log` con error tipado, `ActivityView` reescrita (`ActivityStatus`, `ACTIVITY_WINDOW_SECONDS`); CLI.md actualizado.
+- **Verificaciones:** `tools/check.sh full` verde; UI typecheck/lint/format:check, 84/84 Vitest y build.
+- **Evidencia nativa vs simulada:** almacén real en memoria con tabla eliminada; UI con backend controlado; sin Tauri/WebKit/VoiceOver (UXR-7.x). [Informe](docs/audits/2026-10-18-uxr-6-3.md).
+- **Limpieza:** sin procesos ni servicios reales; `.devports.yml` local intacto; sin push.
+- **Entrega siguiente:** UXR-7.1 (accesibilidad y densidad) ya tiene todas sus dependencias; UXR-7.2 valida el recorrido real.
+
 ## UXR-6.2 — Recuperar conexión y mostrar diagnóstico accionable · 2026-10-18
 - **Commits de implementación:** ver `git log` (`feat(ui)` máquina de conexión y diagnóstico).
 - **Resultado:** conexión como máquina de estados con reintentos acotados (1–15 s), sondeo de salud, «Reintentar» manual y datos/contexto conservados; núcleo, Docker y avisos de manifiestos/configuración separados y accionables en todas las pestañas; ningún reenvío de operaciones confirmadas.
