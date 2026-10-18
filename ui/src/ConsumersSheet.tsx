@@ -6,11 +6,13 @@ import {
   consumersRequest,
   needsFreshRead,
   failureMessage,
-  targetFailure,
+  usesMessage,
 } from "./consumers";
 import { useMounted, useOperationWatch, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
 import { useI18n } from "./i18n/provider";
+import { operationFailureText } from "./failures";
+import { failureText } from "./reasons";
 import type { ConsumerOptions, ConsumersDraft } from "./types";
 
 /**
@@ -207,7 +209,7 @@ export function ConsumersSheet({
                     <span className="name">{choice.project}</span>
                   </label>
                   {choice.reason !== null && (
-                    <p className="soft adoption-reason">{choice.reason}</p>
+                    <p className="soft adoption-reason">{usesMessage(choice.reason, text)}</p>
                   )}
                 </li>
               );
@@ -244,7 +246,7 @@ export function ConsumersSheet({
           {queryError !== undefined && (
             <>
               <p className="form-error" role="alert">
-                {queryError}
+                {failureText(queryError.cause, text)}
               </p>
               <button type="button" className="btn" onClick={refresh}>
                 {t.retryQuery}
@@ -262,7 +264,8 @@ export function ConsumersSheet({
           {operation && (
             <ul className="consumers" aria-label={t.associated}>
               {operation.targets.map((target) => {
-                const message = targetFailure(target, text);
+                const message =
+                  target.status === "failed" ? operationFailureText(target, text) : undefined;
                 return (
                   <li key={target.reference}>
                     <span className="name">{target.reference}</span>{" "}

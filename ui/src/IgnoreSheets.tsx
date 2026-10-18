@@ -5,10 +5,8 @@ import { commandLine } from "./instance";
 import { useMounted, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
 import { useI18n } from "./i18n/provider";
+import { failureText } from "./reasons";
 import type { IgnoreRule } from "./types";
-
-const failureText = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 /** The criterion of a rule, shown the same way before it is saved and when it is listed. */
 export function Criterion({ rule }: { rule: IgnoreRule }): ReactElement {
@@ -61,7 +59,7 @@ export function IgnoreConfirm({
   const { text } = useI18n();
   const t = text.ignore;
   const [rule, setRule] = useState<IgnoreRule>();
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<{ cause: unknown }>();
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let active = true;
@@ -70,7 +68,7 @@ export function IgnoreConfirm({
         if (active) setRule(next);
       },
       (error: unknown) => {
-        if (active) setFailure(failureText(error));
+        if (active) setFailure({ cause: error });
       },
     );
     return () => {
@@ -89,7 +87,7 @@ export function IgnoreConfirm({
       {rule === undefined && failure === undefined && <p role="status">{t.loading}</p>}
       {failure !== undefined && (
         <p className="form-error" role="alert">
-          {t.failed} {failure}
+          {t.failed} {failureText(failure.cause, text)}
         </p>
       )}
       {rule !== undefined && (
@@ -135,8 +133,8 @@ export function IgnoredList({
   const { text } = useI18n();
   const t = text.ignore;
   const [rules, setRules] = useState<IgnoreRule[]>();
-  const [loadFailure, setLoadFailure] = useState<string>();
-  const [restoreFailure, setRestoreFailure] = useState<string>();
+  const [loadFailure, setLoadFailure] = useState<{ cause: unknown }>();
+  const [restoreFailure, setRestoreFailure] = useState<{ cause: unknown }>();
   const [pending, setPending] = useState<string>();
   const [reads, setReads] = useState(0);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -151,7 +149,7 @@ export function IgnoredList({
         setLoadFailure(undefined);
       },
       (error: unknown) => {
-        if (active) setLoadFailure(failureText(error));
+        if (active) setLoadFailure({ cause: error });
       },
     );
     return () => {
@@ -166,7 +164,7 @@ export function IgnoredList({
         await onRestore(id);
         if (isAlive()) setReads((value) => value + 1);
       } catch (error) {
-        if (isAlive()) setRestoreFailure(failureText(error));
+        if (isAlive()) setRestoreFailure({ cause: error });
       } finally {
         if (isAlive()) setPending(undefined);
       }
@@ -182,7 +180,7 @@ export function IgnoredList({
     >
       {(restoreFailure ?? loadFailure) !== undefined && (
         <p className="form-error" role="alert">
-          {restoreFailure ?? loadFailure}
+          {failureText((restoreFailure ?? loadFailure)?.cause, text)}
         </p>
       )}
       {rules === undefined && loadFailure === undefined && (

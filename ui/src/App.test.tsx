@@ -35,7 +35,7 @@ function fakeBackend(
 ): Backend & { calls: Record<string, unknown[][]>; getPersisted: () => PanelState } {
   const calls: Record<string, unknown[][]> = {};
   let persisted: PanelState = initialState ?? {
-    version: 2,
+    version: 3,
     tab: "attention",
     openProjects: [],
     closedProjects: [],
@@ -576,7 +576,7 @@ describe("the panel", () => {
     await user.clear(name);
     await user.type(name, "Nombre Malo");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
-    expect(await screen.findByText(/nombre de servicio válido/)).toBeInTheDocument();
+    expect(await screen.findByText(/Usa de 1 a 63 letras minúsculas/)).toBeInTheDocument();
     expect(screen.getByLabelText("Nombre del servicio")).toHaveValue("Nombre Malo");
     expect(backend.calls.operation).toBeUndefined();
     await user.clear(screen.getByLabelText("Nombre del servicio"));
@@ -923,7 +923,7 @@ describe("the panel", () => {
   // covers: UI, UXR-1.2
   it("restores an adoption draft without restoring a destructive confirmation", async () => {
     const backend = fakeBackend(sampleSnapshot(), {
-      version: 2,
+      version: 3,
       tab: "orphans",
       openProjects: [],
       closedProjects: [],
@@ -952,7 +952,7 @@ describe("the panel", () => {
   // covers: UI, UXR-1.2
   it("discards and explains a draft whose process no longer exists", async () => {
     const backend = fakeBackend(sampleSnapshot(), {
-      version: 2,
+      version: 3,
       tab: "orphans",
       openProjects: [],
       closedProjects: [],
@@ -1029,7 +1029,7 @@ describe("the panel", () => {
       adoptTarget: null,
       status: failed ? ("failed" as const) : ("succeeded" as const),
       error: failed ? "disk full" : null,
-      usesError: failed ? { code: "io" as const, message: "disk full" } : null,
+      usesError: failed ? { code: "io" as const, detail: "disk full" } : null,
       result: null,
       attempts: 1,
     });
@@ -1062,7 +1062,7 @@ describe("the panel", () => {
     await user.click(within(dialog).getByRole("button", { name: "Revisar cambios" }));
     await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
     expect(await within(dialog).findByText(/Se guardaron algunos proyectos/)).toBeInTheDocument();
-    expect(within(dialog).getByText("disk full")).toBeInTheDocument();
+    expect(within(dialog).getByText("No se pudo leer o escribir: disk full")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Reintentar pendientes" }));
     await waitFor(() => {
       expect(backend.calls["retryOperation"]).toEqual([[operation?.id]]);
@@ -1096,7 +1096,7 @@ describe("the panel", () => {
       focus: null,
     });
     const base = {
-      version: 2 as const,
+      version: 3 as const,
       tab: "shared" as const,
       openProjects: [],
       closedProjects: [],
@@ -1372,7 +1372,7 @@ describe("the panel", () => {
       reviewing: true,
     };
     const backend = fakeBackend(sampleSnapshot(), {
-      version: 2,
+      version: 3,
       tab: "attention",
       openProjects: [],
       closedProjects: [],
@@ -1787,5 +1787,28 @@ describe("the appearance and language in Configuración", () => {
       expect(new Set(radios.map((radio) => radio.getAttribute("name"))).size).toBe(1);
       expect(radios.every((radio) => radio instanceof HTMLInputElement)).toBe(true);
     }
+  });
+});
+
+// covers: UXR-9.7
+describe("the core's reasons in English", () => {
+  beforeEach(() => {
+    state.current = undefined;
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("writes the reason a typed folder is refused beside it", async () => {
+    const { user } = await open(sampleSnapshot(), "en");
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(await within(dialog).findByRole("button", { name: "Add folder" }));
+    await user.type(within(dialog).getByLabelText("Folder 2"), "/Users/demo/missing");
+    await user.click(within(dialog).getByRole("button", { name: "Review the effect" }));
+    expect(await within(dialog).findByText("the folder does not exist")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Remove /Users/demo/missing" }));
+    await user.click(within(dialog).getByRole("button", { name: "Remove ~/developer" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add folder" }));
+    await user.click(within(dialog).getByRole("button", { name: "Review the effect" }));
+    expect(await within(dialog).findByText("type a folder")).toBeInTheDocument();
   });
 });

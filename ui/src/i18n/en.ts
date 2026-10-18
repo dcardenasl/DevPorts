@@ -1,5 +1,6 @@
 // Every string the person reads, in English. It has the very same shape as the Spanish
 // source (`Catalog`), so a missing key or a changed signature does not compile.
+import type { DocumentKind, FormProblem } from "../types";
 import { type Catalog, type EventContext } from "./es";
 import { pluralizer } from "./format";
 
@@ -520,6 +521,134 @@ export const en: Catalog = {
       documentChanged: (path: string) =>
         `${path} changed since you reviewed it. Check again before saving.`,
       blocked: "Nothing was written: another project in this selection did not pass validation.",
+      invalidRequest: "The selection repeats a project or exceeds the maximum.",
+    },
+  },
+  reasons: {
+    io: (detail: string) => `Could not read or write: ${detail}`,
+    closing: "DevPorts is closing.",
+    action: {
+      unknownInstance: (reference: string) => `There is no instance “${reference}”.`,
+      notRunning: (reference: string) => `The instance “${reference}” is not running.`,
+      targetChanged: "The instance changed since the confirmation; review it again.",
+      noKnownFolder: "A process without a known folder cannot be remembered.",
+      tooManyCorrections: "There are too many classification corrections; reset some.",
+      storage: (detail: string) => `Could not read or save: ${detail}`,
+      internal: (detail: string) => `Internal error: ${detail}`,
+    },
+    stop: {
+      protected: (pid: number) => `Process ${pid} is protected (DevPorts or its environment).`,
+      otherUser: (pid: number) => `Process ${pid} belongs to another user.`,
+      stillAlive: "The instance is still running after trying to stop it.",
+      processTableUnreadable: "The process table could not be read.",
+      dockerUnavailable: "Docker is not available.",
+      failed: (detail: string) => detail,
+    },
+    command: {
+      tooManyTargets: (max: number) =>
+        `There are too many instances for a single operation (at most ${max}); stop services one by one.`,
+      onlyLocalUrls: "Only local addresses are opened.",
+      invalidPanelState: (detail: string) => `The panel context is not valid: ${detail}`,
+      operationInvalid: "The operation request is not valid.",
+      operationIdConflict: "That identifier already belongs to another operation.",
+      operationAtCapacity: "There are too many operations running.",
+      operationNotFound: "The operation does not exist.",
+      nothingToRetry: "The operation has no failed targets to retry.",
+    },
+    ineligibility: {
+      configInvalid: (detail: string) =>
+        `config.yml has errors; fix them by hand before editing: ${detail}`,
+      noManifest: "The project has no .devports.yml yet; adopt one of its services first.",
+      manifestInvalid: (detail: string) => `The manifest is not valid: ${detail}`,
+      readOnly: (path: string) => `${path} is read-only.`,
+      rootsNotEditable:
+        "config.yml writes “roots” in a form DevPorts does not edit; edit it by hand.",
+    },
+    limitation: {
+      notRegularFile: "Only regular files are edited, not symbolic links.",
+      hardLinked: "Manifests with hard links are not replaced.",
+      notUtf8: "The file is not UTF-8 text.",
+      tooLarge: (max: number) => `Automatic editing accepts at most ${max} bytes.`,
+      ownerNotKept: "The owner or group of the file cannot be kept.",
+      targetNotAbsolute: "The destination must be absolute and must not contain “..”.",
+      noTargetFile: "The destination file is missing.",
+      noTargetFolder: "The destination folder is missing.",
+      targetFolderNotDirectory: "The destination folder is not a regular directory.",
+      targetFolderNotFound: "The destination folder was not found.",
+      targetFolderUnresolvable: "The destination folder cannot be resolved.",
+      form: (key: string, problem: FormProblem) => {
+        const name = `“${key}”`;
+        switch (problem) {
+          case "notFound":
+            return `${name} was not found.`;
+          case "notAList":
+            return `${name} is not a list; edit it by hand.`;
+          case "notSimpleList":
+            return `${name} is not a list of simple values; edit it by hand.`;
+          case "multiLine":
+            return `${name} spans several lines; edit it by hand.`;
+          case "mixedIndent":
+            return `${name} mixes indentations; edit it by hand.`;
+          case "emptyItem":
+            return `${name} has an empty item.`;
+          case "invalidValue":
+            return `${name} contains values that are not simple; edit it by hand.`;
+          case "notEditable":
+            return `${name} is written in a form DevPorts does not edit; edit it by hand.`;
+        }
+      },
+      editInvalid: (document: DocumentKind, detail: string) =>
+        `The edit did not produce ${document === "config" ? "a valid configuration" : "a valid manifest"}: ${detail}`,
+      editTouchedMore: (key: string) =>
+        `The edit would have changed more than “${key}”; edit it by hand.`,
+      other: (detail: string) => detail,
+    },
+    unsuitability: {
+      instanceUnavailable: "That instance is not available for adoption.",
+      sharedNeedsContainer: "Only containers can be declared as shared.",
+      containerNeedsProject: "For that container choose an existing project or Shared.",
+      folderUnresolvable: (detail: string) => `The folder cannot be resolved: ${detail}`,
+      noRoot: "The destination has no root.",
+      noKnownFolder: "The process has no known folder.",
+      folderTooBroad:
+        "That folder is too broad to be a project; adopt the process from the folder of its repository.",
+      manifestExists:
+        "There is already a manifest at the root; choose that project and review its content.",
+      outsideProjectRoot: "The process folder is outside the project root.",
+      outOfScanScope:
+        "This root is not within the scan folders; add its folder in Settings before adopting.",
+      projectNotInCatalog: "That project is no longer in the catalog.",
+      resultTooLarge: "The result exceeds the automatic editing limit.",
+      notDescribable: "That process or container could not be described from that folder.",
+      fileInvalid: (detail: string) => detail,
+      other: (detail: string) => detail,
+    },
+    field: {
+      invalidName: "Use 1 to 63 lowercase letters, digits or hyphens.",
+      invalidStart: "The command must be a single line, without NUL, between 1 and 16384 bytes.",
+      nameTaken: "A service with that name already exists.",
+      tooLong: "The value exceeds the allowed limit.",
+    },
+    listProblem: {
+      empty: "Leave at least one folder: without any, no project would be discovered.",
+      tooMany: (max: number) => `At most ${max} folders.`,
+    },
+    rootProblem: {
+      empty: "type a folder",
+      unsafeText:
+        "the path contains characters that are not accepted (quotes, backslashes or line breaks)",
+      notAbsolute: "use an absolute path or one that starts with ~/",
+      tooBroad: "that folder is too broad; choose the one that holds your projects",
+      duplicate: "that folder is already in the list",
+      missing: "the folder does not exist",
+    },
+    reviewNote: {
+      launcherProgram: (program: string) =>
+        `“${program}” usually launches the real server as a child process: review the command.`,
+      notOneLine: "The observed command does not fit on one line; give a stable command or script.",
+      noStartCommand:
+        "A start command could not be proposed; you can declare it without automatic start.",
+      manifestWarning: (detail: string) => detail,
     },
   },
   a11y: {

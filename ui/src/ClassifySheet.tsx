@@ -5,6 +5,7 @@ import { Criterion } from "./IgnoreSheets";
 import { Modal } from "./Modal";
 import type { Catalog } from "./i18n/es";
 import { useI18n } from "./i18n/provider";
+import { failureText } from "./reasons";
 import type { Classification, IgnoreRule, ProcessClass } from "./types";
 
 type Choice = ProcessClass | "auto";
@@ -38,7 +39,7 @@ export function ClassifySheet({
     classification?.corrected === true ? classification.class : "auto",
   );
   const [rule, setRule] = useState<IgnoreRule>();
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<{ cause: unknown }>();
   const firstRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     let active = true;
@@ -47,7 +48,7 @@ export function ClassifySheet({
         if (active) setRule(next);
       },
       (error: unknown) => {
-        if (active) setFailure(error instanceof Error ? error.message : String(error));
+        if (active) setFailure({ cause: error });
       },
     );
     return () => {
@@ -104,7 +105,7 @@ export function ClassifySheet({
         )}
         {failure !== undefined && (
           <p className="form-error" role="alert">
-            {failure}
+            {failureText(failure.cause, text)}
           </p>
         )}
         {rule !== undefined && <Criterion rule={rule} />}

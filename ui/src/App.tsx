@@ -31,6 +31,8 @@ import {
 } from "./icons";
 import { buildOrphans, dependentsOf, draftTargetExists } from "./model";
 import { APP_NAME } from "./brand";
+import { operationFailureText } from "./failures";
+import { failureText } from "./reasons";
 import { I18nProvider, useI18n } from "./i18n/provider";
 import { targetLabel } from "./instance";
 import type {
@@ -140,10 +142,10 @@ function Panel({
         targets: [{ reference }],
       }).catch((failure: unknown) => {
         setFailed(true);
-        showToast(failure instanceof Error ? failure.message : String(failure));
+        showToast(failureText(failure, text));
       });
     },
-    [startOperation, showToast],
+    [startOperation, showToast, text],
   );
   const stopBatch = useCallback(
     (views: InstanceView[], kind: "stop" | "stopProject"): void => {
@@ -155,20 +157,20 @@ function Panel({
         })),
       }).catch((failure: unknown) => {
         setFailed(true);
-        showToast(failure instanceof Error ? failure.message : String(failure));
+        showToast(failureText(failure, text));
       });
     },
-    [startOperation, showToast],
+    [startOperation, showToast, text],
   );
 
   const updatePanelState = useCallback(
     (change: Partial<PanelState>): void => {
       void persistPanelState(change).catch((failure: unknown) => {
         setFailed(true);
-        showToast(failure instanceof Error ? failure.message : String(failure));
+        showToast(failureText(failure, text));
       });
     },
-    [persistPanelState, showToast],
+    [persistPanelState, showToast, text],
   );
 
   const selectTab = useCallback(
@@ -194,11 +196,11 @@ function Panel({
         },
         (failure: unknown) => {
           setFailed(true);
-          showToast(failure instanceof Error ? failure.message : String(failure));
+          showToast(failureText(failure, text));
         },
       );
     },
-    [showToast],
+    [showToast, text],
   );
 
   const actions = useMemo<Actions | undefined>(() => {
@@ -219,7 +221,7 @@ function Panel({
             },
             (failure: unknown) => {
               setFailed(true);
-              showToast(failure instanceof Error ? failure.message : String(failure));
+              showToast(failureText(failure, text));
             },
           )
           .finally(() => {
@@ -374,7 +376,7 @@ function Panel({
                         ? target.result
                           ? text.operations.adopted(target.result.project, target.result.service)
                           : text.operations.succeeded
-                        : (target.error ?? text.operations.failed)}
+                        : operationFailureText(target, text)}
                 </div>
               ))}
               {(operation.status === "failed" || operation.status === "partial") && (
@@ -603,7 +605,7 @@ function Panel({
                   ],
                 }).catch((failure: unknown) => {
                   setFailed(true);
-                  showToast(failure instanceof Error ? failure.message : String(failure));
+                  showToast(failureText(failure, text));
                 });
               }}
             />
@@ -622,7 +624,7 @@ function Panel({
                   targets: [{ reference: id }],
                 });
                 const failed = done?.targets.find((target) => target.status === "failed");
-                if (failed) throw new Error(failed.error ?? text.operations.failed);
+                if (failed) throw new Error(operationFailureText(failed, text));
               }}
             />
           )}

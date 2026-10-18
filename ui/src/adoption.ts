@@ -1,4 +1,5 @@
 import type { Catalog } from "./i18n/es";
+import { fieldProblemText, limitationText, unsuitabilityText } from "./reasons";
 import type { AdoptDraft, AdoptionError, AdoptionPreview } from "./types";
 
 /** Display-only context; the core owns every fact used to authorize the write. */
@@ -18,25 +19,30 @@ export function reviewDraft(preview: AdoptionPreview): NonNullable<AdoptDraft["r
   };
 }
 
+const ADOPTION_CODES = [
+  "unsuitable",
+  "invalidField",
+  "documentChanged",
+  "targetChanged",
+  "previewExpired",
+  "requestChanged",
+  "atCapacity",
+  "unsupported",
+  "closing",
+  "io",
+];
+
+/** A rejected call as a typed error when the core sent one, else as an input/output failure. */
 export function adoptionFailure(failure: unknown): AdoptionError {
-  if (typeof failure === "object" && failure !== null && "code" in failure) {
-    const code = failure.code;
-    if (
-      (code === "invalidField" &&
-        "field" in failure &&
-        typeof failure.field === "string" &&
-        "message" in failure &&
-        typeof failure.message === "string") ||
-      (code === "documentChanged" && "path" in failure && typeof failure.path === "string") ||
-      (["unsuitable", "unsupported", "io"].includes(String(code)) &&
-        "message" in failure &&
-        typeof failure.message === "string") ||
-      ["targetChanged", "previewExpired", "requestChanged", "atCapacity"].includes(String(code))
-    ) {
-      return failure as AdoptionError;
-    }
-  }
-  return { code: "io", message: failure instanceof Error ? failure.message : String(failure) };
+  if (
+    typeof failure === "object" &&
+    failure !== null &&
+    "code" in failure &&
+    typeof failure.code === "string" &&
+    ADOPTION_CODES.includes(failure.code)
+  )
+    return failure as AdoptionError;
+  return { code: "io", detail: failure instanceof Error ? failure.message : String(failure) };
 }
 
 export function needsNewReview(error: AdoptionError | undefined): boolean {
@@ -48,6 +54,10 @@ export function needsNewReview(error: AdoptionError | undefined): boolean {
 
 export function adoptionMessage(error: AdoptionError, text: Catalog): string {
   switch (error.code) {
+    case "unsuitable":
+      return unsuitabilityText(error.reason, text);
+    case "invalidField":
+      return fieldProblemText(error.problem, text);
     case "documentChanged":
       return text.errors.adoption.documentChanged(error.path);
     case "targetChanged":
@@ -55,7 +65,11 @@ export function adoptionMessage(error: AdoptionError, text: Catalog): string {
     case "requestChanged":
     case "atCapacity":
       return text.errors.adoption[error.code];
-    default:
-      return error.message;
+    case "unsupported":
+      return limitationText(error.limitation, text);
+    case "closing":
+      return text.reasons.closing;
+    case "io":
+      return text.reasons.io(error.detail);
   }
 }

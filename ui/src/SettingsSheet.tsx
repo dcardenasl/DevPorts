@@ -7,7 +7,9 @@ import { Modal } from "./Modal";
 import { configuredRoots, rootsChanged, settingsFailure, settingsMessage } from "./settings";
 import { StatusDetails } from "./StatusStrip";
 import { useI18n } from "./i18n/provider";
+import { operationFailureText } from "./failures";
 import { PreferencesSection } from "./PreferencesSection";
+import { ineligibilityText, rootProblemText, failureText } from "./reasons";
 import type {
   Preferences,
   RootProblem,
@@ -245,7 +247,7 @@ export function SettingsSheet({
       )}
       {!sent && folders !== undefined && !editable && (
         <p className="form-error" role="alert">
-          {t.notEditable}: {folders.reason}
+          {t.notEditable}: {folders.reason === null ? "" : ineligibilityText(folders.reason, text)}
         </p>
       )}
 
@@ -298,7 +300,7 @@ export function SettingsSheet({
                   </div>
                   {problem !== undefined && (
                     <p className="form-error" id={`root-problem-${String(index)}`}>
-                      {problem.message}
+                      {rootProblemText(problem.kind, text)}
                     </p>
                   )}
                   {problem === undefined && state !== undefined && (
@@ -387,7 +389,7 @@ export function SettingsSheet({
           {queryError !== undefined && (
             <>
               <p className="form-error" role="alert">
-                {queryError}
+                {failureText(queryError.cause, text)}
               </p>
               <button type="button" className="btn" onClick={refresh}>
                 {t.retryQuery}
@@ -411,7 +413,7 @@ export function SettingsSheet({
           {succeeded && <p role="status">{t.saved}</p>}
           {operation?.status === "failed" && result && (
             <p className="form-error" role="alert">
-              {resultError ? settingsMessage(resultError, text) : (result.error ?? "")}
+              {operationFailureText(result, text)}
             </p>
           )}
           {operation?.status === "failed" && (

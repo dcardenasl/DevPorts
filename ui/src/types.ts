@@ -29,6 +29,19 @@ export type {
   LogEntry,
   LogError,
   LanguagePreference,
+  StopFailure,
+  CommandError,
+  ActionError,
+  Unsuitability,
+  RootProblemKind,
+  ReviewNote,
+  ListProblem,
+  Limitation,
+  Ineligibility,
+  FormProblem,
+  FormKey,
+  FieldProblem,
+  DocumentKind,
   LogFacts,
   LogTopic,
   Preferences,
@@ -81,7 +94,7 @@ export interface SettingsDraft {
 }
 export type PanelDraft = AdoptDraft | ConsumersDraft | SettingsDraft;
 export interface PanelState {
-  version: 2;
+  version: 3;
   tab: PanelTab;
   /** Projects the person opened by hand. */
   openProjects: string[];
@@ -142,6 +155,7 @@ export interface OperationTargetResult {
   classification?: { class: import("./bindings").ProcessClass | null } | null;
   scanFolderCount?: number | null;
   settingsError?: import("./bindings").SettingsError | null;
+  actionError?: import("./bindings").ActionError | null;
   stopExpectation?: StopExpectation | null;
   status: OperationTargetStatus;
   error: string | null;

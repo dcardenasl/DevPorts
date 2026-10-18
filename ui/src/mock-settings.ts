@@ -5,6 +5,7 @@ import { settingsMessage } from "./settings";
 import type {
   OperationRequest,
   OperationTargetResult,
+  RootProblemKind,
   ScanFolders,
   ScanPreview,
   ScanRoot,
@@ -37,21 +38,21 @@ export function mockSettings() {
   const names = (list: string[]): string[] =>
     [...new Set(list.flatMap((root) => CONTENTS[resolve(root)] ?? []))].sort();
   const validate = (list: string[]): SettingsError | undefined => {
-    if (list.length === 0) return { code: "invalidList", message: "deja al menos una carpeta" };
+    if (list.length === 0) return { code: "invalidList", reason: { code: "empty" } };
     const problems = list.flatMap((entry, index) => {
       const path = resolve(entry.trim());
       const seen = list.slice(0, index).some((other) => resolve(other.trim()) === path);
-      const message =
+      const kind: RootProblemKind | undefined =
         entry.trim() === ""
-          ? "escribe una carpeta"
+          ? "empty"
           : !path.startsWith("/")
-            ? "usa una ruta absoluta o que empiece por ~/"
+            ? "notAbsolute"
             : seen
-              ? "esa carpeta ya está en la lista"
+              ? "duplicate"
               : !roots.some((known) => resolve(known) === path) && MISSING.includes(path)
-                ? "la carpeta no existe"
+                ? "missing"
                 : undefined;
-      return message === undefined ? [] : [{ index, message }];
+      return kind === undefined ? [] : [{ index, kind }];
     });
     return problems.length === 0 ? undefined : { code: "invalidRoots", problems };
   };
@@ -99,7 +100,7 @@ export function mockSettings() {
                   code: "documentChanged" as const,
                   path: "/Users/demo/.config/devports/config.yml",
                 }))
-          : { code: "io", message: "falta indicar las carpetas" };
+          : { code: "io", detail: "falta indicar las carpetas" };
         if (error === undefined && submitted) {
           roots = submitted.roots.map((root) => root.trim());
           version += 1;

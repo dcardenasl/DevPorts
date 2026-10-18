@@ -1,11 +1,12 @@
 // Browser-only adoption fixture. Filesystem validation remains the Rust core's job.
-import { adoptionMessage } from "./adoption";
+import { adoptionFailure, adoptionMessage } from "./adoption";
 import { es } from "./i18n/es";
 import type {
   AdoptTarget,
   AdoptionError,
   AdoptionOptions,
   AdoptionPreview,
+  Unsuitability,
   InstanceView,
   ServiceEdits,
   Snapshot,
@@ -23,8 +24,8 @@ const within = (cwd: string | null, root: string): boolean =>
 function adoptionException(error: AdoptionError): Error & AdoptionError {
   return Object.assign(new Error(adoptionMessage(error, es)), error);
 }
-const fail = (message: string): never => {
-  throw adoptionException({ code: "unsuitable", message });
+const fail = (reason: Unsuitability): never => {
+  throw adoptionException({ code: "unsuitable", reason });
 };
 
 export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => void) {
@@ -38,32 +39,31 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
     }
   >();
   const find = (reference: string): InstanceView =>
-    get().instances.find((view) => view.ref === reference) ??
-    fail("La instancia ya no está disponible");
+    get().instances.find((view) => view.ref === reference) ?? fail({ code: "instanceUnavailable" });
   const prepare = (reference: string, target: AdoptTarget): AdoptionPreview => {
     const state = get();
     const view = find(reference);
     if (view.service !== null || view.state === "down" || view.state === "unknown")
-      fail("La instancia no está disponible para adopción");
+      fail({ code: "instanceUnavailable" });
     const shared = target === "shared";
-    if (shared && view.container === null)
-      fail("Solo los contenedores pueden declararse como compartidos");
+    if (shared && view.container === null) fail({ code: "sharedNeedsContainer" });
     const existing =
       typeof target === "object" && "project" in target
         ? (state.projects.find((project) => project.name === target.project) ??
-          fail("El proyecto ya no existe"))
+          fail({ code: "projectNotInCatalog" }))
         : undefined;
     const root = shared
       ? "/Users/demo/.config/devports"
-      : (existing?.root ?? view.cwd ?? fail("No se conoce la carpeta del proceso"));
+      : (existing?.root ?? view.cwd ?? fail({ code: "noKnownFolder" }));
     if (!shared && view.container === null && !within(view.cwd, root))
-      fail("La carpeta del proceso está fuera de la raíz del proyecto");
+      fail({ code: "outsideProjectRoot" });
     const project = shared
       ? "compartidos"
       : (existing?.name ??
         (typeof target === "object" && "new" in target ? target.new : null) ??
         slug(root.split("/").pop() ?? "proyecto"));
-    if (!/^[a-z][a-z0-9-]{0,62}$/.test(project)) fail("El nombre de proyecto no es válido");
+    if (!/^[a-z][a-z0-9-]{0,62}$/.test(project))
+      fail({ code: "other", detail: "El nombre de proyecto no es válido" });
     const taken = new Set(
       shared
         ? state.instances
@@ -105,7 +105,7 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
         isData: view.kind === "data",
         review: null,
       },
-      warnings: start === null ? ["No se conoce un comando de inicio estable."] : [],
+      warnings: start === null ? [{ code: "noStartCommand" }] : [],
       yaml: "",
     };
   };
@@ -117,7 +117,7 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
       throw adoptionException({
         code: "invalidField",
         field: "name",
-        message: "Usa un nombre de servicio válido: letras minúsculas, números y guiones.",
+        problem: "invalidName",
       });
     if (
       edits.start !== null &&
@@ -128,7 +128,7 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
       throw adoptionException({
         code: "invalidField",
         field: "start",
-        message: "Indica un comando de una línea o deja el campo vacío.",
+        problem: "invalidStart",
       });
     const preview = stored.preview;
     const taken =
@@ -141,7 +141,7 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
       throw adoptionException({
         code: "invalidField",
         field: "name",
-        message: "Ya existe un servicio con ese nombre.",
+        problem: "nameTaken",
       });
     const view = find(preview.reference);
     if (view.target_identity !== stored.identity || view.service !== null)
@@ -149,8 +149,7 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
     return {
       ...preview,
       service: { ...preview.service, ...edits },
-      warnings:
-        edits.start === null ? ["No se conoce un comando de inicio estable."] : preview.warnings,
+      warnings: edits.start === null ? [{ code: "noStartCommand" }] : preview.warnings,
       yaml: `version: 1\nproject: ${JSON.stringify(preview.project)}\nservices:\n  ${JSON.stringify(edits.name)}:\n    start: ${JSON.stringify(edits.start)}\n`,
     };
   };
@@ -178,10 +177,7 @@ export function mockAdoption(get: () => Snapshot, publish: (next: Snapshot) => v
             return {
               target,
               eligible: false,
-              reason:
-                typeof error === "object" && error !== null && "message" in error
-                  ? String(error.message)
-                  : "Destino no disponible",
+              reason: adoptionFailure(error),
               root: null,
               manifest: null,
               createsManifest: false,

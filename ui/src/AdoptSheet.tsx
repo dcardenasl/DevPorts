@@ -2,6 +2,8 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "
 
 import type { Backend } from "./api";
 import { adoptionFailure, adoptionMessage, needsNewReview, reviewDraft } from "./adoption";
+import { operationFailureText } from "./failures";
+import { failureText, reviewNoteText } from "./reasons";
 import { useMounted, useOperationWatch, useSingleFlight } from "./hooks";
 import { Modal } from "./Modal";
 import { useI18n } from "./i18n/provider";
@@ -159,6 +161,7 @@ export function AdoptSheet({
     options?.destinations.find(
       (destination) => JSON.stringify(destination.target) === JSON.stringify(target),
     );
+  const newReason = optionFor({ new: null })?.reason;
   const choice = (target: AdoptTarget, label: string): ReactElement => {
     const destination = optionFor(target);
     return (
@@ -174,7 +177,9 @@ export function AdoptSheet({
           {label}
         </button>
         {destination?.eligible === false && (
-          <p className="soft adoption-reason">{destination.reason}</p>
+          <p className="soft adoption-reason">
+            {destination.reason === null ? "" : adoptionMessage(destination.reason, text)}
+          </p>
         )}
       </div>
     );
@@ -254,8 +259,8 @@ export function AdoptSheet({
                   >
                     {text.orphans.newProject}
                   </button>
-                  {optionFor({ new: null })?.reason && (
-                    <p className="soft adoption-reason">{optionFor({ new: null })?.reason}</p>
+                  {newReason !== undefined && newReason !== null && (
+                    <p className="soft adoption-reason">{adoptionMessage(newReason, text)}</p>
                   )}
                 </div>
               )}
@@ -324,7 +329,7 @@ export function AdoptSheet({
           {review.context.warnings.length > 0 && (
             <ul className="adoption-warnings">
               {review.context.warnings.map((warning, index) => (
-                <li key={`${index}:${warning}`}>{warning}</li>
+                <li key={`${index}:${warning.code}`}>{reviewNoteText(warning, text)}</li>
               ))}
             </ul>
           )}
@@ -356,7 +361,7 @@ export function AdoptSheet({
                 }}
               />
               {displayedFailure?.code === "invalidField" && displayedFailure.field === "name" && (
-                <p className="form-error">{displayedFailure.message}</p>
+                <p className="form-error">{adoptionMessage(displayedFailure, text)}</p>
               )}
               <label htmlFor="service-start">{t.start}</label>
               <textarea
@@ -387,7 +392,7 @@ export function AdoptSheet({
                 {t.startHint}
               </p>
               {displayedFailure?.code === "invalidField" && displayedFailure.field === "start" && (
-                <p className="form-error">{displayedFailure.message}</p>
+                <p className="form-error">{adoptionMessage(displayedFailure, text)}</p>
               )}
               {operationId === undefined && !needsNewReview(displayedFailure) && (
                 <button type="submit" className="btn primary-green" disabled={locked}>
@@ -401,7 +406,7 @@ export function AdoptSheet({
           )}
           {queryError && (
             <p className="form-error" role="alert">
-              {queryError}
+              {failureText(queryError.cause, text)}
             </p>
           )}
           {(queryError !== undefined ||
@@ -419,7 +424,7 @@ export function AdoptSheet({
           {operation === null && !busy && <p role="status">{t.unsent}</p>}
           {operation?.status === "failed" && (
             <p className="form-error" role="alert">
-              {targetResult?.error}
+              {targetResult === undefined ? "" : operationFailureText(targetResult, text)}
             </p>
           )}
           {(operation === null || operation?.status === "failed") &&

@@ -521,7 +521,7 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
 
   **Entrega a la próxima sesión:** informe enlazado desde TASKS/SNAPSHOT; sin release ni push sin orden de David.
 
-- [ ] **UXR-9.7 — Errores y razones del núcleo como datos tipados (Ajustes, adopción, consumidores, comandos).**
+- [x] **UXR-9.7 — Errores y razones del núcleo como datos tipados (Ajustes, adopción, consumidores, comandos).**
 
   **Dependencias:** UXR-9.3 y UXR-9.4. **Plan:** [Diseño D](docs/plan/tema-e-idioma.md#d-texto-que-viene-del-núcleo--datos-tipados-evita-la-deuda). **Contexto:** ADR-041 punto 6; ADR-035/036 (flujos de Ajustes y adopción, sin cambios); CLI.md y goldens **no cambian**.
 
@@ -534,6 +534,8 @@ Tema Sistema/Claro/Oscuro e idioma Sistema/Español/English para panel, bandeja 
   **Verificación:** `tools/check.sh full`; `pnpm` completo; recorrido en `en` con mocks de cada error.
 
   **Commits previstos:** `refactor(core): send typed reasons instead of sentences to the panel` → `refactor(ui): write core errors from typed reasons`.
+
+  **Entrega (2026-10-18):** ver [ARCHIVES](ARCHIVES.md) «UXR-9.7».
 
   **Entrega a la próxima sesión:** lista de códigos y cómo añadir uno; qué texto del núcleo queda (UXR-9.8).
 

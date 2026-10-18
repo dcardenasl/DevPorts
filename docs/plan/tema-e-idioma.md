@@ -70,7 +70,7 @@ Secciones «Apariencia» e «Idioma» en `SettingsSheet` (encima de las carpetas
 | UXR-9.2 | Tema: `theme.css`, tokenizar literales, `boot.ts`, `theme.ts`, URL en `panel.rs`, `set_theme`, contraste ×2 | 9.1 |
 | UXR-9.3 | Catálogo i18n del panel: `i18n/`, 16 consumidores, `Intl`, ESLint, `en.ts`, paridad | 9.1 |
 | UXR-9.4 | Actividad como datos tipados: `LogEntry.facts` | 9.3 |
-| UXR-9.7 | Errores y razones del núcleo como datos tipados: enums de error, razones, `CommandError` | 9.3, 9.4 |
+| UXR-9.7 | Errores y razones del núcleo como datos tipados: `reasons.rs`, enums de error, `CommandError` (hecha) | 9.3, 9.4 |
 | UXR-9.8 | Avisos del núcleo (`problems`), `stale` y `docker_error` como datos tipados | 9.7 |
 | UXR-9.5 | Bandeja y notificaciones: `i18n.rs`, reconstrucción en caliente | 9.1 |
 | UXR-9.6 | Ajustes de apariencia/idioma en `SettingsSheet` y cierre | 9.2, 9.3, 9.4, 9.5 |

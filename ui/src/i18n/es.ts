@@ -1,5 +1,6 @@
 // Every string the person reads, in Spanish: the source catalog. `en.ts` must have the very
 // same shape (the `Catalog` type), so a missing key or a changed signature does not compile.
+import type { DocumentKind, FormProblem } from "../types";
 import { pluralizer } from "./format";
 
 const { pick, counted } = pluralizer("es");
@@ -535,6 +536,134 @@ export const es = {
       documentChanged: (path: string) =>
         `${path} cambió desde que lo revisaste. Consulta de nuevo antes de guardar.`,
       blocked: "No se escribió nada: otro proyecto de esta selección no pasó la validación.",
+      invalidRequest: "La selección repite un proyecto o supera el máximo.",
+    },
+  },
+  reasons: {
+    io: (detail: string) => `No se pudo leer o escribir: ${detail}`,
+    closing: "DevPorts se está cerrando.",
+    action: {
+      unknownInstance: (reference: string) => `No existe la instancia «${reference}».`,
+      notRunning: (reference: string) => `La instancia «${reference}» no está en marcha.`,
+      targetChanged: "La instancia cambió desde la confirmación; revísala de nuevo.",
+      noKnownFolder: "No se puede recordar un proceso sin carpeta conocida.",
+      tooManyCorrections: "Hay demasiadas correcciones de clasificación; restablece alguna.",
+      storage: (detail: string) => `No se pudo leer o guardar: ${detail}`,
+      internal: (detail: string) => `Error interno: ${detail}`,
+    },
+    stop: {
+      protected: (pid: number) => `El proceso ${pid} está protegido (DevPorts o su entorno).`,
+      otherUser: (pid: number) => `El proceso ${pid} pertenece a otro usuario.`,
+      stillAlive: "La instancia sigue activa tras intentar detenerla.",
+      processTableUnreadable: "No se pudo leer la tabla de procesos.",
+      dockerUnavailable: "Docker no está disponible.",
+      failed: (detail: string) => detail,
+    },
+    command: {
+      tooManyTargets: (max: number) =>
+        `Hay demasiadas instancias para una sola operación (máximo ${max}); detén servicios individualmente.`,
+      onlyLocalUrls: "Solo se abren direcciones locales.",
+      invalidPanelState: (detail: string) => `El contexto del panel no es válido: ${detail}`,
+      operationInvalid: "La solicitud de operación no es válida.",
+      operationIdConflict: "Ese identificador ya pertenece a otra operación.",
+      operationAtCapacity: "Hay demasiadas operaciones en curso.",
+      operationNotFound: "La operación no existe.",
+      nothingToRetry: "La operación no tiene objetivos fallidos que reintentar.",
+    },
+    ineligibility: {
+      configInvalid: (detail: string) =>
+        `config.yml tiene errores; corrígelos a mano antes de editar: ${detail}`,
+      noManifest: "El proyecto aún no tiene .devports.yml; adopta primero uno de sus servicios.",
+      manifestInvalid: (detail: string) => `El manifiesto no es válido: ${detail}`,
+      readOnly: (path: string) => `${path} es de solo lectura.`,
+      rootsNotEditable:
+        "config.yml escribe «roots» en una forma que DevPorts no edita; edítalo a mano.",
+    },
+    limitation: {
+      notRegularFile: "Solo se editan archivos regulares, sin enlaces simbólicos.",
+      hardLinked: "No se reemplazan manifiestos con enlaces físicos.",
+      notUtf8: "El archivo no es texto UTF-8.",
+      tooLarge: (max: number) => `La edición automática admite como máximo ${max} bytes.`,
+      ownerNotKept: "No se puede conservar el propietario o grupo del archivo.",
+      targetNotAbsolute: "El destino debe ser absoluto y no contener «..».",
+      noTargetFile: "Falta el archivo destino.",
+      noTargetFolder: "Falta la carpeta destino.",
+      targetFolderNotDirectory: "La carpeta destino no es un directorio regular.",
+      targetFolderNotFound: "No se encontró la carpeta destino.",
+      targetFolderUnresolvable: "No se puede resolver la carpeta destino.",
+      form: (key: string, problem: FormProblem) => {
+        const name = `«${key}»`;
+        switch (problem) {
+          case "notFound":
+            return `No se encontró ${name}.`;
+          case "notAList":
+            return `${name} no es una lista; edítalo a mano.`;
+          case "notSimpleList":
+            return `${name} no es una lista de valores simples; edítalo a mano.`;
+          case "multiLine":
+            return `${name} abarca varias líneas; edítalo a mano.`;
+          case "mixedIndent":
+            return `${name} mezcla sangrías; edítalo a mano.`;
+          case "emptyItem":
+            return `${name} tiene un elemento vacío.`;
+          case "invalidValue":
+            return `${name} contiene valores que no son simples; edítalo a mano.`;
+          case "notEditable":
+            return `${name} está escrito en una forma que DevPorts no edita; edítalo a mano.`;
+        }
+      },
+      editInvalid: (document: DocumentKind, detail: string) =>
+        `La edición no produjo ${document === "config" ? "una configuración válida" : "un manifiesto válido"}: ${detail}`,
+      editTouchedMore: (key: string) =>
+        `La edición habría cambiado algo más que «${key}»; edítalo a mano.`,
+      other: (detail: string) => detail,
+    },
+    unsuitability: {
+      instanceUnavailable: "Esa instancia no está disponible para adopción.",
+      sharedNeedsContainer: "Solo los contenedores pueden declararse como compartidos.",
+      containerNeedsProject: "Para ese contenedor elige un proyecto existente o Compartidos.",
+      folderUnresolvable: (detail: string) => `No se puede resolver la carpeta: ${detail}`,
+      noRoot: "El destino no tiene raíz.",
+      noKnownFolder: "El proceso no tiene carpeta conocida.",
+      folderTooBroad:
+        "Esa carpeta es demasiado amplia para ser un proyecto; adopta el proceso desde la carpeta de su repositorio.",
+      manifestExists: "Ya hay un manifiesto en la raíz; elige ese proyecto y revisa su contenido.",
+      outsideProjectRoot: "La carpeta del proceso está fuera de la raíz del proyecto.",
+      outOfScanScope:
+        "Esta raíz no está en el alcance de exploración; añade su carpeta en Configuración antes de adoptar.",
+      projectNotInCatalog: "Ese proyecto ya no está en el catálogo.",
+      resultTooLarge: "El resultado supera el límite de edición automática.",
+      notDescribable: "No se pudo describir ese proceso o contenedor desde esa carpeta.",
+      fileInvalid: (detail: string) => detail,
+      other: (detail: string) => detail,
+    },
+    field: {
+      invalidName: "Usa de 1 a 63 letras minúsculas, números o guiones.",
+      invalidStart: "El comando debe tener una sola línea, sin NUL, entre 1 y 16384 bytes.",
+      nameTaken: "Ya existe un servicio con ese nombre.",
+      tooLong: "El valor supera el límite permitido.",
+    },
+    listProblem: {
+      empty: "Deja al menos una carpeta: sin ellas no se descubriría ningún proyecto.",
+      tooMany: (max: number) => `Como máximo ${max} carpetas.`,
+    },
+    rootProblem: {
+      empty: "escribe una carpeta",
+      unsafeText:
+        "la ruta contiene caracteres que no se admiten (comillas, barras invertidas o saltos de línea)",
+      notAbsolute: "usa una ruta absoluta o que empiece por ~/",
+      tooBroad: "esa carpeta es demasiado amplia; elige la que contiene tus proyectos",
+      duplicate: "esa carpeta ya está en la lista",
+      missing: "la carpeta no existe",
+    },
+    reviewNote: {
+      launcherProgram: (program: string) =>
+        `«${program}» suele lanzar el servidor real como proceso hijo: revisa el comando.`,
+      notOneLine:
+        "El comando observado no se representa como una línea; indica un comando o script estable.",
+      noStartCommand:
+        "No se pudo proponer un comando de inicio; puedes declararlo sin inicio automático.",
+      manifestWarning: (detail: string) => detail,
     },
   },
   a11y: {

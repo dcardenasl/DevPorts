@@ -1,10 +1,10 @@
 // Pure helpers for the consumers sheet: what changes, what is sent, how failures read.
 import type { Catalog } from "./i18n/es";
+import { ineligibilityText, limitationText } from "./reasons";
 import type {
   ConsumerOptions,
   ConsumersDraft,
   OperationRequest,
-  OperationTargetResult,
   Snapshot,
   UsesError,
 } from "./types";
@@ -82,19 +82,21 @@ export function usesMessage(error: UsesError, text: Catalog): string {
       return text.errors.uses.unknownShared(error.name);
     case "unknownProject":
       return text.errors.uses.unknownProject(error.project);
+    case "ineligible":
+      return ineligibilityText(error.reason, text);
     case "documentChanged":
       return text.errors.uses.documentChanged(error.path);
+    case "unsupported":
+      return limitationText(error.limitation, text);
     case "blocked":
       return text.errors.uses.blocked;
-    default:
-      return error.message;
+    case "invalidRequest":
+      return text.errors.uses.invalidRequest;
+    case "closing":
+      return text.reasons.closing;
+    case "io":
+      return text.reasons.io(error.detail);
   }
-}
-
-/** The failure to show for one target: typed first, the shell's text otherwise. */
-export function targetFailure(target: OperationTargetResult, text: Catalog): string | undefined {
-  if (target.status !== "failed") return undefined;
-  return target.usesError ? usesMessage(target.usesError, text) : (target.error ?? undefined);
 }
 
 const USES_CODES = [
@@ -105,6 +107,7 @@ const USES_CODES = [
   "unsupported",
   "blocked",
   "invalidRequest",
+  "closing",
   "io",
 ];
 

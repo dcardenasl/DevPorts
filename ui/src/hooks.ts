@@ -198,13 +198,14 @@ export function useOperationWatch(
 ): {
   operation: OperationView | null | undefined;
   record: (id: string, next: OperationView | null) => void;
-  error: string | undefined;
+  error: { cause: unknown } | undefined;
   clearError: () => void;
   refresh: () => void;
   generation: number;
 } {
   const [observed, setObserved] = useState<{ id: string; value: OperationView | null }>();
-  const [error, setError] = useState<string>();
+  // The cause, not its text: the message is written where it is shown, in the language then in force.
+  const [error, setError] = useState<{ cause: unknown }>();
   const [generation, setGeneration] = useState(0);
   const record = useCallback((id: string, next: OperationView | null) => {
     setObserved((prior) => {
@@ -236,7 +237,7 @@ export function useOperationWatch(
       if (stored === null) record(operationId, null);
       else merge(stored);
     })().catch((failure: unknown) => {
-      if (state.active) setError(failure instanceof Error ? failure.message : String(failure));
+      if (state.active) setError({ cause: failure });
     });
     return () => {
       state.active = false;
