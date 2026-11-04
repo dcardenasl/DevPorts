@@ -7,6 +7,8 @@
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
   --inset: 12px;
+  /* The smallest pressable area of any control (ROB-4.1). */
+  --hit: 32px;
 }
 
 * {
@@ -488,8 +490,8 @@ button.tag.add {
 .icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: var(--hit);
+  height: var(--hit);
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -534,7 +536,7 @@ button.tag.add {
 .segment span {
   display: inline-flex;
   align-items: center;
-  height: 24px;
+  height: var(--hit);
   padding: 0 10px;
   border: 0;
   border-radius: 6px;

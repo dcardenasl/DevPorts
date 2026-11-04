@@ -153,8 +153,18 @@ describe("the stylesheets", () => {
     expect(styles).not.toMatch(/\brgba?\(|\bhsla?\(|\boklch\(|\bcolor-mix\(|\blight-dark\(/);
   });
 
+  // covers: ROB-4.1
+  it("give every icon button and pill at least 32px to press", () => {
+    expect(styles).toMatch(/--hit:\s*32px/);
+    for (const selector of [".icon-btn", ".pill,\n.segment span"]) {
+      const block = styles.slice(styles.indexOf(`\n${selector} {`));
+      const rule = block.slice(0, block.indexOf("}"));
+      expect(rule, selector).toMatch(/height:\s*var\(--hit\)/);
+    }
+  });
+
   it("only use tokens that exist", () => {
-    const defined = new Set([...names(dark), "--font", "--mono", "--inset"]);
+    const defined = new Set([...names(dark), "--font", "--mono", "--inset", "--hit"]);
     const used = [...styles.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1] ?? "");
     expect(used.filter((name) => !defined.has(name))).toEqual([]);
   });
