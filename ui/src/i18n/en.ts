@@ -322,6 +322,9 @@ export const en: Catalog = {
     noneBody: "Everything that listens on a port belongs to a project.",
     adopt: "Adopt",
     seems: (project: string) => `Looks like ${project}'s`,
+    unscanned: (manifest: string) =>
+      `There is a project in this folder (${manifest}) that DevPorts does not search. Add its folder in Settings.`,
+    openSettings: "Open Settings",
     sheetTitle: "Where does it go?",
     back: "Back",
     asService: (project: string) => `As a service of ${project}`,

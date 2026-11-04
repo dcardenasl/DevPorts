@@ -32,6 +32,17 @@ describe("the panel: adoption, ignored servers and empty states", () => {
     });
   });
 
+  // covers: ROB-5.3
+  it("says where the manifest is when a loose server runs inside a project nobody searches", async () => {
+    const snapshot = sampleSnapshot();
+    snapshot.unscanned = [{ instance_ref: "z9y8", manifest: "/Users/demo/blog/.devports.yml" }];
+    const { user } = await open(snapshot);
+    await user.click(tab(/Sin proyecto/));
+    expect(await screen.findByText(/\/Users\/demo\/blog\/\.devports\.yml/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Abrir Ajustes" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
   // covers: UI, UXR-3.2
   it("keeps the edited fields after a rejected value and sends only the corrected review", async () => {
     const { backend, user } = await open();

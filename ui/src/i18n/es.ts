@@ -337,6 +337,9 @@ export const es = {
     noneBody: "Todo lo que escucha un puerto pertenece a un proyecto.",
     adopt: "Adoptar",
     seems: (project: string) => `Parece de ${project}`,
+    unscanned: (manifest: string) =>
+      `Hay un proyecto en esta carpeta (${manifest}) que DevPorts no busca. Añade su carpeta en Ajustes.`,
+    openSettings: "Abrir Ajustes",
     sheetTitle: "¿Dónde va?",
     back: "Volver",
     asService: (project: string) => `Como servicio de ${project}`,

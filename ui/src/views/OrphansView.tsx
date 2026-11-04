@@ -45,6 +45,9 @@ export function OrphansView({ actions }: { actions: Actions }): ReactElement {
   const [auxiliaryOpen, setAuxiliaryOpen] = useState(false);
   const groups = groupByClass(actions.snapshot);
   const byRef = new Map(actions.snapshot.classifications.map((item) => [item.instanceRef, item]));
+  const unscannedBy = new Map(
+    actions.snapshot.unscanned.map((item) => [item.instance_ref, item.manifest]),
+  );
   const ignored = (
     <button
       type="button"
@@ -66,7 +69,13 @@ export function OrphansView({ actions }: { actions: Actions }): ReactElement {
     );
   }
   const card = (view: InstanceView): ReactElement => (
-    <OrphanCard key={view.ref} view={view} classification={byRef.get(view.ref)} actions={actions} />
+    <OrphanCard
+      key={view.ref}
+      view={view}
+      classification={byRef.get(view.ref)}
+      unscanned={unscannedBy.get(view.ref)}
+      actions={actions}
+    />
   );
   const sectioned = groups.unclassified.length + groups.auxiliary.length > 0;
   return (
@@ -128,10 +137,12 @@ export function OrphansView({ actions }: { actions: Actions }): ReactElement {
 function OrphanCard({
   view,
   classification,
+  unscanned,
   actions,
 }: {
   view: InstanceView;
   classification: Classification | undefined;
+  unscanned: string | undefined;
   actions: Actions;
 }): ReactElement {
   const { text, locale } = useI18n();
@@ -158,6 +169,20 @@ function OrphanCard({
         <span className="data soft">{view.port === null ? "" : `:${view.port}`}</span>
       </div>
       <InstanceDetails view={view} />
+      {unscanned !== undefined && (
+        <div className="item-note" role="note">
+          <p>{text.orphans.unscanned(unscanned)}</p>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={(event) => {
+              actions.openSettings(event.currentTarget);
+            }}
+          >
+            {text.orphans.openSettings}
+          </button>
+        </div>
+      )}
       {notes.length > 0 && (
         <div className="item-note row wrap">
           {notes.map((note) => (
