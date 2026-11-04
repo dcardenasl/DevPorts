@@ -1,5 +1,6 @@
 //! What the CLI prints for people. `--json` prints the protocol types as they are.
 
+use devports_proto::doctor::{DoctorMismatch, DoctorProcess, DoctorResult, DoctorVerdict};
 use devports_proto::views::{InstanceRole, InstanceState, InstanceView, LogEntry};
 
 /// `HH:MM` of an ISO 8601 timestamp that already carries the local offset.
@@ -138,6 +139,97 @@ pub fn log_lines(entries: &[LogEntry]) -> String {
     lines.concat()
 }
 
+/// The report of `devports doctor`.
+#[must_use]
+pub fn doctor_report(result: &DoctorResult) -> String {
+    let mut lines = vec!["Carpetas donde se buscan proyectos:".to_owned()];
+    if result.roots.is_empty() {
+        lines.push("  (ninguna)".to_owned());
+    }
+    lines.extend(result.roots.iter().map(|root| format!("  {root}")));
+    lines.push(format!("Profundidad máxima: {} niveles", result.max_depth));
+    lines.push(if result.projects.is_empty() {
+        "Proyectos: ninguno.".to_owned()
+    } else {
+        "Proyectos:".to_owned()
+    });
+    lines.extend(result.projects.iter().map(|project| {
+        format!(
+            "  {}  {}  [{}]",
+            project.name,
+            project.root,
+            project.services.join(", ")
+        )
+    }));
+    for process in &result.processes {
+        lines.push(String::new());
+        lines.extend(doctor_process(process));
+    }
+    let mut text = lines.join("\n");
+    text.push('\n');
+    text
+}
+
+fn doctor_process(process: &DoctorProcess) -> Vec<String> {
+    let ports = process
+        .ports
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut lines = vec![
+        format!("Proceso {} (puerto {ports})", process.pid),
+        format!("  carpeta: {}", dash(process.cwd.as_deref())),
+        format!("  comando: {}", process.fingerprint),
+    ];
+    match &process.verdict {
+        DoctorVerdict::Matched { project, service } => {
+            lines.push(format!("  Es el servicio {service} del proyecto {project}."));
+        }
+        DoctorVerdict::NoFolder => lines.push(
+            "  El sistema no informó su carpeta, así que no puede coincidir con ningún servicio."
+                .to_owned(),
+        ),
+        DoctorVerdict::OutsideProjects => lines.push(
+            "  Su carpeta no está dentro de ningún proyecto conocido. Si hay un `.devports.yml` más arriba, revisa que esa carpeta esté entre las que se buscan."
+                .to_owned(),
+        ),
+        DoctorVerdict::NoService {
+            project,
+            candidates,
+            port_of,
+        } => {
+            lines.push(format!(
+                "  Está en el proyecto {project}, pero ningún servicio lo acepta:"
+            ));
+            for candidate in candidates {
+                let why = match &candidate.reason {
+                    DoctorMismatch::ContainerService => {
+                        "es un servicio de contenedor; un proceso del equipo nunca lo es".to_owned()
+                    }
+                    DoctorMismatch::FolderOutside { service_cwd } => {
+                        format!("corre fuera de su carpeta ({service_cwd})")
+                    }
+                    DoctorMismatch::CommandDiffers { expected, observed } => format!(
+                        "el comando es distinto: se esperaba `{expected}` y corre `{observed}`"
+                    ),
+                };
+                lines.push(format!("    {}: {why}", candidate.service));
+            }
+            if let Some(owner) = port_of {
+                lines.push(format!(
+                    "  El puerto lo declara el servicio {owner}: si es el mismo servidor, revisa su `match`."
+                ));
+            }
+        }
+        DoctorVerdict::Ambiguous { project, services } => lines.push(format!(
+            "  Varios servicios de {project} lo aceptan por igual ({}); ninguno se elige al azar.",
+            services.join(", ")
+        )),
+    }
+    lines
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +324,35 @@ mod tests {
             text,
             "14:02  api          un agente intentó levantar otra instancia\n"
         );
+    }
+
+    // covers: ROB-5.2
+    #[test]
+    fn the_doctor_report_says_why_a_command_does_not_match() {
+        let text = doctor_report(&DoctorResult {
+            roots: vec!["/home/a/developer".to_owned()],
+            max_depth: 3,
+            projects: Vec::new(),
+            processes: vec![DoctorProcess {
+                pid: 7,
+                ports: vec![8080],
+                cwd: Some("/work/shop/api".to_owned()),
+                fingerprint: "node server.js --port N".to_owned(),
+                verdict: DoctorVerdict::NoService {
+                    project: "shop".to_owned(),
+                    candidates: vec![devports_proto::doctor::DoctorCandidate {
+                        service: "api".to_owned(),
+                        reason: DoctorMismatch::CommandDiffers {
+                            expected: "php spark serve".to_owned(),
+                            observed: "node server.js --port N".to_owned(),
+                        },
+                    }],
+                    port_of: Some("api".to_owned()),
+                },
+            }],
+        });
+        assert!(text.contains("se esperaba `php spark serve`"), "{text}");
+        assert!(text.contains("revisa su `match`"), "{text}");
+        assert!(text.contains("Proyectos: ninguno."), "{text}");
     }
 }

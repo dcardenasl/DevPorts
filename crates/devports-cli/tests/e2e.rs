@@ -350,6 +350,50 @@ async fn adopt_prints_a_proposal_and_writes_nothing() {
 }
 
 // covers: I-09
+// covers: ROB-5.2
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_explains_a_process_and_says_so_when_nothing_listens_there() {
+    let fixture = fixture().await;
+    let port = free_port();
+    fixture.source.set(vec![ListeningProcess {
+        info: ProcessInfo {
+            id: ProcessId {
+                pid: 8888,
+                start: ProcessStart(1_000_000),
+            },
+            ppid: 1,
+            pgid: 8888,
+            uid: 4_000_000,
+            argv: vec!["server".to_owned()],
+            cwd: Some(fixture.project.clone()),
+        },
+        ports: vec![port],
+    }]);
+    let mut text = String::new();
+    for _ in 0..50 {
+        let output = fixture
+            .devports(&["doctor", "--port", &port.to_string()])
+            .await;
+        if output.status.code() == Some(0) {
+            text = out(&output);
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(text.contains("Proceso 8888"), "{text}");
+    assert!(text.contains("ninguno se elige al azar"), "{text}");
+
+    let overview = fixture.devports(&["doctor"]).await;
+    assert_eq!(overview.status.code(), Some(0), "{}", err(&overview));
+    assert!(out(&overview).contains("Carpetas donde se buscan proyectos"));
+    assert!(out(&overview).contains("shop"));
+
+    let nobody = fixture.devports(&["doctor", "--port", "1"]).await;
+    assert_eq!(nobody.status.code(), Some(14));
+
+    fixture.finish().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn without_a_core_commands_say_so_and_run_fails_open() {
     let dir = TempDir::new().expect("tempdir");

@@ -20,14 +20,16 @@ use std::time::Duration;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use devports_proto::duration::parse_duration;
 use devports_proto::{
-    AdoptArgs, AdoptResult, ErrorCode, ExtendArgs, ExtendResult, LogArgs, LogResult, LsArgs,
-    LsResult, Op, PingResult, StopResult, TokenArgs,
+    AdoptArgs, AdoptResult, DoctorArgs, DoctorResult, ErrorCode, ExtendArgs, ExtendResult, LogArgs,
+    LogResult, LsArgs, LsResult, Op, PingResult, StopResult, TokenArgs,
 };
 
 /// Exit code for invalid arguments (`CLI.md`, section 3).
 const EXIT_BAD_ARGS: u8 = 16;
 /// Exit code when the application is not running and the command needs it.
 const EXIT_CORE_DOWN: u8 = 17;
+/// The project, service, port or process asked about does not exist (`CLI.md`).
+const EXIT_NOT_FOUND: u8 = 14;
 /// Exit code for any other failure.
 const EXIT_FAILURE: u8 = 1;
 /// `stop` / `extend`: the token matches no Temporal.
@@ -57,6 +59,8 @@ enum Command {
     Log(LogCliArgs),
     /// Propone un manifiesto para una carpeta (solo lectura).
     Adopt(AdoptCliArgs),
+    /// Explica por qué un proceso coincide o no con un servicio (solo lectura).
+    Doctor(DoctorCliArgs),
     /// Muestra la versión.
     Version,
     /// Comprueba que la aplicación responde.
@@ -147,6 +151,19 @@ struct AdoptCliArgs {
     dir: Option<String>,
 }
 
+#[derive(Debug, Args)]
+struct DoctorCliArgs {
+    /// Explica los procesos que escuchan en este puerto.
+    #[arg(long, conflicts_with = "pid")]
+    port: Option<u16>,
+    /// Explica el proceso con este pid.
+    #[arg(long)]
+    pid: Option<u32>,
+    /// Salida en JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 fn parse_ttl(text: &str) -> Result<Duration, String> {
     parse_duration(text).map_err(|error| error.to_string())
 }
@@ -182,6 +199,7 @@ fn main() -> ExitCode {
         Command::Extend(args) => extend(&args),
         Command::Log(args) => log(&args),
         Command::Adopt(args) => adopt(&args),
+        Command::Doctor(args) => doctor(&args),
     }
 }
 
@@ -304,6 +322,28 @@ fn adopt(args: &AdoptCliArgs) -> ExitCode {
     }
 }
 
+fn doctor(args: &DoctorCliArgs) -> ExitCode {
+    let asked = args.port.is_some() || args.pid.is_some();
+    match call::<DoctorResult>(Op::Doctor(DoctorArgs {
+        port: args.port,
+        pid: args.pid,
+    })) {
+        Ok(result) => {
+            if args.json {
+                print_json(&result);
+            } else {
+                print!("{}", output::doctor_report(&result));
+            }
+            if asked && result.processes.is_empty() {
+                eprintln!("devports: ningún proceso que escuche coincide con lo pedido");
+                return ExitCode::from(EXIT_NOT_FOUND);
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => fail(&error),
+    }
+}
+
 /// Prints a client error and picks the exit code for it.
 fn fail(error: &client::ClientError) -> ExitCode {
     eprintln!("devports: {error}");
@@ -314,7 +354,7 @@ fn fail(error: &client::ClientError) -> ExitCode {
         client::ClientError::Core(body) => match body.code {
             ErrorCode::UnknownToken => ExitCode::from(EXIT_UNKNOWN_TOKEN),
             ErrorCode::LeaseLimit => ExitCode::from(EXIT_LEASE_LIMIT),
-            ErrorCode::NotFound => ExitCode::from(14),
+            ErrorCode::NotFound => ExitCode::from(EXIT_NOT_FOUND),
             _ => ExitCode::from(EXIT_FAILURE),
         },
         client::ClientError::Protocol(_) => ExitCode::from(EXIT_FAILURE),

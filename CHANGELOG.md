@@ -29,6 +29,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **`devports doctor`** — a read-only command that lists where projects are searched and, with `--port` or `--pid`, says why a running server does or does not belong to a declared service (command differs, outside its folder, port owned by another service). It changes nothing.
+
 - **Theme and language settings** — Settings now has Theme (System, Light, Dark) and Language (System, Español, English); each applies at once and is remembered.
 
 - **Localized menu bar and notifications** — the menu bar menu, its dialogs and the expiry and duplicate notifications are written in the language in force (Spanish or English, following the system by default).
