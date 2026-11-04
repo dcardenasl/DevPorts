@@ -175,6 +175,10 @@ pub(super) fn rejected(outcome: &RunOutcome) -> &devports_proto::run::Rejected {
     }
 }
 
+#[allow(
+    clippy::similar_names,
+    reason = "pid and ppid are the operating system's own names"
+)]
 pub(super) fn proc(
     pid: u32,
     ppid: u32,

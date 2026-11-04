@@ -11,17 +11,6 @@
 //! The engine is not thread-safe on purpose: exactly one actor owns it
 //! (ADR-025, point 4).
 
-// Style lints that would only force noisier signatures here: the engine passes
-// small owned values around on purpose, and its long methods are flat tables.
-#![allow(
-    clippy::too_many_lines,
-    clippy::needless_pass_by_value,
-    clippy::unused_self,
-    clippy::similar_names,
-    clippy::assigning_clones,
-    clippy::ref_option
-)]
-
 mod actions;
 mod binding;
 mod leases;

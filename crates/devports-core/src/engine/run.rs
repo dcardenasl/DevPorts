@@ -45,9 +45,13 @@ enum Command {
 
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     /// Decides a `run` request and, if it is accepted, reserves the port.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one flat decision table: each branch is a rule of the run policy"
+    )]
     pub fn run_register(&mut self, request: &RunRegister) -> (RunOutcome, Vec<Effect>) {
         let now = self.now();
-        let launcher = self.launcher_label(&request.launcher.chain);
+        let launcher = Self::launcher_label(&request.launcher.chain);
 
         let resolved = match self.resolve(request) {
             Ok(resolved) => resolved,
@@ -128,12 +132,14 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .cloned();
 
         match (request.role, existing) {
-            (RunRole::Test, _) => self.accept_temporal(request, &resolved, command, &launcher, now),
+            (RunRole::Test, _) => {
+                self.accept_temporal(request, &resolved, &command, &launcher, now)
+            }
             (RunRole::Principal, None) => {
-                self.accept_principal(request, &resolved, command, &launcher, now)
+                self.accept_principal(request, &resolved, &command, &launcher, now)
             }
             (RunRole::Principal, Some(existing)) if existing.state == InstanceState::Unhealthy => {
-                self.conflict(RejectKind::Unhealthy, &resolved, existing, &launcher, now)
+                self.conflict(RejectKind::Unhealthy, &resolved, &existing, &launcher, now)
             }
             (RunRole::Principal, Some(existing)) if request.reuse => {
                 let message = messages::reuse(&existing);
@@ -153,7 +159,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 )
             }
             (RunRole::Principal, Some(existing)) => {
-                self.conflict(RejectKind::Conflict, &resolved, existing, &launcher, now)
+                self.conflict(RejectKind::Conflict, &resolved, &existing, &launcher, now)
             }
         }
     }
@@ -220,7 +226,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .unwrap_or_default()
     }
 
-    fn launcher_label(&self, chain: &[ChainLink]) -> String {
+    fn launcher_label(chain: &[ChainLink]) -> String {
         let mut names: Vec<String> = chain
             .iter()
             .take(4)
@@ -280,7 +286,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         &mut self,
         kind: RejectKind,
         resolved: &Resolved,
-        existing: InstanceView,
+        existing: &InstanceView,
         launcher: &str,
         _now: i64,
     ) -> (RunOutcome, Vec<Effect>) {
@@ -289,19 +295,19 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .iter()
             .find(|record| record.reference == existing.instance_ref)
             .and_then(|record| record.started_at)
-            .or_else(|| self.started_of(&existing));
+            .or_else(|| Self::started_of(existing));
         self.refuse(
             kind,
             resolved.project.as_deref(),
             &resolved.service,
-            Some((&existing, started)),
+            Some((existing, started)),
             "",
             launcher,
         )
     }
 
     /// When a view's instance started, in seconds, from its own timestamp.
-    fn started_of(&self, view: &InstanceView) -> Option<i64> {
+    fn started_of(view: &InstanceView) -> Option<i64> {
         let text = view.started_at.as_deref()?;
         text.parse::<jiff::Timestamp>()
             .ok()
@@ -312,7 +318,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         &mut self,
         request: &RunRegister,
         resolved: &Resolved,
-        command: Command,
+        command: &Command,
         launcher: &str,
         now: i64,
     ) -> (RunOutcome, Vec<Effect>) {
@@ -353,7 +359,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         &mut self,
         request: &RunRegister,
         resolved: &Resolved,
-        command: Command,
+        command: &Command,
         launcher: &str,
         now: i64,
     ) -> (RunOutcome, Vec<Effect>) {
@@ -454,26 +460,27 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
 
     #[allow(
         clippy::too_many_arguments,
-        reason = "one accepted request has this many facts"
+        clippy::too_many_lines,
+        reason = "one accepted request has this many facts, written as one record"
     )]
     fn accept(
         &mut self,
         request: &RunRegister,
         resolved: &Resolved,
-        command: Command,
+        command: &Command,
         role: Role,
         port: u16,
         ttl: Option<Duration>,
         launcher: &str,
         now: i64,
     ) -> (RunOutcome, Vec<Effect>) {
-        let taken: BTreeSet<String> = self
+        let in_use: BTreeSet<String> = self
             .tracked
             .iter()
             .map(|record| record.reference.clone())
             .chain(self.views.iter().map(|view| view.instance_ref.clone()))
             .collect();
-        let reference = new_reference(&(self.entropy)(), &taken);
+        let reference = new_reference(&(self.entropy)(), &in_use);
         let token = (role == Role::Temporal).then(|| token_text(&(self.entropy)()));
 
         let ttl_seconds = ttl.map_or(0, |ttl| ttl.as_secs());
@@ -482,7 +489,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         record.service = Some(resolved.service.clone());
         record.registered = true;
         record.port = Some(port);
-        record.cwd = Some(match (&command, &resolved.cwd) {
+        record.cwd = Some(match (command, &resolved.cwd) {
             (Command::Start(_), Some(dir)) => dir.display().to_string(),
             _ => request.cwd.clone(),
         });
@@ -493,7 +500,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .map(|info| info.id.start.0);
         record.launcher_chain = serde_json::to_string(&self.labelled(&request.launcher.chain))
             .unwrap_or_else(|_| "[]".to_owned());
-        record.reason = request.reason.clone();
+        record.reason.clone_from(&request.reason);
         record.token_hash = token.as_deref().map(token_hash);
         record.reserved_at = Some(now);
         record.expires_at =
@@ -517,7 +524,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         self.rebuild_views();
 
         let url = format!("http://localhost:{port}");
-        let shell = build_shell(&command, port);
+        let shell = build_shell(command, port);
         let run_dir = stored.cwd.clone().unwrap_or_else(|| request.cwd.clone());
         let role_view = if role == Role::Temporal {
             InstanceRole::Temporal

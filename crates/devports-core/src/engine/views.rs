@@ -52,6 +52,10 @@ fn is_system_process(info: &ProcessInfo) -> bool {
 impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     /// Recomputes [`Engine::views`] from the registered instances, the last host
     /// scan and the last container list.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one flat pass that joins registered, observed and container facts"
+    )]
     pub(crate) fn rebuild_views(&mut self) {
         let mut views: Vec<InstanceView> = Vec::new();
         let mut targets: BTreeMap<String, Target> = BTreeMap::new();
@@ -138,7 +142,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             let principal_ref = tracked_principals.get(&key).cloned().or_else(|| {
                 // No registered Principal: the one on the preferred port, or the
                 // oldest, is the Principal "de hecho".
-                let preferred = self.preferred_port(&key.0, &key.1);
+                let preferred = self.preferred_port(key.0.as_deref(), &key.1);
                 candidates.sort_by(|a, b| {
                     let a_hit = preferred.is_some_and(|port| a.ports.contains(&port));
                     let b_hit = preferred.is_some_and(|port| b.ports.contains(&port));
@@ -181,13 +185,13 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         self.targets = targets;
     }
 
-    fn preferred_port(&self, project: &Option<String>, service: &str) -> Option<u16> {
+    fn preferred_port(&self, project: Option<&str>, service: &str) -> Option<u16> {
         match project {
             Some(name) => self
                 .catalog
                 .projects()
                 .iter()
-                .find(|candidate| &candidate.name == name)
+                .find(|candidate| candidate.name == name)
                 .and_then(|project| {
                     project
                         .services
@@ -447,7 +451,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             Classification::Service { project, service } => {
                 view.project = Some(project.name.clone());
                 view.service = Some(service.name.clone());
-                view.kind = service.kind.as_str().to_owned();
+                service.kind.as_str().clone_into(&mut view.kind);
                 Some((Some(project.name.clone()), service.name.clone()))
             }
             Classification::UnregisteredInProject { project }
@@ -458,7 +462,9 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             Classification::NoProject => self.shared_host_service(process).map(|name| {
                 view.service = Some(name.clone());
                 view.shared = true;
-                view.kind = self.service_kind(None, &name).as_str().to_owned();
+                self.service_kind(None, &name)
+                    .as_str()
+                    .clone_into(&mut view.kind);
                 (None, name)
             }),
         };
@@ -559,14 +565,16 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
         let key = if let Some(name) = shared_name {
             view.service = Some(name.clone());
             view.shared = true;
-            view.kind = self.service_kind(None, &name).as_str().to_owned();
+            self.service_kind(None, &name)
+                .as_str()
+                .clone_into(&mut view.kind);
             Some((None, name))
         } else {
             match self.catalog.classify_container(container) {
                 ContainerClassification::Service { project, service } => {
                     view.project = Some(project.name.clone());
                     view.service = Some(service.name.clone());
-                    view.kind = service.kind.as_str().to_owned();
+                    service.kind.as_str().clone_into(&mut view.kind);
                     Some((Some(project.name.clone()), service.name.clone()))
                 }
                 ContainerClassification::InProject { project } => {
