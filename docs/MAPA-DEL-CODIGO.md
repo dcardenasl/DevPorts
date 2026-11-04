@@ -142,7 +142,7 @@ Idea clave: **el CLI nunca decide.** Solo pregunta, imprime y ejecuta. Toda la d
 
 El socket (`Op` en `devports-proto/src/lib.rs`) expone **exactamente** lo que el CLI puede hacer:
 
-`ping` · `run.register` · `ls` · `stop` y `extend` (con token) · `log` · `adopt.propose`
+`ping` · `run.register` · `ls` · `stop` y `extend` (con token) · `log` · `adopt.propose` · `doctor` (solo lectura, ADR-044)
 
 Detener Principales o procesos no registrados, aprobar, escribir manifiestos y marcar algo como legítimo **no están en el socket**: existen solo como comandos Tauri dentro de la app (ADR-009). Así, aunque un agente se comporte mal, no tiene cómo llegar a ellos. Los tokens nunca salen en `ls` ni en `log`.
 

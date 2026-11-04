@@ -304,3 +304,12 @@ Fecha: 2026-10-18. **Estado: Confirmada [C]** por David (pregunta sobre usuarios
 **Decisión:** (1) El panel muestra «Docker no responde» solo si hay al menos una instancia en estado `unknown`, que el núcleo produce únicamente para servicios de contenedor declarados cuando Docker es inalcanzable. (2) Sin ese caso el panel no muestra franja, aunque `docker_error` exista; Configuración dice que Docker no responde y que ningún servicio declarado lo usa. (3) No se detecta «Docker no instalado» por rutas y no hay ajuste «No uso Docker». (4) Sin cambios de núcleo, `proto`, bindings ni base de datos.
 
 **Límites:** la franja con servicios afectados conserva su texto y su botón «Ver detalle».
+
+## ADR-044 `devports doctor`: diagnóstico de solo lectura por el socket
+Fecha: 2026-11-04. **Estado: Derivada [D]** del plan de robustez ([plan](plan/robustez-y-deuda.md), ROB-5.2); lo aprobó David al aprobar los hallazgos de la auditoría. Amplía ADR-009 con una operación más, **de solo lectura**.
+
+**Contexto:** diagnosticar «por qué este servidor no coincide con su servicio» exigió leer código y escribir una prueba (el caso `localhost` frente a `127.0.0.1`). Ese conocimiento está en el motor y debe poder preguntarse.
+
+**Decisión:** (1) Nueva operación `doctor` del socket, sin token y sin efectos: devuelve las raíces y la profundidad de búsqueda, los proyectos descubiertos con sus servicios y, si se pide con `--port` o `--pid`, para cada proceso que escucha: su huella normalizada, el proyecto al que pertenece por carpeta y, por cada servicio candidato, **el motivo exacto del descarte** (carpeta fuera del servicio, comando distinto con lo esperado y lo observado, servicio de contenedor) o que coincide; además avisa si el puerto lo declara otro servicio. (2) Solo contiene lo que `ls --all` y los manifiestos ya muestran: rutas, huellas y nombres; nunca tokens ni hashes (regla 7). (3) El motor responde con sus datos en memoria; no lee disco ni crea procesos. (4) El CLI sigue dependiendo solo de `devports-proto`; las frases en español las escribe el CLI.
+
+**Límites:** no cambia ninguna regla de reconocimiento ni escribe nada. Detener, adoptar y escribir manifiestos siguen fuera del socket. La detección de proyectos fuera del alcance de búsqueda (lee disco) llega con ROB-5.3 por el escáner del runtime, no por el motor.

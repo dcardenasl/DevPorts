@@ -178,6 +178,9 @@ Muestra el registro de actividad (ADR-014): lanzamientos, rechazos con su motivo
 ## 7. `devports adopt [carpeta]`
 Solo lectura: imprime la propuesta de manifiesto (MANIFIESTO.md sección 8) para la carpeta (por defecto, la actual). **No escribe archivos**: escribir un manifiesto es una acción de la persona, desde la app **[D]**. Motivo: "adoptar" podría legitimar duplicados, así que no queda al alcance de un agente.
 
+## 7b. `devports doctor [--port N | --pid N] [--json]` **[D]**
+Solo lectura (ADR-044). Sin argumentos: raíces y profundidad de búsqueda, proyectos descubiertos y sus servicios. Con `--port` o `--pid`: por cada proceso que escucha, su huella, su proyecto por carpeta y **por qué no coincide** con cada servicio candidato (o con cuál coincide). Códigos de salida: `0` respuesta; `14` si el puerto o el pid no corresponden a ningún proceso que escuche; `17` si la app no corre. No escribe, no detiene, no adopta.
+
 ## 8. Otros
 - `devports version`, `devports help`.
 - Variables de control: `DEVPORTS_INTERACTIVE=1` (pregunta opcional), `DEVPORTS_SOCKET=<ruta>` (otro socket, útil en pruebas), `DEVPORTS_NO_AUTOSTART=1` (no intentar abrir la app).

@@ -51,7 +51,7 @@ CHANGELOG (`## [Unreleased]`) solo para `feat/fix/perf`; nunca inventar número 
 3. `unsafe_code` es `deny` y solo se relaja en tres archivos (`platform/macos.rs` del núcleo, `window_style.rs` y `notifications.rs` de la app; ADR-025; un test lo vigila). El núcleo no crea procesos: `Command::new` está prohibido salvo en un módulo justificado del CLI (`exec`, `open`), uno de la app (`launchctl`) y las pruebas (`#![allow]` en su cabecera).
 4. Un proceso se identifica por `(pid, start_time)`, nunca solo por `pid`.
 5. Solo se detiene automáticamente lo registrado con vencimiento (ADR-006). Parada: SIGTERM al proceso y sus descendientes, nunca a un grupo ajeno; prohibiciones absolutas de ARQUITECTURA §8.
-6. El socket solo expone lo que el CLI puede hacer: `ping`, `run.register`, `ls`, `stop`/`extend` (con token), `log`, `adopt.propose`. Detener Principales o no registrados, escribir manifiestos y marcar legítimo existen solo en comandos Tauri (ADR-009).
+6. El socket solo expone lo que el CLI puede hacer: `ping`, `run.register`, `ls`, `stop`/`extend` (con token), `log`, `adopt.propose`, `doctor` (solo lectura, ADR-044). Detener Principales o no registrados, escribir manifiestos y marcar legítimo existen solo en comandos Tauri (ADR-009).
 7. Los tokens nunca aparecen en `ls` ni `log`; solo se guarda su hash SHA-256.
 8. El núcleo es un actor que posee el estado (canal `mpsc`); sin `Mutex` compartido sobre el dominio. Reloj, `ProcessSource` y `ContainerSource` inyectables.
 9. Sin cuestionar al usuario: `devports run` nunca pregunta salvo `DEVPORTS_INTERACTIVE=1` (ADR-008). `--replace` **no existe** en v1 (ADR-023).
