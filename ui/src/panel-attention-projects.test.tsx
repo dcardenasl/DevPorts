@@ -164,6 +164,19 @@ describe("the panel: attention, projects and stops", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
   });
 
+  // covers: ROB-4.2
+  it("says which instance stays running before stopping its duplicates", async () => {
+    const { user } = await open();
+    await user.click(tab(/Proyectos/));
+    await user.click(screen.getByRole("button", { name: "Detener los 2" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(
+      within(dialog).getByText(/Se conserva la instancia principal \(api\)/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/808[23]/).length).toBeGreaterThanOrEqual(2);
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+  });
+
   // covers: UI
   it("opens a service's details from its own row", async () => {
     const { user } = await open();

@@ -435,6 +435,8 @@ export const en: Catalog = {
       "Only the instances listed will be stopped. Data and shared services stay active. New launches are not part of this action.",
     stopTitle: (name: string) => `Stop ${name}?`,
     stopBody: "It will be asked to finish and, if it does not, it will be forced.",
+    keepsPrincipal: (kept: string) =>
+      `The main instance (${kept}) stays running. Each one listed will be asked to finish and, if it does not, it will be forced.`,
     stopGroupTitle: (count: number) => `Stop these ${count} instances?`,
     dataStopBody:
       "The data container will be stopped. DevPorts will not delete the container nor its volumes.",

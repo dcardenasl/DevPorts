@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Stopping duplicates says what stays** — the confirmation for stopping unregistered duplicates now names the main instance that keeps running.
+
 - **Easier to press** — the settings gear and the activity filters (and the appearance segments) now have a 32 px pressable area instead of 24–26 px.
 
 - **First click right after opening the panel** — a tab change or fold made in the first instant after the panel appeared could be dropped without a trace; the panel state is now ready before any click can reach it.

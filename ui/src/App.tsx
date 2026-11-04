@@ -33,6 +33,7 @@ import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
 import { SharedView, sharedSubtitle } from "./views/SharedView";
 import { OperationsSection } from "./OperationsSection";
 import { Shell } from "./Shell";
+import { instanceTitle } from "./instance";
 import { sameStopTarget, stopExpectation } from "./stopTarget";
 import { TabBar, initialTab, type Tab } from "./tabs";
 
@@ -380,6 +381,17 @@ function Panel({
               returnFocusTo={confirmed.invoker}
               affected={[
                 ...new Set(confirmed.views.flatMap((view) => dependentsOf(view, snapshot))),
+              ]}
+              kept={[
+                ...new Set(
+                  confirmed.views.flatMap((view) => {
+                    const principal =
+                      view.duplicate_of === null
+                        ? undefined
+                        : snapshot.instances.find((other) => other.ref === view.duplicate_of);
+                    return principal === undefined ? [] : [instanceTitle(principal, text)];
+                  }),
+                ),
               ]}
               onCancel={() => {
                 setDialog(undefined);

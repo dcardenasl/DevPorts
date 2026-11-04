@@ -449,6 +449,8 @@ export const es = {
       "Solo se detendrán las instancias enumeradas. Los datos y compartidos seguirán activos. Los nuevos lanzamientos quedan fuera de esta acción.",
     stopTitle: (name: string) => `¿Detener ${name}?`,
     stopBody: "Se le pedirá que termine y, si no lo hace, se forzará.",
+    keepsPrincipal: (kept: string) =>
+      `Se conserva la instancia principal (${kept}). A las enumeradas se les pedirá que terminen y, si no lo hacen, se forzarán.`,
     stopGroupTitle: (count: number) => `¿Detener estas ${count} instancias?`,
     dataStopBody:
       "Se detendrá el contenedor de datos. DevPorts no borrará el contenedor ni sus volúmenes.",

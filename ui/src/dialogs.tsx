@@ -10,6 +10,7 @@ export function ConfirmStop({
   views,
   project,
   affected,
+  kept,
   onCancel,
   onConfirm,
   returnFocusTo,
@@ -17,6 +18,8 @@ export function ConfirmStop({
   views: InstanceView[];
   project?: string | undefined;
   affected: string[];
+  /** The instances that stay running because the ones listed duplicate them. */
+  kept: string[];
   onCancel: () => void;
   onConfirm: () => void;
   returnFocusTo: HTMLElement | null;
@@ -41,7 +44,9 @@ export function ConfirmStop({
           ? text.confirm.projectStopBody
           : data
             ? text.confirm.dataStopBody
-            : text.confirm.stopBody
+            : kept.length > 0
+              ? text.confirm.keepsPrincipal(kept.join(", "))
+              : text.confirm.stopBody
       }
       role="alertdialog"
       onCancel={onCancel}
