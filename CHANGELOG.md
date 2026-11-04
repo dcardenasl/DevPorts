@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Same server on `localhost` or `127.0.0.1`** — a service is now recognised whichever local address it was started with (`localhost`, `127.0.0.1`, `0.0.0.0`, `::1`), so restarting it no longer shows a new server without a project and no longer blocks adopting the rest.
+
 - **Docker notice only when it matters** — the “Docker is not responding” notice now appears only when a service you declared in a container cannot be checked, and says how many; if nothing you declared uses Docker, there is no notice.
 
 - **Panel polish** — the Docker notice is one compact row with a details button instead of a third of the panel, finished operations leave the panel after a few seconds, shared service rows no longer break their lines, activity times stay on one line, project folders show in full on hover and the tab bar focus ring is rounded.

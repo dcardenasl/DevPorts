@@ -15,6 +15,11 @@ const PORT_MIN: u32 = 1024;
 const PORT_MAX: u32 = 65_535;
 /// What a replaced port number becomes.
 const PORT_PLACEHOLDER: &str = "N";
+/// Addresses that mean "this machine"; which one a person types for a dev server
+/// (`localhost`, `127.0.0.1`, `0.0.0.0`, `::1`) does not change what runs.
+const LOCAL_ADDRESSES: [&str; 5] = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"];
+/// What a local address becomes.
+const LOCAL_PLACEHOLDER: &str = "localhost";
 
 /// A normalised command line, as a list of tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -130,14 +135,31 @@ fn normalize_token(token: &str, is_program: bool) -> String {
     if is_port(token) {
         return PORT_PLACEHOLDER.to_owned();
     }
+    if is_local_address(token) {
+        return LOCAL_PLACEHOLDER.to_owned();
+    }
     for separator in ['=', ':'] {
-        if let Some((head, tail)) = token.rsplit_once(separator)
-            && is_port(tail)
-        {
-            return format!("{head}{separator}{PORT_PLACEHOLDER}");
+        if let Some((head, tail)) = token.rsplit_once(separator) {
+            // `N` is the placeholder itself: a manifest `match` is already written with it.
+            if is_port(tail) || tail == PORT_PLACEHOLDER {
+                let head = if is_local_address(head) {
+                    LOCAL_PLACEHOLDER
+                } else {
+                    head
+                };
+                return format!("{head}{separator}{PORT_PLACEHOLDER}");
+            }
+            if separator == '=' && is_local_address(tail) {
+                return format!("{head}={LOCAL_PLACEHOLDER}");
+            }
         }
     }
     token.to_owned()
+}
+
+/// Whether `text` is one of the spellings of the local machine.
+fn is_local_address(text: &str) -> bool {
+    LOCAL_ADDRESSES.contains(&text)
 }
 
 /// The last non-empty path component, or the whole token if there is none.
@@ -194,6 +216,32 @@ mod tests {
 
     // covers: U-01
     #[test]
+    fn every_spelling_of_the_local_machine_is_one_token() {
+        for host in ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"] {
+            assert_eq!(
+                normalized(&format!("php -S {host}:8192 -t public")),
+                "php -S localhost:N -t public",
+                "for `{host}`"
+            );
+            assert_eq!(
+                normalized(&format!("vite --host {host} --port=5173")),
+                "vite --host localhost --port=N",
+                "for `{host}`"
+            );
+            assert_eq!(
+                normalized(&format!("vite --host={host}")),
+                "vite --host=localhost",
+                "for `{host}`"
+            );
+        }
+        assert!(
+            Fingerprint::from_argv(&["php", "-S", "localhost:8192"])
+                .contains(&Fingerprint::from_match_text("php -S 127.0.0.1:N"))
+        );
+    }
+
+    // covers: U-01
+    #[test]
     fn the_program_is_reduced_to_its_base_name_even_when_relative() {
         assert_eq!(normalized("./node_modules/.bin/vite dev"), "vite dev");
         assert_eq!(normalized("~/bin/serve"), "serve");
@@ -205,8 +253,8 @@ mod tests {
         assert_eq!(normalized("srv 80 443 1023"), "srv 80 443 1023");
         assert_eq!(normalized("srv 1024 65535 65536"), "srv N N 65536");
         assert_eq!(normalized("srv --port=80"), "srv --port=80");
-        assert_eq!(normalized("srv 0.0.0.0:8080"), "srv 0.0.0.0:N");
-        assert_eq!(normalized("srv [::1]:3000"), "srv [::1]:N");
+        assert_eq!(normalized("srv 0.0.0.0:8080"), "srv localhost:N");
+        assert_eq!(normalized("srv [::1]:3000"), "srv localhost:N");
     }
 
     // covers: U-01
