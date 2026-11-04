@@ -19,37 +19,23 @@ import {
   usePreferences,
   useToast,
 } from "./hooks";
-import {
-  BellIcon,
-  CheckIcon,
-  DatabaseIcon,
-  FolderIcon,
-  GearIcon,
-  ListIcon,
-  OrphanIcon,
-  WarningIcon,
-} from "./icons";
+import { CheckIcon, WarningIcon } from "./icons";
 import { buildOrphans, dependentsOf, draftTargetExists } from "./model";
 import { APP_NAME } from "./brand";
 import { operationFailureText } from "./failures";
 import { failureText } from "./reasons";
 import { I18nProvider, useI18n } from "./i18n/provider";
-import { targetLabel } from "./instance";
-import type {
-  AdoptDraft,
-  InstanceView,
-  LanguagePreference,
-  PanelState,
-  PanelTab,
-  StopExpectation,
-} from "./types";
+import type { AdoptDraft, InstanceView, LanguagePreference, PanelState, PanelTab } from "./types";
 import { ActivityView, activitySubtitle, type ActivityStatus } from "./views/ActivityView";
 import { AttentionView, attentionSubtitle } from "./views/AttentionView";
 import { OrphansView, orphansSubtitle } from "./views/OrphansView";
 import { ProjectsView, projectsSubtitle } from "./views/ProjectsView";
 import { SharedView, sharedSubtitle } from "./views/SharedView";
+import { OperationsSection } from "./OperationsSection";
+import { Shell } from "./Shell";
+import { sameStopTarget, stopExpectation } from "./stopTarget";
+import { TabBar, initialTab, type Tab } from "./tabs";
 
-type Tab = "attention" | "projects" | "shared" | "orphans" | "activity";
 type IgnoreRequest = { view: InstanceView; invoker: HTMLButtonElement };
 type DialogRequest = {
   kind: "stop" | "stopProject";
@@ -57,39 +43,6 @@ type DialogRequest = {
   invoker: HTMLButtonElement | null;
   project?: string;
 };
-
-const TABS: { id: Tab; icon: (props: { size?: number }) => ReactElement }[] = [
-  { id: "attention", icon: BellIcon },
-  { id: "projects", icon: FolderIcon },
-  { id: "shared", icon: DatabaseIcon },
-  { id: "orphans", icon: OrphanIcon },
-  { id: "activity", icon: ListIcon },
-];
-
-const tabId = (id: Tab): string => `tab-${id}`;
-const panelId = (id: Tab): string => `panel-${id}`;
-
-/** The tab an arrow, Home or End key moves to; roving focus wraps at the ends. */
-function nextTab(current: Tab, key: string): Tab | undefined {
-  const index = TABS.findIndex((entry) => entry.id === current);
-  const last = TABS.length - 1;
-  const at =
-    key === "ArrowRight"
-      ? (index + 1) % TABS.length
-      : key === "ArrowLeft"
-        ? (index + last) % TABS.length
-        : key === "Home"
-          ? 0
-          : key === "End"
-            ? last
-            : undefined;
-  return at === undefined ? undefined : TABS[at]?.id;
-}
-
-function initialTab(): Tab {
-  const wanted = new URLSearchParams(window.location.search).get("tab");
-  return TABS.find((entry) => entry.id === wanted)?.id ?? "attention";
-}
 
 /** The panel, in the language in force: the preference the shell asked for, until it is changed. */
 export function App({
@@ -357,48 +310,13 @@ function Panel({
         onRetry={retryConnection}
         onDetails={actions.openSettings}
       />
-      {visible.length > 0 && (
-        <section className="section" aria-label={text.a11y.operations}>
-          <h2 className="section-title">{text.operations.title}</h2>
-          <div className="group">
-            {visible.slice(0, 5).map((operation) => (
-              <div key={operation.id} className="item-note">
-                <strong>{text.operations.kind[operation.kind]}</strong>
-                {operation.targets.map((target) => (
-                  <div
-                    key={target.reference}
-                    role={target.status === "failed" ? "alert" : "status"}
-                  >
-                    {targetLabel(target, snapshot.instances, text)}:{" "}
-                    {target.status === "queued"
-                      ? text.operations.queued
-                      : target.status === "running"
-                        ? text.operations.running
-                        : target.status === "succeeded"
-                          ? target.result
-                            ? text.operations.adopted(target.result.project, target.result.service)
-                            : text.operations.succeeded
-                          : operationFailureText(target, text)}
-                  </div>
-                ))}
-                {(operation.status === "failed" || operation.status === "partial") && (
-                  <div>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        void retryOperation(operation.id);
-                      }}
-                    >
-                      {text.operations.retry}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <OperationsSection
+        visible={visible}
+        instances={snapshot.instances}
+        onRetry={(id) => {
+          void retryOperation(id);
+        }}
+      />
       {(missingDraft ||
         (panelState.draft !== null && !draftTargetExists(panelState.draft, snapshot))) && (
         <p className="section-note" role="status">
@@ -446,46 +364,12 @@ function Panel({
       body={body}
       tabKey={tab}
       footer={
-        <div
-          className="tabs"
-          role="tablist"
-          aria-label={text.a11y.sections}
-          onKeyDown={(event) => {
-            const next = nextTab(tab, event.key);
-            if (next === undefined) return;
-            event.preventDefault();
-            selectTab(next);
-            document.getElementById(tabId(next))?.focus();
-          }}
-        >
-          {TABS.map(({ id, icon: Icon }) => {
-            const count =
-              id === "attention" ? snapshot.attention.length : id === "orphans" ? orphanCount : 0;
-            return (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                id={tabId(id)}
-                className="tab"
-                aria-selected={tab === id}
-                aria-controls={panelId(id)}
-                tabIndex={tab === id ? 0 : -1}
-                onClick={() => {
-                  selectTab(id);
-                }}
-              >
-                <Icon size={18} />
-                <span>{text.tabs[id]}</span>
-                {count > 0 && (
-                  <span className="badge" aria-label={`${count} pendientes`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <TabBar
+          tab={tab}
+          attentionCount={snapshot.attention.length}
+          orphanCount={orphanCount}
+          onSelect={selectTab}
+        />
       }
       overlay={
         <>
@@ -659,79 +543,6 @@ function Panel({
   );
 }
 
-function Shell({
-  title,
-  subtitle,
-  onSettings,
-  body,
-  footer,
-  overlay,
-  tabKey,
-}: {
-  title: string;
-  subtitle: string;
-  onSettings?: (invoker: HTMLButtonElement) => void;
-  body: ReactElement | null;
-  footer?: ReactElement;
-  overlay?: ReactElement;
-  tabKey?: string;
-}): ReactElement {
-  const { text } = useI18n();
-  return (
-    <div className="panel">
-      <header className="head">
-        <div className="head-row">
-          <h1>{title}</h1>
-          {onSettings && (
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label={text.settings.open}
-              title={text.settings.open}
-              onClick={(event) => {
-                onSettings(event.currentTarget);
-              }}
-            >
-              <GearIcon size={16} />
-            </button>
-          )}
-        </div>
-        <p>{subtitle}</p>
-      </header>
-      <main
-        className="body"
-        key={tabKey}
-        role="tabpanel"
-        id={tabKey === undefined ? undefined : panelId(tabKey as Tab)}
-        aria-labelledby={tabKey === undefined ? undefined : tabId(tabKey as Tab)}
-      >
-        {body}
-      </main>
-      {footer ?? <div />}
-      {overlay}
-    </div>
-  );
-}
-
 async function copyText(value: string): Promise<void> {
   await navigator.clipboard.writeText(value);
-}
-
-function stopExpectation(view: InstanceView): StopExpectation {
-  return {
-    targetIdentity: view.target_identity,
-    pid: view.pid,
-    container: view.container,
-    port: view.port,
-    project: view.project,
-    service: view.service,
-    kind: view.kind,
-    role: view.role,
-    shared: view.shared,
-    startedAt: view.started_at,
-  };
-}
-
-function sameStopTarget(current: InstanceView, confirmed: InstanceView): boolean {
-  return JSON.stringify(stopExpectation(current)) === JSON.stringify(stopExpectation(confirmed));
 }
