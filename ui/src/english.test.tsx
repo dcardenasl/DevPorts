@@ -7,6 +7,13 @@ import { sampleSnapshot } from "./sample";
 describe("the panel in English", () => {
   beforeEach(resetBackend);
 
+  // covers: ROB-4.4
+  it("reads the tab badges in English", async () => {
+    await open(sampleSnapshot(), "en");
+    expect(screen.getAllByLabelText(/\d+ pending$/).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/pendientes/)).toBeNull();
+  });
+
   it("opens on Attention with the counter, the official instance and every alert", async () => {
     await open(sampleSnapshot(), "en");
     expect(screen.getByRole("heading", { level: 1, name: "Attention" })).toBeInTheDocument();

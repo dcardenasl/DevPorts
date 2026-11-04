@@ -750,5 +750,6 @@ export const en: Catalog = {
     operations: "Operations",
     sections: "Sections",
     filter: "Filter",
+    pending: (count: number) => `${count} pending`,
   },
 };

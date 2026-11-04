@@ -768,6 +768,7 @@ export const es = {
     operations: "Operaciones",
     sections: "Secciones",
     filter: "Filtro",
+    pending: (count: number) => `${count} pendientes`,
   },
 };
 

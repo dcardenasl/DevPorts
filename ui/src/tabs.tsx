@@ -83,7 +83,7 @@ export function TabBar({
             <Icon size={18} />
             <span>{text.tabs[id]}</span>
             {count > 0 && (
-              <span className="badge" aria-label={`${count} pendientes`}>
+              <span className="badge" aria-label={text.a11y.pending(count)}>
                 {count}
               </span>
             )}
