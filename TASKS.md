@@ -30,6 +30,7 @@
 2. **T2.0 pendiente de confirmación:** las decisiones de interfaz de ADR-027 se tomaron con valores por defecto; confirmarlas o cambiarlas con el uso.
 3. **M-15:** reiniciar el Mac una vez y comprobar que la app arranca sola (`tools/launchd-check.sh` ya verifica el reinicio tras caída y la salida limpia).
 4. **G2 / T2.8:** tras 5 días de uso diario, `/release` (el flujo y `release.yml` están listos).
+**Plan de robustez y deuda técnica (ROB):** auditoría del 2026-11-04 aprobada por David; 18 tareas independientes en [Robustez y deuda técnica](#robustez-y-deuda) (plan: [docs/plan/robustez-y-deuda.md](docs/plan/robustez-y-deuda.md)). Empezar por ROB-1.x y ROB-5.1.
 S0 (línea base) quedó sustituida por el uso real (ADR-026).
 
 ---
@@ -634,6 +635,84 @@ Origen: pregunta de David del 2026-10-18: quien no usa Docker (o lo tiene apagad
 - [x] **UXR-12.3 — Verificación nativa, primera apertura y cierre.**
 
   **Dependencias:** UXR-12.1 y 12.2. **Trabajo:** `pnpm` completo y `tools/check.sh full`; reinstalar con `tools/install.sh` y comprobar en la app nativa (ver `memory` «native-panel-access»; clic real con CGEvent en el icono) con Docker apagado y servicios `unknown` declarados (franja con conteo) y, con una copia temporal de la configuración propia, sin ninguno (sin franja); restaurar lo tocado. Capturas en `docs/audits/evidencia/uxr-12/`. Documentar en `docs/PRD.md` o `docs/ARQUITECTURA.md` (donde se describe el panel) la regla de ADR-043 y el comportamiento de primera apertura del plan. Registro en ARCHIVES, SNAPSHOT y CHANGELOG (`fix`). **Commits:** `docs: close uxr-12 with evidence`.
+
+### Robustez y deuda técnica (ROB)
+
+<a id="robustez-y-deuda"></a>
+
+Origen: auditoría del 2026-11-04, todos los hallazgos aprobados por David. Plan, hechos medidos, reglas para gastar poco contexto y orden: [plan](docs/plan/robustez-y-deuda.md) (**leerlo entero la primera vez; después basta su sección «Reglas para ejecutar» y la ficha**). Reglas comunes: rama `dev`, sin push, cierre con `/commit-flow`; verificación al final con `tools/check.sh full` y, en `ui/`, `pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test`; cada prueba nueva con `// covers: ROB-x.y`; texto nuevo en `es.ts` y `en.ts`; sin código muerto ni banderas de compatibilidad. Los refactores (ROB-3) **no cambian comportamiento**: mismo número y nombres de pruebas, aserciones intactas. No tocar `.devports.yml` ni los servicios reales de David.
+
+- [ ] **ROB-1.1 — Borrar el archivo basura y evitar que vuelva.**
+
+  **Dependencias:** ninguna. **Leer código:** `.gitignore`; `git ls-files | grep -- '-E$'`. **Trabajo:** `git rm crates/devports-core/src/engine/tests.rs-E` (residuo de `sed -i` en macOS; comprobar antes que no lo referencia ningún `mod`/`include`), y añadir `*-E` y `*.orig` bajo un comentario en `.gitignore`. **Hecho cuando:** `git ls-files | grep -E -- '-E$|\.orig$'` no devuelve nada; `cargo test --workspace` igual que antes. **Commits:** `chore: remove a stray sed backup and ignore its pattern`.
+
+- [ ] **ROB-1.2 — Pruebas de interfaz más rápidas.**
+
+  **Dependencias:** ninguna. **Leer código:** `ui/vite.config.ts` (bloque `test`), `ui/vitest.setup.ts`. **Trabajo:** probar `isolate: false` (o `pool: 'vmThreads'`) para no crear jsdom 17 veces (hoy 14 s de 25 s); confirmar que no hay estado compartido corriendo la suite 3 veces con `pnpm vitest run --sequence.shuffle`. Si alguna falla por estado global, corregir el estado (no la prueba) o volver al ajuste anterior y dejar escrito el motivo en el plan. **Hecho cuando:** `pnpm test` tarda menos de la mitad (anotar antes/después en ARCHIVES) y pasa en 3 órdenes aleatorios; mismo número de pruebas. **Commits:** `test(ui): share one jsdom between test files`.
+
+- [ ] **ROB-1.3 — Destino del `.devports.yml` de la raíz.**
+
+  **Dependencias:** ninguna. **Leer código:** `.gitignore`, `.devports.yml` (sin versionar), plan §ROB-1. **Trabajo:** ignorarlo con una entrada comentada («manifiesto local del mantenedor: lleva rutas de su usuario») sin borrar el archivo ni editar su contenido. **Hecho cuando:** `git status` ya no lo lista y el archivo sigue en disco intacto. **Commits:** `chore: ignore the maintainer's local manifest`.
+
+- [ ] **ROB-2.1 — Acotar los lints silenciados del motor.**
+
+  **Dependencias:** ROB-5.1 (red de seguridad). **Leer código:** `crates/devports-core/src/engine.rs` (líneas 14–25, el `#![allow(...)]`), `clippy.toml`. **Trabajo:** quitar el `allow` de módulo y resolver cada aviso: corregir si es barato (p. ej. extraer pasos con nombre para `too_many_lines`, pasar referencias donde `needless_pass_by_value` lo pida) o `#[allow(lint, reason = "…")]` sobre la función concreta. No reescribir lógica del motor por estilo. **Hecho cuando:** `grep -rn '#!\[allow' crates/devports-core/src` solo muestra `platform/macos.rs`; `cargo clippy --workspace --all-targets -- -D warnings` en verde; pruebas del motor intactas. **Commits:** `refactor(core): scope the engine lint exceptions to the functions that need them`.
+
+- [ ] **ROB-3.1 — Partir `operations.rs` de la app.**
+
+  **Dependencias:** ROB-2.1. **Leer código:** `crates/devports-app/src/operations.rs` por tramos: tipos (líneas ~27–230), `OperationStore` (~230–450), fallos (~459–535), `validate/aggregate` (~534–660), `spawn` y `consumer_*` (~661–830), `tests` (~832+). **Trabajo:** convertirlo en carpeta `operations/` con `types.rs`, `store.rs`, `failure.rs`, `validate.rs`, `runner.rs`, `tests.rs` y un `operations.rs` (o `mod.rs`) que reexporta la API pública actual sin cambios (ningún consumidor edita sus `use`). **Hecho cuando:** ningún archivo de producción supera ~500 líneas; `git diff -M --stat` muestra movimientos; mismas pruebas y nombres; `commands.rs` y `host.rs` compilan sin cambios. **Commits:** `refactor(app): split the operations module by responsibility`.
+
+- [ ] **ROB-3.2 — Partir `runtime.rs` del núcleo.**
+
+  **Dependencias:** ROB-2.1. **Leer código:** `crates/devports-core/src/runtime.rs` (cabecera 1–76, `Snapshot` ~144, `Msg` ~227, `CoreHandle` ~268–475, `Core` ~501–645, `Actor` ~680–1010, `scan_host` ~1015, `supervise_docker` ~1038, `watch_catalog` ~1126, `probe_health` ~1172) y los módulos hermanos en `runtime/`. **Trabajo:** mover `Actor`, `CoreHandle` y las cuatro tareas a `runtime/{actor,handle,scan,docker_supervisor,catalog_watch,health}.rs`, dejando en `runtime.rs` la cabecera de documentación, `Core`, `Snapshot`, `CoreOptions`, `RuntimeError` y `Msg`; API pública y rutas `devports_core::runtime::*` idénticas. **Hecho cuando:** ningún archivo supera ~500 líneas de producción; las pruebas de integración (`crates/devports-core/tests/`) pasan sin editarlas; `bindings.ts` sin cambios. **Commits:** `refactor(core): split the runtime into one file per task`.
+
+- [ ] **ROB-3.3 — Partir `App.tsx` y `hooks.ts`.**
+
+  **Dependencias:** ROB-2.1. **Leer código:** `ui/src/App.tsx` (composición, barra de pestañas, sección de operaciones), `ui/src/hooks.ts` (un hook por bloque), `docs/MAPA-DEL-CODIGO.md` §7 para la convención. **Trabajo:** cada hook a `ui/src/hooks/use<Nombre>.ts` (con `hooks/index.ts` reexportando para no cambiar imports ajenos), y de `App.tsx` extraer la barra de pestañas y la sección de operaciones a componentes propios; `App.tsx` queda como composición y enrutado. **Hecho cuando:** `App.tsx` y cada archivo de `hooks/` ≤ ~350 líneas; `pnpm test` con el mismo número de pruebas y sin editar aserciones; sin cambios en estilos ni catálogos. **Commits:** `refactor(ui): split app and hooks into focused files`.
+
+- [ ] **ROB-3.4 — Partir `App.test.tsx`.**
+
+  **Dependencias:** ROB-3.3. **Leer código:** `ui/src/App.test.tsx` por `describe` (líneas ~204, 1439, 1758, 1805, 1821, 1896) y `fakeBackend` (~30). **Trabajo:** crear `ui/src/test-utils.tsx` con `fakeBackend` y ayudantes (`tab`, etc.) y un archivo por `describe` (`panel.test.tsx`, `core-unreachable.test.tsx`, `english.test.tsx`, `activity.test.tsx`, `appearance.test.tsx`, `reasons-in-english.test.tsx`); partir además el `describe` principal (≈1.200 líneas) por pestaña si queda por encima de ~600 líneas. **Hecho cuando:** ningún archivo de prueba supera ~600 líneas; mismo número de pruebas y mismos nombres; los `// covers:` se conservan. **Commits:** `test(ui): split the panel tests by area`.
+
+- [ ] **ROB-3.5 — Partir las pruebas del motor.**
+
+  **Dependencias:** ROB-2.1 y ROB-1.1. **Leer código:** `crates/devports-core/src/engine/tests.rs` (nombres de prueba con `grep -n "^fn "`; ayudantes al inicio, `occupy`/`is_free` ~30) y `engine/scenarios.rs`. **Trabajo:** convertir en `engine/tests/` con `mod.rs` (ayudantes compartidos) y archivos por tema: `run.rs`, `binding.rs`, `leases.rs`, `views.rs`, `adoption.rs`, `ignore.rs`, `scenarios.rs` (agrupando por el prefijo/tema de cada prueba). **Hecho cuando:** ningún archivo supera ~600 líneas; `cargo test -p devports-core --lib` con idéntica cuenta y nombres (comparar `cargo test -- --list` antes y después); `tools/check_matrix.py` sigue en verde. **Commits:** `test(core): split the engine tests by topic`.
+
+- [ ] **ROB-4.1 — Controles de al menos 32 px.**
+
+  **Dependencias:** ninguna (si tocan `App.tsx`, después de ROB-3.3). **Leer código:** `ui/src/styles.css` (`.tabs` ~89, botones de ajustes y segmentados ~441/769), `ui/src/views/ActivityView.tsx` (filtros Todo/Rechazos/Temporales/Alertas), `ui/src/icons.tsx`, `DESIGN.md`. **Trabajo:** subir el área de pulsación de la rueda de Configuración (26×26) y de los filtros de Actividad (24 px de alto) a ≥ 32 px con `min-height`/`padding`, sin agrandar el dibujo ni alterar el resto de la densidad; sin estilos en línea ni colores literales. Prueba que recorre `button, [role=tab]` y falla bajo 32 px de área (medida por clase/token, ya que jsdom no calcula layout: comprobar la regla CSS). **Hecho cuando:** ningún control interactivo fuera de campos de texto queda bajo 32 px en el navegador a 380 y 800 px (medir con el fragmento de `getBoundingClientRect` del plan); prueba nueva en verde; capturas antes/después en `docs/audits/evidencia/rob-4/`. **Commits:** `fix(ui): give small controls a comfortable hit area`.
+
+- [ ] **ROB-4.2 — «Detener los N» dice qué se detiene.**
+
+  **Dependencias:** ninguna (si toca `App.tsx`, después de ROB-3.3). **Leer código:** `ui/src/views/AttentionView.tsx` (grupo de duplicados y `stopAll`), `ui/src/dialogs.tsx` (diálogo de confirmación), `ui/src/i18n/{es,en}.ts` (`stopAll`), `ui/src/actions.ts`. **Trabajo:** antes de ejecutar, la confirmación lista las instancias que se detendrán (puerto y referencia) y dice cuál se conserva; sin cambiar el contrato con el núcleo ni los textos de «Conservar». **Hecho cuando:** con dos duplicados, la confirmación nombra ambos y la principal conservada, en es y en; prueba que lo fija; los demás flujos de detención no cambian. **Commits:** `fix(ui): name the instances before stopping duplicates`.
+
+- [ ] **ROB-4.3 — Ningún botón deshabilitado sin motivo (adopción).**
+
+  **Dependencias:** ninguna. **Leer código:** `ui/src/AdoptSheet.tsx` (`choice()` ~líneas 160–185, rama `options` ~230–270), `ui/src/adoption.ts` (`adoptionMessage`), `ui/src/i18n/{es,en}.ts` (razones de adopción), `crates/devports-core/src/adopt/review.rs` (`Unsuitability`, `prepare`). **Trabajo:** auditar cada `Unsuitability` y `FileProblem` (incluido `FileInvalid{PortTaken}`): todas deben tener frase en es y en que diga qué pasa **y qué hacer**; si un botón queda deshabilitado con `reason` vacío o `options` sin cargar, mostrar un estado explícito («Comprobando destinos…» / «No se pudo comprobar: Reintentar»). Para `PortTaken`: «ese puerto ya es del servicio X de este proyecto; si es el mismo servidor, revisa su `match`». **Hecho cuando:** prueba que recorre todas las variantes y exige texto no vacío en ambos idiomas; ningún `disabled` de la hoja queda sin frase visible en las pruebas de interfaz; bindings regenerados solo si cambia el contrato (no debería). **Commits:** `fix(ui): always say why an adoption choice is unavailable`.
+
+- [ ] **ROB-4.4 — Lista de comprobación nativa de claro, contraste y VoiceOver (HUMANO).**
+
+  **Dependencias:** ROB-4.1 a 4.3. **Trabajo:** dejar en `docs/audits/evidencia/rob-4/lista-nativa.md` los pasos para que David revise en la app instalada: modo claro y oscuro en cada pestaña, foco por teclado, VoiceOver en Atención/Proyectos/Adoptar, y tamaño de pulsación real; registrar el resultado que David indique. No marcar `[x]` sin su resultado. **Hecho cuando:** lista creada y resultado de David anotado en ARCHIVES. **Commits:** `docs: add the native accessibility checklist`.
+
+- [ ] **ROB-5.1 — Regresiones con manifiestos reales.**
+
+  **Dependencias:** ninguna (**hacerla primero**). **Leer código:** `crates/devports-core/src/catalog.rs` (`classify`, tests desde ~330, ayudantes `project`/`process`), `fingerprint.rs` (tests U-01), `adopt/review/tests.rs` (ayudante que construye `AdoptionContext`, líneas 1–30), `engine/views.rs` (Principal/duplicado), `docs/MANIFIESTO.md` §3. **Trabajo:** fixtures anonimizadas (sin rutas ni nombres de David) de un manifiesto con dos servicios de igual `match` y `cwd` y distinto puerto (como `teatromuseo`); pruebas de: (a) el mismo comando con `127.0.0.1` y con `localhost` reconoce el mismo servicio; (b) con dos servicios de igual `match`, el puerto desempata (`classify`) y un tercer proceso sin puerto declarado es ambiguo, nunca aleatorio; (c) adopción de un proceso cuyo puerto es de un servicio ya declarado devuelve `PortTaken` y **no** lo hace cuando el servicio sí coincide (queda reconocido, no huérfano). **Hecho cuando:** las pruebas existen, fallan si se revierte `2be1d74` (comprobarlo una vez con `git stash`/revert local y restaurar) y pasan ahora. **Commits:** `test(core): cover real-world manifests with same-command services`.
+
+- [ ] **ROB-5.2 — `devports doctor`: por qué no coincide.**
+
+  **Dependencias:** ROB-3.2 y ROB-5.1. **Leer código:** `docs/DECISIONES.md` (ADR-009 y el formato de un ADR; el último es ADR-043), `docs/CLI.md`, `crates/devports-proto/src/lib.rs` (`Op`), `crates/devports-core/src/ipc.rs` y `runtime/handle.rs` (despacho de `Op`), `crates/devports-cli/src/main.rs`. **Trabajo:** primero **ADR-044** (operación de solo lectura `doctor`: raíces y profundidad, proyectos y problemas de manifiesto, y para un `--port`/`--pid` la huella observada frente al `match` de cada servicio candidato y el motivo del descarte; sin tokens ni datos que `ls --all` no muestre; actualizar la regla 6 de `CLAUDE.md` y MAPA §5). Después `Op::Doctor` en `proto`, la respuesta en el núcleo (el engine ya tiene la información; no crear procesos ni leer disco desde él), el subcomando `devports doctor [--port N | --pid N] [--json]` con salida en español y códigos en `CLI.md`. **Hecho cuando:** `devports doctor --port <puerto>` explica en una frase por qué un proceso es «sin registrar» (huella distinta, `cwd` fuera del servicio, proyecto fuera de alcance o puerto de otro servicio); pruebas de proto, núcleo, CLI (golden) y que el CLI sigue sin depender del núcleo; `tools/check_matrix.py` en verde con filas nuevas en `PRUEBAS.md` si aplica. **Commits:** `docs: record adr-044 for the read-only doctor request`, `feat(proto): add the doctor request`, `feat(core): answer doctor from the engine state`, `feat(cli): add devports doctor`, `docs: document devports doctor`.
+
+- [ ] **ROB-5.3 — Proyecto fuera de alcance, visible en el panel.**
+
+  **Dependencias:** ROB-5.2 y ROB-3.2. **Leer código:** `crates/devports-core/src/discovery.rs` (`includes_directory`, `default_roots`), `runtime/scan.rs` (o `runtime.rs::scan_host` si no se movió), `diagnostic.rs` y `reasons.rs` (patrón de razón tipada), `crates/devports-core/src/adopt/review.rs` (`Unsuitability::OutOfScanScope`), `ui/src/reasons.ts`, `ui/src/views/OrphansView.tsx`, `ui/src/i18n/{es,en}.ts`. **Trabajo:** el escáner busca, para cada huérfano con `cwd` fuera de proyectos conocidos, un ancestro con `.devports.yml` (sin salir del `$HOME`, tope de niveles, sin seguir enlaces, una vez por observación y con caché por carpeta) y, si existe y no está en el catálogo, adjunta una razón tipada `ManifestOutOfScope { path }` a la vista; el panel la muestra bajo la fila y en el detalle con la acción «Añadir carpeta en Ajustes». Regenerar `bindings.ts`. **Hecho cuando:** un servidor lanzado en una carpeta con manifiesto fuera de `~/developer` muestra el aviso en es y en; sin manifiesto ancestro no hay aviso; el costo del escaneo no sube (`tools/measure.sh` o `examples/scan_cost.rs` sin regresión notable, anotar cifras); pruebas de núcleo y de interfaz. **Commits:** `feat(core): flag orphans that sit inside an unscanned project`, `feat(ui): show the unscanned project notice`.
+
+- [ ] **ROB-5.4 — Aviso de cambio de dirección en Actividad (opcional, [P]).**
+
+  **Dependencias:** ROB-5.1. **Trabajo:** **antes de construir, preguntar a David** si quiere esta señal (puede ser ruido). Si sí: cuando una instancia vinculada a un servicio se observa con otra dirección local que la vez anterior, añadir un evento informativo a la bitácora («`api` ahora escucha en `127.0.0.1:8192`, antes `localhost:8192`»), sin notificación del sistema; tipo de evento nuevo en `proto`/`store` con migración versionada y texto en `messages.rs` y `reasons`/i18n. Si no, cerrar como descartada y registrar el motivo. **Hecho cuando:** David decidió; si se construye, pruebas con reloj y fuentes falsas, migración probada sobre una base existente. **Commits:** `feat(core): log when a service changes its local address` (solo si se construye).
+
+- [ ] **ROB-6.1 — Cierre del plan ROB.**
+
+  **Dependencias:** todas las ROB (4.4 y 5.4 pueden cerrarse con resultado «descartada/pendiente de David» registrado). **Trabajo:** actualizar `docs/MAPA-DEL-CODIGO.md` (módulos nuevos de `operations/`, `runtime/`, `hooks/`, `engine/tests/`, `doctor`), `docs/PRUEBAS.md` si se añadieron filas, `CHANGELOG` (`feat/fix` ya registrados en cada tarea; revisar que no falte ninguno), `SNAPSHOT.md` y una entrada resumen en `ARCHIVES.md` con el antes/después de líneas por archivo y tiempo de `pnpm test`; recordar que G1 sigue siendo humana. **Hecho cuando:** `tools/check.sh full` y todo `pnpm` en verde; MAPA sin referencias a archivos que ya no existen (`grep` de cada ruta citada). **Commits:** `docs: close the robustness plan with evidence`.
 
 ### Inicio de una sesión dedicada
 
