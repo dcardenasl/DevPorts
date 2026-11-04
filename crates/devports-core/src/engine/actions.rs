@@ -564,6 +564,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
                 Ok(result) => (respond(&id, &result), Vec::new()),
                 Err(error) => (Response::err(id, error), Vec::new()),
             },
+            Op::Doctor(args) => (respond(&id, &self.doctor(&args)), Vec::new()),
             Op::AdoptPropose(args) => match self.adopt_propose(std::path::Path::new(&args.dir)) {
                 Ok(result) => (respond(&id, &result), Vec::new()),
                 Err(error) => (Response::err(id, error), Vec::new()),

@@ -13,6 +13,7 @@
 
 mod actions;
 mod binding;
+mod doctor;
 mod leases;
 mod run;
 mod views;

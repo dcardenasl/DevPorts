@@ -314,6 +314,7 @@ pub(super) fn principal_world() -> (World, String) {
 
 mod actions;
 mod binding;
+mod doctor;
 mod ignore;
 mod leases;
 mod log;

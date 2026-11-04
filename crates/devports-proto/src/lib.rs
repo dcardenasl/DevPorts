@@ -12,6 +12,7 @@
 //! result (see [`run::RunOutcome`]); only protocol and permission failures are
 //! errors.
 
+pub mod doctor;
 pub mod duration;
 pub mod paths;
 pub mod preferences;
@@ -21,6 +22,7 @@ pub mod views;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+pub use doctor::{DoctorArgs, DoctorResult};
 pub use preferences::{LanguagePreference, Preferences, ThemePreference};
 pub use run::{RunOutcome, RunRegister};
 pub use views::{InstanceView, LogEntry, LogFacts};
@@ -87,6 +89,9 @@ pub enum Op {
     /// Propose a manifest for a folder, read-only.
     #[serde(rename = "adopt.propose")]
     AdoptPropose(AdoptArgs),
+    /// Explain why processes do or do not belong to a service, read-only (ADR-044).
+    #[serde(rename = "doctor")]
+    Doctor(DoctorArgs),
 }
 
 /// Arguments of `ls`.
@@ -346,6 +351,10 @@ mod tests {
             }),
             Op::AdoptPropose(AdoptArgs {
                 dir: "/work/shop".to_owned(),
+            }),
+            Op::Doctor(DoctorArgs {
+                port: Some(8192),
+                pid: None,
             }),
         ];
         for op in ops {
