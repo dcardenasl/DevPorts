@@ -42,6 +42,7 @@ use adoption::AdoptionMsg;
 use preferences::PreferencesMsg;
 use rules::RulesMsg;
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -58,7 +59,7 @@ use crate::catalog::Catalog;
 use crate::classify::Classification;
 use crate::clock::{Clock, SystemClock};
 use crate::config::{Config, SharedServices, config_dir};
-use crate::discovery::{self, DiscoveryIssue};
+use crate::discovery::{self, DiscoveryIssue, UnscannedProject};
 use crate::docker::engine::EngineContainerSource;
 use crate::docker::{Container, ContainerEventKind, ContainerSource};
 use crate::engine::{
@@ -171,6 +172,8 @@ pub struct Snapshot {
     pub projects: Vec<ProjectSummary>,
     /// What each loose host process looks like, with the evidence and any correction.
     pub classifications: Vec<Classification>,
+    /// Loose servers that run inside a project the search does not reach.
+    pub unscanned: Vec<UnscannedProject>,
     /// The services `shared.yml` defines, with their declared start command and endpoint.
     pub shared: Vec<SharedSummary>,
     /// What waits for a decision; its length is the tray counter.
@@ -248,7 +251,7 @@ enum Msg {
     ),
     PreviewProjectStop(String, oneshot::Sender<Vec<InstanceView>>),
     Extend(String, oneshot::Sender<Result<(), ActionError>>),
-    Host(Vec<ListeningProcess>),
+    Host(Vec<ListeningProcess>, BTreeMap<PathBuf, PathBuf>),
     Containers(Result<Vec<Container>, DockerProblem>),
     Health(Vec<(String, bool)>),
     Catalog(Box<CatalogUpdate>),
@@ -392,6 +395,7 @@ impl Core {
         )];
         tasks.push(tokio::spawn(scan_host(
             Arc::clone(&source),
+            options.home.clone(),
             observation.host_interval,
             messages.clone(),
             shutdown_rx.clone(),

@@ -166,6 +166,33 @@ pub fn discover_with(
     search.finish()
 }
 
+/// Most folders walked upwards from a working directory looking for a manifest.
+const MAX_CLIMB: usize = 12;
+
+/// The nearest folder at or above `cwd`, never above `home`, that holds a
+/// `.devports.yml`. A manifest that is a link or not a regular file does not count.
+#[must_use]
+pub fn enclosing_manifest_dir(cwd: &Path, home: &Path) -> Option<PathBuf> {
+    cwd.ancestors()
+        .take(MAX_CLIMB)
+        .take_while(|dir| dir.starts_with(home))
+        .find(|dir| {
+            std::fs::symlink_metadata(dir.join(MANIFEST_FILE))
+                .is_ok_and(|metadata| metadata.is_file())
+        })
+        .map(Path::to_path_buf)
+}
+
+/// A running server whose folder holds a project the search does not reach.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "bindings", derive(specta::Type))]
+pub struct UnscannedProject {
+    /// The instance that runs there.
+    pub instance_ref: String,
+    /// The manifest nobody searched for.
+    pub manifest: String,
+}
+
 /// Whether the bounded discovery traversal can reach this canonical directory.
 /// Uses the same depth, skipped-name and no-symlink policy as the actual search.
 #[must_use]
@@ -471,5 +498,29 @@ mod tests {
             Path::new("relative/dir")
         );
         assert_eq!(default_roots(home), [PathBuf::from("/Users/me/developer")]);
+    }
+
+    // covers: ROB-5.3
+    #[test]
+    fn the_nearest_manifest_above_a_folder_is_found_without_leaving_home() {
+        let home = tempfile::TempDir::new().unwrap();
+        let home_path = fs::canonicalize(home.path()).unwrap();
+        let project = home_path.join("apps/site");
+        let deep = project.join("public/assets");
+        fs::create_dir_all(&deep).unwrap();
+        fs::write(project.join(MANIFEST_FILE), manifest_text("site")).unwrap();
+        assert_eq!(
+            enclosing_manifest_dir(&deep, &home_path),
+            Some(project.clone())
+        );
+        assert_eq!(enclosing_manifest_dir(&project, &home_path), Some(project));
+        // A folder with no manifest above it inside home finds nothing, and one
+        // outside home is never searched.
+        let bare = home_path.join("notes");
+        fs::create_dir_all(&bare).unwrap();
+        assert_eq!(enclosing_manifest_dir(&bare, &home_path), None);
+        let outside = tempfile::TempDir::new().unwrap();
+        fs::write(outside.path().join(MANIFEST_FILE), manifest_text("x")).unwrap();
+        assert_eq!(enclosing_manifest_dir(outside.path(), &home_path), None);
     }
 }

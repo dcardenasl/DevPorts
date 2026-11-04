@@ -91,7 +91,10 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
                 let _ = reply.send(self.engine.extend_instance(&reference));
                 Vec::new()
             }
-            Msg::Host(scan) => self.engine.observe_host(scan),
+            Msg::Host(scan, hints) => {
+                self.engine.observe_manifest_hints(hints);
+                self.engine.observe_host(scan)
+            }
             Msg::Containers(Ok(containers)) => {
                 self.docker_state = DockerState {
                     reachable: true,
@@ -298,6 +301,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             self.projects_at = now;
         }
         let classifications = self.engine.classifications();
+        let unscanned = self.engine.unscanned();
         // What waits for a decision depends on the clock as well as on the views.
         let attention = attention_items(self.engine.views(), now);
         // Failures the engine reports stay visible until the core restarts: a
@@ -319,7 +323,8 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             && current.docker_reachable == self.docker_state.reachable
             && current.docker_error == self.docker_state.error
             && current.problems == problems
-            && current.classifications == classifications;
+            && current.classifications == classifications
+            && current.unscanned == unscanned;
         if unchanged {
             return;
         }
@@ -334,6 +339,7 @@ impl<C: Clock + 'static, S: ProcessSource + 'static, P: PortProbe + 'static> Act
             problems,
             projects: self.projects.clone(),
             classifications,
+            unscanned,
             shared: self.shared.clone(),
             attention,
             extend_minutes: u32::try_from(

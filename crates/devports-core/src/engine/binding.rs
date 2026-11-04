@@ -2,6 +2,8 @@
 //! gets its process, a process that disappears ends its instance, an unregistered
 //! duplicate is noticed (`ARQUITECTURA.md`, sections 6 and 7).
 
+use std::collections::BTreeMap;
+
 use serde_json::json;
 
 use super::{Effect, Engine, Notice};
@@ -33,6 +35,15 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
     pub fn observe_host(&mut self, scan: Vec<ListeningProcess>) -> Vec<Effect> {
         self.host = scan;
         self.settle()
+    }
+
+    /// Takes what the scanner found about the folders the listeners run in: for each,
+    /// the nearest folder above it that holds a manifest.
+    pub fn observe_manifest_hints(
+        &mut self,
+        hints: BTreeMap<std::path::PathBuf, std::path::PathBuf>,
+    ) {
+        self.manifest_hints = hints;
     }
 
     /// Takes a new list of containers, or `None` when Docker cannot be reached

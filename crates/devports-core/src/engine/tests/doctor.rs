@@ -141,3 +141,39 @@ fn doctor_finds_a_process_by_pid_as_well() {
     assert_eq!(result.processes.len(), 1);
     assert_eq!(result.processes[0].fingerprint, "php spark serve");
 }
+
+// covers: ROB-5.3
+#[test]
+fn a_loose_server_inside_an_unscanned_project_is_reported_with_its_manifest() {
+    let mut world = world();
+    let now = epoch(&world) - 100;
+    let project = std::path::PathBuf::from("/elsewhere/blog");
+    world.engine.observe_manifest_hints(
+        [(std::path::PathBuf::from("/elsewhere/blog/public"), project)]
+            .into_iter()
+            .collect(),
+    );
+    world.scan(vec![
+        proc(
+            950,
+            1,
+            now,
+            "/elsewhere/blog/public",
+            Some(9300),
+            &["php", "-S", "x"],
+        ),
+        proc(
+            951,
+            1,
+            now,
+            "/elsewhere/other",
+            Some(9301),
+            &["php", "-S", "y"],
+        ),
+        // Inside a known project: it is that project's business, not an unscanned one.
+        proc(952, 1, now, "/work/shop/api", Some(8080), &["node", "x"]),
+    ]);
+    let unscanned = world.engine.unscanned();
+    assert_eq!(unscanned.len(), 1, "{unscanned:?}");
+    assert_eq!(unscanned[0].manifest, "/elsewhere/blog/.devports.yml");
+}

@@ -334,6 +334,37 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             .collect()
     }
 
+    /// The loose servers that run inside a project the search does not reach, so
+    /// the panel can say where the manifest is instead of calling them ownerless.
+    #[must_use]
+    pub fn unscanned(&self) -> Vec<crate::discovery::UnscannedProject> {
+        self.views
+            .iter()
+            .filter(|view| {
+                view.project.is_none()
+                    && view.container.is_none()
+                    && view.pid.is_some()
+                    && !view.ignored
+            })
+            .filter_map(|view| {
+                let cwd = std::path::Path::new(view.cwd.as_deref()?);
+                let dir = self.manifest_hints.get(cwd)?;
+                let known = self
+                    .catalog
+                    .projects()
+                    .iter()
+                    .any(|project| project.root == *dir);
+                (!known).then(|| crate::discovery::UnscannedProject {
+                    instance_ref: view.instance_ref.clone(),
+                    manifest: dir
+                        .join(crate::manifest::MANIFEST_FILE)
+                        .display()
+                        .to_string(),
+                })
+            })
+            .collect()
+    }
+
     /// Records where the person wants this process listed, or `None` to go back to
     /// the automatic guess. It only moves the process in the panel: nothing is
     /// ignored, adopted or stopped. The correction is scoped by the same exact

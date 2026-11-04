@@ -171,6 +171,7 @@ export function sampleSnapshot(nowMs: number = Date.now()): Snapshot {
     docker_reachable: true,
     docker_error: null,
     problems: [],
+    unscanned: [],
     projects: [
       {
         name: "tienda-demo",

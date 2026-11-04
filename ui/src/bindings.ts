@@ -996,6 +996,8 @@ export type Snapshot = {
 	projects: ProjectSummary[],
 	/**  What each loose host process looks like, with the evidence and any correction. */
 	classifications: Classification[],
+	/**  Loose servers that run inside a project the search does not reach. */
+	unscanned: UnscannedProject[],
 	/**  The services `shared.yml` defines, with their declared start command and endpoint. */
 	shared: SharedSummary[],
 	/**  What waits for a decision; its length is the tray counter. */
@@ -1033,6 +1035,14 @@ export type ThemePreference =
 "light" |
 /**  Always dark. */
 "dark";
+
+/**  A running server whose folder holds a project the search does not reach. */
+export type UnscannedProject = {
+	/**  The instance that runs there. */
+	instance_ref: string,
+	/**  The manifest nobody searched for. */
+	manifest: string,
+};
 
 /**  Why a process or container cannot be adopted into a destination right now. */
 export type Unsuitability =

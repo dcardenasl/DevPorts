@@ -239,6 +239,9 @@ pub struct Engine<C: Clock, S: ProcessSource, P: PortProbe> {
     /// Registered instances that still count, mirroring the store.
     pub(crate) tracked: Vec<InstanceRecord>,
     pub(crate) host: Vec<ListeningProcess>,
+    /// For a folder a process runs in, the nearest folder above it that holds a
+    /// manifest, found by the scanner (the engine never reads the disk).
+    pub(crate) manifest_hints: BTreeMap<std::path::PathBuf, std::path::PathBuf>,
     /// `None` while the Docker daemon is unreachable: containers are then
     /// "unknown", never "gone".
     pub(crate) containers: Option<Vec<Container>>,
@@ -297,6 +300,7 @@ impl<C: Clock, S: ProcessSource, P: PortProbe> Engine<C, S, P> {
             store: parts.store,
             tracked,
             host: Vec::new(),
+            manifest_hints: BTreeMap::new(),
             containers: None,
             health: BTreeMap::new(),
             ignored: ignored_keys.into_iter().collect(),
