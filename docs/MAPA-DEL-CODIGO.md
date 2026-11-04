@@ -88,7 +88,8 @@ Consecuencia práctica: `cargo test -p devports-core` prueba **todo el producto 
 | `engine/binding.rs` | Seguir las instancias registradas: puerto reservado → proceso, proceso que desaparece → fin de instancia, duplicado no registrado. |
 | `engine/leases.rs` | Vencimientos: los Temporales avisan antes y se detienen al vencer. **Solo se detiene automáticamente lo que tiene vencimiento** (ADR-006). |
 | `engine/views.rs` | Convierte estado + observación en las instancias que ve la gente (registradas vs observadas; Principal "de hecho" y duplicados). |
-| `engine/actions.rs` | Listar, bitácora y las acciones que solo una persona puede tomar desde la app. |
+| `engine/actions.rs` | Listar, bitácora y las acciones que solo una persona puede tomar desde la app. También `unscanned`: servidores sueltos dentro de un proyecto que la búsqueda no alcanza (ROB-5.3). |
+| `engine/doctor.rs` | `doctor` (ADR-044): por qué un proceso coincide o no con cada servicio, respondido solo con datos en memoria. |
 | `classify.rs`, `ignore.rs` | Consejo de agrupación y reglas de "ignorar", con criterio exacto. Clasificar **no** decide nada. |
 
 ### Capa 5: persistencia
@@ -107,7 +108,7 @@ Consecuencia práctica: `cargo test -p devports-core` prueba **todo el producto 
 ### Capa 7: ponerlo a correr
 | Módulo | Qué hace |
 |---|---|
-| **`runtime.rs`** + `runtime/` | **Un actor es dueño del `Engine`**; el resto habla con él por canales. Alrededor corren tareas: escáner del host, supervisor de Docker (reporta "desconocido", nunca "desaparecido", si pierde conexión), vigilante del catálogo, sondeo de salud cada 5 s y el servidor IPC. La UI lee un `Snapshot` (canal `watch`) y recibe avisos (`broadcast`). |
+| **`runtime.rs`** + `runtime/` | **Un actor es dueño del `Engine`**; el resto habla con él por canales. `runtime.rs` tiene la cabecera, `Core`, `Snapshot`, `CoreOptions` y `Msg`; cada pieza vive en su archivo: `actor.rs` (el actor), `handle.rs` (`CoreHandle`, lo que usan el panel y el socket), y una tarea por archivo: `scan.rs` (escáner del host; también busca el `.devports.yml` más cercano sobre cada carpeta, con caché de 30 s), `docker_supervisor.rs` (reporta "desconocido", nunca "desaparecido", si pierde conexión), `catalog_watch.rs`, `health.rs` (sondeo cada 5 s). La UI lee un `Snapshot` (canal `watch`) y recibe avisos (`broadcast`). |
 | `runtime/probe.rs` | Chequeos de salud (TCP o HTTP 200–399, tope de 1 s). |
 | `runtime/{adoption,folders,preferences,rules,uses}.rs` | Operaciones humanas que deben sobrevivir aunque el webview se destruya. |
 | `ipc.rs` | Servidor del socket Unix: carpeta `0700`, socket `0600`, verifica el uid del par, limita línea y conexiones, valida versión del protocolo. |
@@ -157,7 +158,7 @@ Es delgado a propósito. `commands.rs` abre con "solo traducen: toda regla es de
 | `commands.rs` | Los comandos Tauri que llama el panel. |
 | `panel.rs` | Crea el panel al abrir y lo destruye al perder foco (así un panel cerrado no cuesta memoria de webview). |
 | `panel_state.rs` | Contexto volátil que sobrevive a la destrucción del webview (pestaña, tarjetas abiertas, borradores). |
-| `operations.rs` | Operaciones pedidas por una persona que deben terminar aunque el panel se cierre (adopciones, ediciones). El archivo más grande del shell. |
+| `operations/` | Operaciones pedidas por una persona que deben terminar aunque el panel se cierre (adopciones, ediciones): `types.rs`, `store.rs` (historial acotado y reintentos), `validation.rs`, `failure.rs`, `runner.rs` (`spawn`) y `tests.rs`. |
 | `tray.rs` | Ícono de la barra con el contador de atención. |
 | `notifications.rs` | Notificaciones con `UNUserNotificationCenter` (botón "Extender 30 min"). Uno de los 3 archivos con `unsafe`. |
 | `window_style.rs` | Esquinas redondeadas con AppKit público. Uno de los 3 archivos con `unsafe`. |
@@ -172,8 +173,8 @@ React + TypeScript. Efímero: se monta al abrir, se destruye al cerrar. **No tie
 
 | Grupo | Archivos |
 |---|---|
-| **Entrada** | `main.tsx`, `boot.ts` (corre antes de React; aplica tema e idioma que pidió el shell para evitar parpadeo), `App.tsx` (pestañas y composición) |
-| **Puente con el core** | `api.ts` (**único** archivo que sabe cómo hablar con el core; en navegador usa datos de muestra), `bindings.ts` (**generado** desde Rust, no se edita), `types.ts` (solo lo que el panel *envía*), `connection.ts` (máquina de estados conectando/listo/reconectando), `hooks.ts` |
+| **Entrada** | `main.tsx`, `boot.ts` (corre antes de React; aplica tema e idioma que pidió el shell para evitar parpadeo), `App.tsx` (composición del panel), `tabs.tsx` (pestañas y su barra), `Shell.tsx`, `OperationsSection.tsx`, `stopTarget.ts` |
+| **Puente con el core** | `api.ts` (**único** archivo que sabe cómo hablar con el core; en navegador usa datos de muestra), `bindings.ts` (**generado** desde Rust, no se edita), `types.ts` (solo lo que el panel *envía*), `connection.ts` (máquina de estados conectando/listo/reconectando), `hooks/` (un hook por archivo: conexión, operaciones, preferencias, tienda del panel…) |
 | **Pestañas** (`views/`) | `ProjectsView`, `AttentionView`, `OrphansView`, `SharedView`, `ActivityView`, `InstanceDetails`, `shared-parts` |
 | **Hojas/modales** | `AdoptSheet`, `ClassifySheet`, `ConsumersSheet`, `IgnoreSheets`, `SettingsSheet`, `PreferencesSection`, `Modal`, `dialogs`, `StatusStrip` |
 | **Lógica de presentación (pura)** | `model.ts`, `instance.ts`, `events.ts`, `reasons.ts`, `failures.ts`, `consumers.ts`, `settings.ts`, `adoption.ts`, `projectFolds.ts`, `time.ts`, `theme.ts` |
@@ -221,7 +222,7 @@ Detalle completo de reglas no negociables: `CLAUDE.md`, sección "Reglas técnic
 | Cambiar cómo se reconoce un servicio | `core/src/fingerprint.rs`, `catalog.rs` |
 | Cambiar el aviso/parada por vencimiento | `core/src/engine/leases.rs`, `process/terminate.rs` |
 | Añadir un campo al manifiesto | `core/src/manifest.rs` (+ `yaml_keys.rs`), docs `MANIFIESTO.md` |
-| Añadir una operación al CLI | `proto/src/lib.rs` (`Op`) → `core/src/ipc.rs`/`runtime.rs` → `cli/src/main.rs`. Antes, ADR: el socket es una superficie que se amplía con cuidado |
+| Añadir una operación al CLI | `proto/src/lib.rs` (`Op`) → `core/src/engine/actions.rs` (`handle_request`) → `cli/src/main.rs`. Antes, ADR: el socket es una superficie que se amplía con cuidado |
 | Añadir un comando del panel | `app/src/commands.rs` → registrarlo en `main.rs` → nombre en `ui/src/api.ts` |
 | Cambiar un texto | CLI/bitácora: `core/src/messages.rs`. Tray/notificaciones: `app/src/i18n.rs`. Panel: `ui/src/i18n/{es,en}.ts` |
 | Cambiar cómo se ve el panel | `ui/src/views/*`, `styles.css`, `theme.css`; referencia en `UI-REFERENCIA.md` |
@@ -229,9 +230,9 @@ Detalle completo de reglas no negociables: `CLAUDE.md`, sección "Reglas técnic
 
 ## 11. Tamaño de las piezas (para saber dónde está el peso)
 
-El peso real está en el core (`runtime.rs`, `store.rs`, `engine/*`, `reasons.rs`) y en `operations.rs` del shell. La UI es comparativamente pequeña: el producto es un motor con una cara chica, a diferencia de GitCanvas, donde la UI es la mayor parte del código.
+El peso real está en el core (`runtime/`, `store.rs`, `engine/*`, `reasons.rs`) y en `operations/` del shell. La UI es comparativamente pequeña: el producto es un motor con una cara chica, a diferencia de GitCanvas, donde la UI es la mayor parte del código.
 
-Los archivos `tests.rs` junto a cada módulo (`engine/tests.rs` supera las 2.500 líneas) son pruebas unitarias del módulo; las de integración con procesos y sockets reales están en `crates/*/tests/`.
+Las pruebas unitarias viven junto a cada módulo (`tests.rs`, o una carpeta `tests/` por tema como `engine/tests/`, donde `mod.rs` guarda el mundo compartido); las de integración con procesos y sockets reales están en `crates/*/tests/`.
 
 ## 12. Cómo se relaciona con el resto de la documentación
 

@@ -84,3 +84,6 @@ Paralelizables en sesiones distintas sin tocar los mismos archivos: ROB-1.x ∥ 
 | Quitar el `allow` de `engine.rs` obliga a reescribir mucho | Acotar por función con `reason`; no reescribir lógica del motor por un estilo |
 | `doctor` filtra información sensible por el socket | Solo rutas y huellas ya visibles en `ls --all`; sin tokens (regla 7); ADR-044 lo fija |
 | 5.4 genera ruido | Es opcional y se valida con David antes |
+
+## Resultado (2026-11-04)
+Ejecutado entero salvo lo que es de David (ROB-4.4 y ROB-5.4). Desviaciones del diseño, con sus motivos, en `ARCHIVES.md` («ROB — Robustez y deuda técnica»): ROB-1.2 no se aplicó (ganancia ~1 s, `isolate: false` filtra estado), `App.tsx` quedó en ~550 líneas, y apareció y se corrigió una carrera real de arranque del panel. ADR-044 quedó **Derivada [D]**.

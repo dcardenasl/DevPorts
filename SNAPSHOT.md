@@ -1,14 +1,14 @@
 # DevPorts: Snapshot
-> Actualizado: 2026-10-18 · Detalle completo: [ASSET.md](ASSET.md)
+> Actualizado: 2026-11-04 · Detalle completo: [ASSET.md](ASSET.md)
 
 ## ⚡ Retomar en 30 segundos
 
 | Campo | Valor |
 |---|---|
 | **Etapa** | 🚧 v0.1 en pruebas: núcleo + CLI + app de barra construidos |
-| **Última sesión** | 2026-10-17 |
+| **Última sesión** | 2026-11-04 |
 | **¿Dónde quedé?** | Núcleo, CLI y app de barra construidos y verificados contra la máquina real (procesos, Docker Desktop, launchd). Las pruebas de PRUEBAS.md existen todas y una guarda las exige. Instalada en `~/Applications/DevPorts.app`. UXR-1 a UXR-6 y UXR-7.1 completos; quedan las correcciones UXR restantes y las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio) y G2 (5 días de uso diario), más reiniciar el Mac una vez (M-15). |
-| **Próximo paso** | Tema claro/oscuro e idioma es/en implementados ([plan](docs/plan/tema-e-idioma.md), tareas UXR-9.0 a 9.6 en TASKS.md; UXR-9.0 a 9.8 hechas y M-16 aprobada; UXR-10 (rediseño visual, ADR-042) implementado, falta M-17 nativo (a David); UXR-11 (pulido del panel) hecho y comprobado en la app instalada). UXR-7.2 cerrado ([informe](docs/audits/2026-10-18-uxr-7-2.md)). Solo quedan las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio), G2 y reiniciar el Mac una vez (M-15). |
+| **Próximo paso** | Tema claro/oscuro e idioma es/en implementados ([plan](docs/plan/tema-e-idioma.md), tareas UXR-9.0 a 9.6 en TASKS.md; UXR-9.0 a 9.8 hechas y M-16 aprobada; UXR-10 (rediseño visual, ADR-042) implementado, falta M-17 nativo (a David); UXR-11 (pulido del panel) hecho y comprobado en la app instalada). UXR-7.2 cerrado ([informe](docs/audits/2026-10-18-uxr-7-2.md)). Plan de robustez ROB ejecutado el 2026-11-04 (16 de 18 tareas; quedan ROB-4.4, la comprobación nativa, y ROB-5.4, opcional, ambas de David; ver [plan](docs/plan/robustez-y-deuda.md) y ARCHIVES). Además, `devports doctor` (ADR-044) y el aviso de proyecto fuera del alcance ya existen; reinstalar con `tools/install.sh` para usarlos. Solo quedan las puertas humanas: G1 (3 días de uso real, E1–E7, revisión del portafolio), G2 y reiniciar el Mac una vez (M-15). |
 | **Bloqueante activo** | Ninguno |
 | **Decisión pendiente** | Nombre y licencia en la Fase 4. |
 
