@@ -113,7 +113,8 @@ Se aplica igual al proceso observado y al valor de `match`:
 4. Cada token numérico entre 1024 y 65535: reemplazar por `N`.
 5. Cada token con forma `texto:número` (por ejemplo `localhost:3000`, `0.0.0.0:8080`): reemplazar el número por `N`.
 6. Cada token `--opcion=número` en ese rango: reemplazar el número por `N`.
-7. Unir con un espacio.
+7. Cada dirección local (`localhost`, `127.0.0.1`, `0.0.0.0`, `::1`, `[::1]`), sola, antes de `:número` o tras `--opcion=`: reemplazar por `localhost`.
+8. Unir con un espacio.
 
 | Línea observada | Normalizada |
 |---|---|
@@ -121,12 +122,14 @@ Se aplica igual al proceso observado y al valor de `match`:
 | `node /Users/x/app/node_modules/.bin/vite --port=5173` | `node vite --port=N` |
 | `python3 -m http.server 8001` | `python3 -m http.server N` |
 | `php -S localhost:8000 -t public` | `php -S localhost:N -t public` |
+| `php -S 127.0.0.1:8000 -t public` | `php -S localhost:N -t public` |
 
 ### Precisiones de implementación (T0.3)
 Decisiones que el algoritmo anterior dejaba abiertas; el código y sus pruebas (U-01, U-02, PT-01, PT-02) las fijan:
 - El rango 1024 a 65535 aplica también a la forma `texto:número` y a `--opcion=número`; `localhost:80` no cambia.
 - Cada token pasa por todas las reglas **en una sola pasada** (primero el nombre base de rutas, luego los puertos). Así `/opt/8080` pasa a `N` y la normalización es idempotente (PT-01).
 - `argv[0]` se reduce a su nombre base aunque sea una ruta relativa, y **el programa se compara por su familia**: minúsculas y sin versión final (`python3`, `python3.14` y el `Python` en que se relanza el de Homebrew son la misma familia; `php8.2` es `php`). La familia solo se aplica cuando el primer token del `match` coincide con el `argv[0]` del proceso; en cualquier otra posición los tokens se comparan exactos. Así `match: python3 -m http.server N` reconoce lo que el kernel informa.
+- Las direcciones locales son una sola: arrancar el mismo servicio con `127.0.0.1` o con `localhost` no lo convierte en otro servidor. Un `match` ya escrito con `127.0.0.1:N` sigue reconociéndolo (la regla se aplica a ambos lados).
 - Un `match` vacío no reconoce nada. Un `match` es una secuencia contigua de tokens, en el mismo orden.
 - Las rutas de proyecto y de `cwd` se comparan **canonicalizadas** (`/var` y `/private/var`; mayúsculas y minúsculas en volúmenes que no las distinguen). Se compara por componentes de ruta: `/work/shop-old` no está dentro de `/work/shop`.
 - Desempate de varios servicios: `match` con más tokens; luego el `port` en el que escucha el proceso; si persiste, ambiguo. Los servicios de contenedor (`docker`) nunca reciben procesos del host.
