@@ -506,6 +506,60 @@ mod tests {
         assert_eq!(name_of(&found), Some("two"));
     }
 
+    /// Two services share command and folder and differ only by port, as in a
+    /// "main site + preview" project.
+    fn twin_servers() -> Catalog {
+        Catalog::new(vec![project(
+            "/work/site",
+            "version: 1\nproject: site\nservices:\n  \
+             main:\n    cwd: ./public\n    port: 8192\n    match: php -S 127.0.0.1:N -t public rewrite.php\n  \
+             preview:\n    cwd: ./public\n    port: 8193\n    match: php -S 127.0.0.1:N -t public rewrite.php\n",
+        )])
+    }
+
+    // covers: ROB-5.1
+    #[test]
+    fn a_service_is_recognised_whichever_local_address_it_was_started_with() {
+        let catalog = twin_servers();
+        for host in ["127.0.0.1", "localhost", "0.0.0.0", "[::1]"] {
+            let found = catalog.classify(&process(
+                "/work/site/public",
+                &[
+                    "/opt/homebrew/bin/php",
+                    "-S",
+                    &format!("{host}:8192"),
+                    "-t",
+                    "/work/site/public/",
+                    "/work/site/vendor/framework/system/rewrite.php",
+                ],
+                &[8192],
+            ));
+            assert_eq!(name_of(&found), Some("main"), "started on {host}");
+        }
+    }
+
+    // covers: ROB-5.1
+    #[test]
+    fn twin_services_are_told_apart_by_port_and_never_guessed_without_one() {
+        let catalog = twin_servers();
+        let argv = [
+            "php",
+            "-S",
+            "localhost:8193",
+            "-t",
+            "/work/site/public/",
+            "/x/rewrite.php",
+        ];
+        assert_eq!(
+            name_of(&catalog.classify(&process("/work/site/public", &argv, &[8193]))),
+            Some("preview")
+        );
+        assert!(matches!(
+            catalog.classify(&process("/work/site/public", &argv, &[9999])),
+            Classification::Ambiguous { .. }
+        ));
+    }
+
     // covers: U-02
     #[test]
     fn an_unresolved_tie_is_ambiguous_and_never_random() {

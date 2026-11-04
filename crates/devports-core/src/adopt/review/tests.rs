@@ -426,3 +426,22 @@ fn a_root_the_discovery_cannot_reach_is_refused_so_the_saved_card_can_appear() {
     context.max_depth = 2;
     assert!(prepare(&context, AdoptionTarget::Project("shop".to_owned())).is_ok());
 }
+
+// covers: ROB-5.1
+#[test]
+fn a_port_owned_by_a_declared_service_blocks_adoption_with_the_port_problem() {
+    let (_home, context) = fixture();
+    manifest(
+        &context,
+        "version: 1\nproject: shop\nservices:\n  web:\n    cwd: ./public\n    port: 8080\n    match: php -S 127.0.0.1:N -t public\n",
+    );
+    let choices = options(&context);
+    let project = choices
+        .destinations
+        .iter()
+        .find(|choice| choice.target == AdoptionTarget::Project("shop".to_owned()))
+        .unwrap();
+    assert!(!project.eligible);
+    let text = format!("{:?}", project.reason);
+    assert!(text.contains("PortTaken"), "{text}");
+}
