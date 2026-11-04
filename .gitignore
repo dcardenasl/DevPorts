@@ -21,3 +21,6 @@ crates/devports-app/gen/
 # Backups left by `sed -i` and merge tools
 *-E
 *.orig
+
+# Maintainer's local manifest: carries absolute paths of their user
+/.devports.yml
