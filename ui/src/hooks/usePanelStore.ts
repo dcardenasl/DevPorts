@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { type Backend } from "../api";
 import type { PanelState } from "../types";
 
@@ -20,7 +20,8 @@ export function usePanelStore(
     setPreviousHydrated(hydrated);
     setPanelState(hydrated);
   }
-  useEffect(() => {
+  // Layout, not passive: a click right after the first paint must already find the state.
+  useLayoutEffect(() => {
     latest.current = hydrated;
   }, [hydrated]);
   const persist = useCallback(

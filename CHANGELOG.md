@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **First click right after opening the panel** — a tab change or fold made in the first instant after the panel appeared could be dropped without a trace; the panel state is now ready before any click can reach it.
+
 - **Same server on `localhost` or `127.0.0.1`** — a service is now recognised whichever local address it was started with (`localhost`, `127.0.0.1`, `0.0.0.0`, `::1`), so restarting it no longer shows a new server without a project and no longer blocks adopting the rest.
 
 - **Docker notice only when it matters** — the “Docker is not responding” notice now appears only when a service you declared in a container cannot be checked, and says how many; if nothing you declared uses Docker, there is no notice.
