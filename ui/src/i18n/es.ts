@@ -619,7 +619,7 @@ export const es = {
         case "portPrivileged":
           return `«port» de «${kind.service}» es ${kind.port}, menor que 1024: puede requerir privilegios.`;
         case "portTaken":
-          return `El puerto ${kind.port} ya lo usa «${kind.other}»: dentro de un proyecto cada puerto preferido es único.`;
+          return `El puerto ${kind.port} ya lo usa «${kind.other}»: dentro de un proyecto cada puerto preferido es único. Si es el mismo servidor, revisa el «match» de «${kind.other}».`;
         case "invalidHealth":
           return `«health» de «${kind.service}» debe ser \`tcp\` o \`http:/ruta\`, no «${kind.health}».`;
         case "invalidKind":

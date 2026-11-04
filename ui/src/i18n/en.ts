@@ -604,7 +604,7 @@ export const en: Catalog = {
         case "portPrivileged":
           return `“port” of “${kind.service}” is ${kind.port}, below 1024: it may need privileges.`;
         case "portTaken":
-          return `Port ${kind.port} is already used by “${kind.other}”: within a project every preferred port is unique.`;
+          return `Port ${kind.port} is already used by “${kind.other}”: within a project every preferred port is unique. If it is the same server, check the “match” of “${kind.other}”.`;
         case "invalidHealth":
           return `“health” of “${kind.service}” must be \`tcp\` or \`http:/path\`, not “${kind.health}”.`;
         case "invalidKind":

@@ -176,6 +176,11 @@ export function AdoptSheet({
         >
           {label}
         </button>
+        {options !== undefined && destination === undefined && (
+          <p className="soft adoption-reason">
+            {adoptionMessage({ code: "unsuitable", reason: { code: "projectNotInCatalog" } }, text)}
+          </p>
+        )}
         {destination?.eligible === false && (
           <p className="soft adoption-reason">
             {destination.reason === null ? "" : adoptionMessage(destination.reason, text)}

@@ -373,3 +373,24 @@ describe("the text of a failed operation target", () => {
     expect(operationFailureText(target({ error: null }), en)).toBe("Failed");
   });
 });
+
+// covers: ROB-4.3
+describe.each(catalogs)("a port taken inside a project says what to check in %s", (_name, text) => {
+  it("points to the match of the service that owns the port", () => {
+    const sentence = unsuitabilityText(
+      {
+        code: "fileInvalid",
+        problem: {
+          code: "invalid",
+          path: "/p/.devports.yml",
+          diagnostics: [
+            { severity: "error", line: 3, kind: { code: "portTaken", port: 8080, other: "web" } },
+          ],
+        },
+      },
+      text,
+    );
+    expect(sentence).toContain("match");
+    expect(sentence).toContain("web");
+  });
+});

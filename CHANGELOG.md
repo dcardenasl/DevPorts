@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Adoption always says why a choice is unavailable** — a destination whose project is no longer known now explains itself, and the "port already used" message tells you to check the `match` of the service that owns the port.
+
 - **Stopping duplicates says what stays** — the confirmation for stopping unregistered duplicates now names the main instance that keeps running.
 
 - **Easier to press** — the settings gear and the activity filters (and the appearance segments) now have a 32 px pressable area instead of 24–26 px.
