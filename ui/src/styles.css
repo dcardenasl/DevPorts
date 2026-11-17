@@ -253,6 +253,8 @@ button.item:focus-visible {
 }
 .item-line {
   flex: 1 1 0;
+  /* ROB-4.1: the whole row summary is a control, so it keeps the 32px hit target. */
+  min-height: var(--hit);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -415,6 +417,10 @@ button.item-line {
 }
 button.tag {
   border: 0;
+  /* ROB-4.1: a tag that opens a dialog is a control and keeps the 32px hit target. */
+  min-height: var(--hit);
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
 }
 button.tag:hover {
@@ -440,7 +446,8 @@ button.tag.add {
 /* ---- Controls --------------------------------------------------------------------------- */
 
 .btn {
-  min-height: 28px;
+  /* ROB-4.1: every control reaches the hit target (32px). */
+  min-height: var(--hit);
   padding: 3px 12px;
   border-radius: 6px;
   border: 0;
@@ -479,7 +486,12 @@ button.tag.add {
 .link-btn {
   background: none;
   border: 0;
-  padding: 0;
+  /* ROB-4.1: a text-style button still gets the full hit target. */
+  min-height: var(--hit);
+  min-width: var(--hit);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
   color: var(--accent);
   cursor: pointer;
   font-size: 12px;
