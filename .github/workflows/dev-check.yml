@@ -9,8 +9,6 @@ name: dev-check
 # when a pull request into `main` is proposed.
 
 on:
-  push:
-    branches: [dev]
   workflow_dispatch:
 
 # Read-only token: nothing here writes to the repository.
